@@ -74,7 +74,7 @@ if (!$CheckSubDir) {
 ## If IPs variable is not defined, prompt for it
 if (!$IPs) {
     Write-Output ""
-    $IPs = Read-Host "Enter the IP address(s) of interest (comma-separated)"
+    $IPs = Read-Host "Enter the IP address(s) of interest (comma-separated, wildcards are supported)"
 }
 
 ## If DaysAgo variable is not defined, prompt for it

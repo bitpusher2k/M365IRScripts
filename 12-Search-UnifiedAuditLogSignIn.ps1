@@ -9,8 +9,8 @@
 #
 # Search-UnifiedAuditLogSignIn.ps1
 # Original script created by https://github.com/directorcia @directorcia
-# Modified by Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# Modified and updated by Bitpusher/The Digital Fox
+# v2.8 last updated 2024-05-03
 # Script to search the Unified Audit Logs (UAC) for
 # sign-ins made by a specified user or all users.
 #
@@ -29,6 +29,31 @@
 # PowerShell modules.
 #
 # Uses ExchangePowerShell commands.
+#
+# Office 365 Management Activity API schema - UserAuthenticationMethod
+# https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#enum-authenticationmethod---type-edmint32
+# Enum: AuthenticationMethod - Type: Edm.Int32
+# Value 	Member name 	Description
+# 0 	Min 	The authentication method is a Min
+# 1 	Password 	The authentication method is a password.
+# 2 	Digest 	The authentication method is a digest.
+# 3 	ProxyAuth 	The authentication method is a ProxyAuth.
+# 4 	InfoCard 	The authentication method is an InfoCard
+# 5 	DAToken 	The authentication method is a DAToken.
+# 6 	Sha1RememberMyPassword 	The authentication method is a Sha1RememberMyPassword.
+# 7 	LMPasswordHash 	The authentication method is an LMPasswordHash.
+# 8 	ADFSFederatedToken 	The authentication method is an ADFSFederatedToken.
+# 9 	EID 	The authentication method is an EID.
+# 10 	DeviceID 	The authentication method is a DeviceID.
+# 11 	MD5 	The authentication method is MD5.
+# 12 	EncProxyPasswordHash 	The authentication method is a EncProxyPasswordHash.
+# 13 	LWAFederation 	The authentication method is a LWAFederation.
+# 14 	Sha1HashedPassword 	The authentication method is a Sha1HashedPassword.
+# 15 	SecurePin 	The authentication method is a secure Pin.
+# 16 	SecurePinReset 	The authentication method is a secure PIN reset.
+# 17 	SAML20PostSimpleSign 	The authentication method is a SAML20PostSimpleSign.
+# 18 	SAML20Post 	The authentication method is a SAML20Post.
+# 19 	OneTimeCode 	The authentication method is a one-time code.
 #
 #comp #m365 #security #bec #script #unified #audit #log #sign-in
 
@@ -146,8 +171,7 @@ $date = Get-Date -Format "yyyyMMddHHmmss"
 $logFile = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_LOG_$($date).txt"
 $OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_$($date).csv"
 $diff = New-TimeSpan -Start $StartDate -End $EndDate # Determine the difference between start and finish dates
-
-Write-Output "Total range of days to check for sign-ins:", ([int]$diff.TotalDays)
+$totalDays = ([int]$diff.TotalDays)
 
 if ((Get-Module -ListAvailable -Name ExchangeOnlineManagement) -or (Get-Module -ListAvailable -Name msonline)) {
     # Has the Exchange Online PowerShell module been loaded?
@@ -161,7 +185,7 @@ if ((Get-Module -ListAvailable -Name ExchangeOnlineManagement) -or (Get-Module -
 }
 
 # Search the defined date(s), SessionId + SessionCommand in combination with the loop will return and append 5000 object per iteration until all objects are returned (minimum limit is 50k objects)
-$User = Read-Host "`nEnter the user's primary email address (UPN) - leave blank to retrieve authentication entries for all users"
+$User = Read-Host "`nEnter the user's primary email address (UPN) - leave blank to retrieve authentication entries for all users, comma-separate multiple users"
 
 if ($User) {
     $OutputUser = $User
@@ -169,6 +193,10 @@ if ($User) {
     $OutputUser = "ALL"
 }
 $OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser)_$($date).csv"
+
+Write-Output "`nTotal range of days to check for sign-ins: $totalDays"
+Write-Output "Start date: $StartDate"
+Write-Output "End date: $EndDate"
 
 $count = 1
 do {
@@ -193,18 +221,28 @@ do {
 $ConvertedOutput = $AuditOutput | Select-Object -ExpandProperty AuditData | Sort-Object creationtime | ConvertFrom-Json
 
 foreach ($Entry in $convertedoutput) { # Loop through all result entries
-    $return = "" | Select-Object Creationtime, Localtime, UserId, Operation, ClientIP
+    $return = "" | Select-Object Creationtime, Localtime, ClientIP, Operation, UserId, ResultStatusDetail, KeepMeSignedIn, UserAgent, UserAuthenticationMethod, RequestType, DisplayName, OS, BrowserType, SessionId, TrustType
     $return.CreationTime = $Entry.CreationTime
     $return.localtime = [System.TimeZoneInfo]::ConvertTimeFromUtc($Entry.CreationTime, $TZ) # Convert entry to local time
     $return.clientip = $Entry.clientip
-    $return.UserId = $Entry.UserId
     $return.Operation = $Entry.Operation
+    $return.UserId = $Entry.UserId
+    $return.ResultStatusDetail = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "ResultStatusDetail"}).value
+    $return.KeepMeSignedIn = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "KeepMeSignedIn"}).value
+    $return.UserAgent = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "UserAgent"}).value
+    $return.UserAuthenticationMethod = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "UserAuthenticationMethod"}).value
+    $return.RequestType = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "RequestType"}).value
+    $return.DisplayName = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "DisplayName"}).value
+    $return.OS = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "OS"}).value
+    $return.BrowserType = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "BrowserType"}).value
+    $return.SessionId = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "SessionId"}).value
+    $return.TrustType = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "TrustType"}).value
     $Results += $return # Build results array
 }
 
 $displays = $results | Sort-Object -Descending localtime # Sort result array in reverse chronological order
-Write-Output "Writing all output to file..."
-$displays | Select-Object LocalTime, ClientIP, Operation, UserId | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
+Write-Output "$($displays.count) relevant sign-in records fount. Writing all output to file..."
+$displays | Select-Object CreationTime, LocalTime, ClientIP, Operation, UserId, ResultStatusDetail, KeepMeSignedIn, UserAgent, UserAuthenticationMethod, RequestType, DisplayName, OS, BrowserType, SessionId, TrustType | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
 Write-Output ""
 Write-Output "Local Time`t`t Client IP`t`t Operation`t`t Login" # Merely an indication of the headings
 Write-Output "----------`t`t ---------`t`t ---------`t`t -----" # Not possible to align for every run option
@@ -217,14 +255,14 @@ foreach ($display in $displays) {
     }
     if ($display.Operation -eq "userloginfailed") {
         # Report failed logins
-        Write-Output $display.localtime, "`t", $display.clientip, $gap, $display.Operation, "`t", $display.UserId
+        Write-Output "$($display.localtime) `t $($display.clientip) $gap $($display.Operation) `t $($display.UserId)"
     } elseif (-not $fail) {
         # Report successful logins in
-        Write-Output $display.localtime, "`t", $display.clientip, $gap, $display.Operation, "`t`t", $display.UserId
+        Write-Output "$($display.localtime) `t $($display.clientip) $gap $($display.Operation) `t`t $($display.UserId)"
     }
 }
-Write-Output ""
-Write-Output "Script Completed`n"
+
+Write-Output "`nScript Completed`n"
 
 if ((Test-Path -Path $OutputCSV) -eq "True") {
     Write-Output `n" The Output file is available at:"
@@ -236,5 +274,5 @@ if ((Test-Path -Path $OutputCSV) -eq "True") {
     }
 }
 
-Write-Output "`nDone! Check output path for results. If results are empty check that Unified Audit Logging is enabled."
+Write-Output "`nDone! Check output path for results. If results are empty check that Unified Audit Logging is enabled on the tenant."
 Invoke-Item "$OutputPath\$DomainName"
