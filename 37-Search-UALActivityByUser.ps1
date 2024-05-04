@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Search-UALActivityByUser.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-03
 # Script to exports data from the Unified Audit Log for specified users.
 #
 # Usage:
@@ -84,22 +84,32 @@ if (!$DaysAgo) {
     if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 90) { $DaysAgo = "90" }
 }
 if ($DaysAgo -gt 90) { $DaysAgo = "90" }
-Write-Output "Will search UAC $DaysAgo days back from today for relevant events."
-Write-Output "This script does not currently loop through UAC results - Maximum records retrieved is limited to 5000."
+Write-Output "`nWill search UAC $DaysAgo days back from today for relevant events."
 
 $StartDate = (Get-Date).AddDays(- $DaysAgo)
 $EndDate = (Get-Date).AddDays(1)
 
 $OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogEntries_$($UserIds)_going_back_$($DaysAgo)_days_from_$($date).csv"
 
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -SessionCommand ReturnLargeSet -ResultSize 5000`n"
-$History = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $AuditOutput += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
-
-if (!$History) {
+if (!$AuditOutput) {
     Write-Output "`nThere are no activities in the audit log for the time period specified`n"
 } else {
-    $History | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
+    $AuditOutput | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
     Write-Output "`nSee user activities report in the output path.`n"
 }
 

@@ -31,30 +31,7 @@
 # Uses ExchangePowerShell commands.
 #
 # Office 365 Management Activity API schema - UserAuthenticationMethod
-# https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#enum-authenticationmethod---type-edmint32
-# Enum: AuthenticationMethod - Type: Edm.Int32
-# Value 	Member name 	Description
-# 0 	Min 	The authentication method is a Min
-# 1 	Password 	The authentication method is a password.
-# 2 	Digest 	The authentication method is a digest.
-# 3 	ProxyAuth 	The authentication method is a ProxyAuth.
-# 4 	InfoCard 	The authentication method is an InfoCard
-# 5 	DAToken 	The authentication method is a DAToken.
-# 6 	Sha1RememberMyPassword 	The authentication method is a Sha1RememberMyPassword.
-# 7 	LMPasswordHash 	The authentication method is an LMPasswordHash.
-# 8 	ADFSFederatedToken 	The authentication method is an ADFSFederatedToken.
-# 9 	EID 	The authentication method is an EID.
-# 10 	DeviceID 	The authentication method is a DeviceID.
-# 11 	MD5 	The authentication method is MD5.
-# 12 	EncProxyPasswordHash 	The authentication method is a EncProxyPasswordHash.
-# 13 	LWAFederation 	The authentication method is a LWAFederation.
-# 14 	Sha1HashedPassword 	The authentication method is a Sha1HashedPassword.
-# 15 	SecurePin 	The authentication method is a secure Pin.
-# 16 	SecurePinReset 	The authentication method is a secure PIN reset.
-# 17 	SAML20PostSimpleSign 	The authentication method is a SAML20PostSimpleSign.
-# 18 	SAML20Post 	The authentication method is a SAML20Post.
-# 19 	OneTimeCode 	The authentication method is a one-time code.
-#
+# 
 #comp #m365 #security #bec #script #unified #audit #log #sign-in
 
 # CIAOPS
@@ -81,7 +58,7 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and ($Encoding -eq "utf8bom" -or $Enc
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 $version = "2.70"
-$sesid = Get-Random # get random session number
+$sesid = Get-Random # Get random session number
 $Results = @() # initialise array
 $displays = @() # initailise array
 $AuditOutput = @() # initialise array
@@ -168,8 +145,7 @@ if (!$DaysAgo -and (!$StartDate -and !$EndDate)) {
 }
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
-$logFile = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_LOG_$($date).txt"
-$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_$($date).csv"
+$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_$($date)_Processed.csv"
 $diff = New-TimeSpan -Start $StartDate -End $EndDate # Determine the difference between start and finish dates
 $totalDays = ([int]$diff.TotalDays)
 
@@ -180,7 +156,6 @@ if ((Get-Module -ListAvailable -Name ExchangeOnlineManagement) -or (Get-Module -
     # If Exchange Online PowerShell module not found
     Write-Output "`n[001] - Exchange Online PowerShell module not installed. Please install and re-run script`n"
     Write-Output "Exception message:", $_.Exception.Message, "`n"
-    Stop-Transcript # Terminate transcription
     exit 1 # Terminate script
 }
 
@@ -210,7 +185,6 @@ do {
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
-        Stop-Transcript # Terminate transcription
         exit 2 # Terminate script
     }
     $AuditOutput += $currentoutput # Build total results array
@@ -221,7 +195,7 @@ do {
 $ConvertedOutput = $AuditOutput | Select-Object -ExpandProperty AuditData | Sort-Object creationtime | ConvertFrom-Json
 
 foreach ($Entry in $convertedoutput) { # Loop through all result entries
-    $return = "" | Select-Object Creationtime, Localtime, ClientIP, Operation, UserId, ResultStatusDetail, KeepMeSignedIn, UserAgent, UserAuthenticationMethod, RequestType, DisplayName, OS, BrowserType, SessionId, TrustType
+    $return = "" | Select-Object Creationtime, Localtime, ClientIP, Operation, UserId, ResultStatusDetail, KeepMeSignedIn, UserAgent, UserAuthenticationMethod, RequestType, DisplayName, OS, BrowserType, TrustType, IsCompliant, IsCompliantAndManaged, SessionId
     $return.CreationTime = $Entry.CreationTime
     $return.localtime = [System.TimeZoneInfo]::ConvertTimeFromUtc($Entry.CreationTime, $TZ) # Convert entry to local time
     $return.clientip = $Entry.clientip
@@ -235,14 +209,16 @@ foreach ($Entry in $convertedoutput) { # Loop through all result entries
     $return.DisplayName = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "DisplayName"}).value
     $return.OS = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "OS"}).value
     $return.BrowserType = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "BrowserType"}).value
-    $return.SessionId = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "SessionId"}).value
     $return.TrustType = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "TrustType"}).value
+    $return.IsCompliant = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "IsCompliant"}).value
+    $return.IsCompliantAndManaged = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "IsCompliantAndManaged"}).value
+    $return.SessionId = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "SessionId"}).value
     $Results += $return # Build results array
 }
 
 $displays = $results | Sort-Object -Descending localtime # Sort result array in reverse chronological order
 Write-Output "$($displays.count) relevant sign-in records fount. Writing all output to file..."
-$displays | Select-Object CreationTime, LocalTime, ClientIP, Operation, UserId, ResultStatusDetail, KeepMeSignedIn, UserAgent, UserAuthenticationMethod, RequestType, DisplayName, OS, BrowserType, SessionId, TrustType | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
+$displays | Select-Object CreationTime, LocalTime, ClientIP, Operation, UserId, ResultStatusDetail, KeepMeSignedIn, UserAgent, UserAuthenticationMethod, RequestType, DisplayName, OS, BrowserType, TrustType, IsCompliant, IsCompliantAndManaged, SessionId | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
 Write-Output ""
 Write-Output "Local Time`t`t Client IP`t`t Operation`t`t Login" # Merely an indication of the headings
 Write-Output "----------`t`t ---------`t`t ---------`t`t -----" # Not possible to align for every run option

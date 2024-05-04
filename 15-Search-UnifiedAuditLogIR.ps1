@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Search-UnifiedAuditLogIR.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-03
 # Script to search the UAC for events particularly
 # relevant to incident response.
 #
@@ -93,6 +93,8 @@ Write-Output " * External User Events"
 Write-Output " * Anonymous Link Events"
 Write-Output " * Email Deletion Events"
 Write-Output ""
+Write-Output "In the future this script may be split up into more targeted scripts which parse UAL output specific to the retrieved records."
+Write-Output ""
 if (!$DaysAgo) {
     $DaysAgo = Read-Host "Enter number of days back to search in the Unified Audit Log (default: 30, max: 90)"
 }
@@ -105,7 +107,20 @@ $StartDate = (Get-Date).AddDays(- $DaysAgo)
 $EndDate = Get-Date
 
 ## Get changes to membership in Entra ID roles (new adds could indicate escalation of privilege)
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add member to role.", "Remove member from role.") -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add member to role.", "Remove member from role.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -121,7 +136,20 @@ if (!$SearchResults) {
 }
 
 ## Get changes to applications, client app credentials, permissions, and new consents (could indicate app abuse)
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add application.", "Add service principal.", "Add service principal credentials.", "Update application – Certificates and secrets", "Add app role assignment to service principal.", "Add app role assignment grant to user.", "Add delegated permission grant.", "Consent to application.") -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add application.", "Add service principal.", "Add service principal credentials.", "Update application – Certificates and secrets", "Add app role assignment to service principal.", "Add app role assignment grant to user.", "Add delegated permission grant.", "Consent to application.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -135,7 +163,20 @@ if (!$SearchResults) {
 }
 
 ## Get Conditional Access policy changes
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add policy.", "Update policy.", "Delete policy.") -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add policy.", "Update policy.", "Delete policy.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -149,7 +190,20 @@ if (!$SearchResults) {
 }
 
 ## Get Domain changes
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add domain to company.", "Remove domain from company.", "Set domain authentication.", "Set federation settings on domain.", "Set DirSyncEnabled flag.", "Update domain.", "Verify domain.", "Verify email verified domain.") -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add domain to company.", "Remove domain from company.", "Set domain authentication.", "Set federation settings on domain.", "Set DirSyncEnabled flag.", "Update domain.", "Verify domain.", "Verify email verified domain.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -163,7 +217,20 @@ if (!$SearchResults) {
 }
 
 ## Get Partner changes
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add partner to company.", "Remove partner from company.") -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add partner to company.", "Remove partner from company.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -177,7 +244,20 @@ if (!$SearchResults) {
 }
 
 ## Get user add and delete events
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add user.", "Delete user.") -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add user.", "Delete user.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -191,7 +271,20 @@ if (!$SearchResults) {
 }
 
 ## Get password changes
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Change user password.", "Reset user password.", "Set force change user password.") -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Change user password.", "Reset user password.", "Set force change user password.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -205,7 +298,20 @@ if (!$SearchResults) {
 }
 
 ## Get user update events (this includes MFA registration / security info changes)
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Update user.") -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Update user.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -219,7 +325,20 @@ if (!$SearchResults) {
 }
 
 ## Get Entra ID Device add and delete events
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add device.", "Delete device.") -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add device.", "Delete device.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -233,7 +352,20 @@ if (!$SearchResults) {
 }
 
 ## Get Exchange admin log events (includes new inbox rules, mailbox forwarding, mailbox permissions, mailbox delegations, etc.)
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType ExchangeAdmin -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType ExchangeAdmin -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -247,7 +379,20 @@ if (!$SearchResults) {
 }
 
 ## Get file creation & modification events
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "Created,FileModified" -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "Created,FileModified" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -261,7 +406,20 @@ if (!$SearchResults) {
 }
 
 ## Get file deletion events
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "FileDeleted,FileDeletedFirstStageRecycleBin,FileDeletedSecondStageRecycleBin" -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "FileDeleted,FileDeletedFirstStageRecycleBin,FileDeletedSecondStageRecycleBin" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -275,7 +433,20 @@ if (!$SearchResults) {
 }
 
 ## Get Mailbox permission change events
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "Add-RecipientPermission,Remove-RecipientPermission,Set-mailbox,Add-MailboxPermission,Remove-MailboxPermission" -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "Add-RecipientPermission,Remove-RecipientPermission,Set-mailbox,Add-MailboxPermission,Remove-MailboxPermission" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -288,9 +459,22 @@ if (!$SearchResults) {
     Write-Output ""
 }
 
-## Get external user activity events
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds "*#EXT*" -SessionCommand ReturnLargeSet -ResultSize 5000
-# Just file access events: $SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations FileAccessed -UserIds "*#EXT*" -SessionCommand ReturnLargeSet -ResultSize 5000
+## Get all external user activity events
+# For just file access events: $SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations FileAccessed -UserIds "*#EXT*" -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds "*#EXT*" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -304,7 +488,20 @@ if (!$SearchResults) {
 }
 
 ## Get anonymous link events
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "AnonymousLinkRemoved,AnonymousLinkcreated,AnonymousLinkUpdated,AnonymousLinkUsed" -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "AnonymousLinkRemoved,AnonymousLinkcreated,AnonymousLinkUpdated,AnonymousLinkUsed" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -318,7 +515,20 @@ if (!$SearchResults) {
 }
 
 ## Get email deletion events
-$SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "SoftDelete,HardDelete,MoveToDeletedItems" -SessionCommand ReturnLargeSet -ResultSize 5000
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "SoftDelete,HardDelete,MoveToDeletedItems" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 ## Check to see if the variable is null
 if (!$SearchResults) {
@@ -331,8 +541,21 @@ if (!$SearchResults) {
     Write-Output ""
 }
 
-# ## Get ..... events
-# $SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType ... -Operations -SessionCommand ReturnLargeSet -ResultSize 5000
+# ## Get XXXXXX events template
+#$sesid = Get-Random # Get random session number
+#$count = 1
+#do {
+#    Write-Output "Getting unified audit logs page $count - Please wait"
+#    try {
+#        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType XXXXXX -Operations XXXXXX -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+#    } catch {
+#        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+#        Write-Output "Exception message:", $_.Exception.Message, "`n"
+#        exit 2 # Terminate script
+#    }
+#    $SearchResults += $currentoutput # Build total results array
+#    ++ $count # Increment page count
+#} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 #
 # ## Check to see if the variable is null
 # if (!$SearchResults) {

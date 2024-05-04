@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-MailboxAuditLog.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-03
 # Script to get the mailbox audit log of specified users, or all users.
 #
 # Usage:
@@ -94,7 +94,7 @@ $date = Get-Date -Format "yyyyMMddHHmmss"
 
 Write-Output "Search-MailboxAuditLog is being deprecated by Microsoft in April 2024 (https://aka.ms/AuditCmdletBlog)"
 Write-Output "Microsoft has said to use the `"Search-UnifiedAuditLog -RecordType ExchangeItem`" instead."
-Write-Output "This command currently provides less detailed results, so this script will continue to attempt both queries."
+Write-Output "This script currently uses both queries."
 Write-Output "Running Search-MailboxAuditLog and Search-UnifiedAuditLog commands..."
 
 
@@ -112,8 +112,21 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
             $result = Search-MailboxAuditlog -Identity $_.UserPrincipalName -LogonTypes Delegate, Admin, Owner -StartDate $StartDate -EndDate $EndDate -ShowDetails -resultsize 250000
             $result | Export-Csv -NoTypeInformation -Path $outputFile -Encoding $Encoding -Append
 
-            Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $_.UserPrincipalName -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -ResultSize 5000"
-            $result = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $_.UserPrincipalName -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -resultsize 5000
+            $sesid = Get-Random # Get random session number
+            $count = 1
+            do {
+                Write-Output "Getting unified audit logs page $count - Please wait"
+                try {
+                    $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $_.UserPrincipalName -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+                } catch {
+                    Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+                    Write-Output "Exception message:", $_.Exception.Message, "`n"
+                    exit 2 # Terminate script
+                }
+                $result += $currentoutput # Build total results array
+                ++ $count # Increment page count
+            } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
+            
             $result | Export-Csv -NoTypeInformation -Path $outputFileUAL -Encoding $Encoding -Append
 
             Write-Output "Results have been written to $outputFile & $outputFileUAL"
@@ -131,8 +144,21 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
         $result = Search-MailboxAuditlog -Identity $user -LogonTypes Delegate, Admin, Owner -StartDate $StartDate -EndDate $EndDate -ShowDetails -resultsize 250000
         $result | Export-Csv -NoTypeInformation -Path $outputFile -Encoding $Encoding -Append
 
-        Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $user -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -ResultSize 5000"
-        $result = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $user -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -resultsize 5000
+        $sesid = Get-Random # Get random session number
+        $count = 1
+        do {
+            Write-Output "Getting unified audit logs page $count - Please wait"
+            try {
+                $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $user -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+            } catch {
+                Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+                Write-Output "Exception message:", $_.Exception.Message, "`n"
+                exit 2 # Terminate script
+            }
+            $result += $currentoutput # Build total results array
+            ++ $count # Increment page count
+        } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
+
         $result | Export-Csv -NoTypeInformation -Path $outputFileUAL -Encoding $Encoding -Append
 
         Write-Output "Results have been written to $outputFile & $outputFileUAL"
@@ -147,8 +173,21 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
     $result = Search-MailboxAuditlog -Identity $UserIds -LogonTypes Delegate, Admin, Owner -StartDate $StartDate -EndDate $EndDate -ShowDetails -resultsize 250000
     $result | Export-Csv -NoTypeInformation -Path $outputFile -Encoding $Encoding -Append
 
-    Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $UserIds -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -ResultSize 5000"
-    $result = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $UserIds -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -resultsize 5000
+    $sesid = Get-Random # Get random session number
+    $count = 1
+    do {
+        Write-Output "Getting unified audit logs page $count - Please wait"
+        try {
+            $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $UserIds -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        } catch {
+            Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+            Write-Output "Exception message:", $_.Exception.Message, "`n"
+            exit 2 # Terminate script
+        }
+        $result += $currentoutput # Build total results array
+        ++ $count # Increment page count
+    } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
+    
     $result | Export-Csv -NoTypeInformation -Path $outputFileUAL -Encoding $Encoding -Append
 
     Write-Output "Results have been written to $outputFile & $outputFileUAL"

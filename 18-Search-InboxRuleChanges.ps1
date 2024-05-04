@@ -10,7 +10,7 @@
 # Search-InboxRuleChanges.ps1
 # Created by https://github.com/JeremyTBradshaw/
 # modified by Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-03
 # Script to search UAC for inbox rule changes on all accounts
 # made recently (max past 90 days).
 #
@@ -180,16 +180,40 @@ Write-Output "Will attempt to retrieve all UAC entries going back $DaysAgo days 
 
 $StartDate = (Get-Date).AddDays(- $DaysAgo)
 $EndDate = (Get-Date).AddDays(1)
-Write-Output "This script does not currently loop through UAC results - Maximum records retrieved for each event category is limited to 5000."
-
-
-$SearchResults = Search-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -ResultSize:$ResultSize
 $SearchResultsProcessed = @()
-Write-Output "`nSearch-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -ResultSize:$ResultSize"
+
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResults += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
+
 Write-Output "$($SearchResults.Count) New-InboxRule/Set-InboxRule/UpdateInboxRules/Remove-InboxRule/Disable-InboxRule records found in logs..."
 
-$SearchResultsSetMailbox = Search-UnifiedAuditLog -Operations Set-Mailbox -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -ResultSize:$ResultSize
-Write-Output "`nSearch-UnifiedAuditLog -Operations Set-Mailbox -StartDate $StartDate -EndDate $EndDate -SessionCommand ReturnLargeSet -ResultSize:$ResultSize"
+$sesid = Get-Random # Get random session number
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -Operations Set-Mailbox -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $SearchResultsSetMailbox += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
+
 Write-Output "$($SearchResultsSetMailbox.Count) Set-Mailbox records found in logs..."
 
 if ($SearchResultsSetMailbox.Count -ge 1) {
