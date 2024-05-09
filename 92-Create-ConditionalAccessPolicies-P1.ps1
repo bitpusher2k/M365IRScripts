@@ -12,6 +12,8 @@
 # Script to backup current Named Locations/Conditional Access Policies and
 # to set up basic set of Named Locations and Conditional Access Policies in report-only mode.
 #
+# * Will need to update policy creation to use new "Network" assignment instead of "Conditions" > "Location"
+#
 # Prompts for creation of:
 # *'Allowed Sign-in Countries' Named Location
 # *'Blocked High Risk Countries' Named Location

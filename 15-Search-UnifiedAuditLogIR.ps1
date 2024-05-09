@@ -26,7 +26,7 @@
 
 param(
     [string]$OutputPath,
-    [string]$DaysAgo,
+    [int]$DaysAgo,
     [string]$Encoding = "utf8bom" # "ascii","ansi","bigendianunicode","unicode","utf8","utf8","utf8NoBOM","utf32"
 )
 

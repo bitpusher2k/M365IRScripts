@@ -99,7 +99,7 @@
 [CmdletBinding()]
 param(
     [string]$OutputPath,
-    [string]$DaysAgo,
+    [int]$DaysAgo,
     [datetime]$StartDate,
     [datetime]$EndDate,
     [ValidateRange(1, 5000)] [int]$ResultSize = 5000,

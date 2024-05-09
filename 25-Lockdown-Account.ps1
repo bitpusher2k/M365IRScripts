@@ -29,7 +29,7 @@
 Param (
     [string]$OutputPath,
     [string]$UserIds,
-    [string]$DaysAgo,
+    [int]$DaysAgo,
     [datetime]$StartDate,
     [datetime]$EndDate,
     [string]$Encoding = "utf8bom" # "ascii","ansi","bigendianunicode","unicode","utf8","utf8","utf8NoBOM","utf32"

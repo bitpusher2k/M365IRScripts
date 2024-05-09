@@ -32,9 +32,9 @@
 [CmdletBinding()]
 param(
     [string]$UserIds,
-    [string]$StartDate,
-    [string]$EndDate,
-    [string]$DaysAgo,
+    [datetime]$StartDate,
+    [datetime]$EndDate,
+    [int]$DaysAgo,
     [string]$OutputPath,
     [string]$Encoding = "utf8bom" # "ascii","ansi","bigendianunicode","unicode","utf8","utf8","utf8NoBOM","utf32"
 )

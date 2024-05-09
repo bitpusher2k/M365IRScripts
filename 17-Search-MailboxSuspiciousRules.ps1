@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Search-MailboxSuspiciousRules.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-02-26 - Tweaked running suspect rule display
 # Script to check all mailbox rules on a domain for suspicious entries.
 # Entries are identified as suspicious based on several basic heuristic rules:
 # Forwarding, suspicious names, suspicious moving, suspicious keywords, deleting messages
@@ -146,7 +146,7 @@ foreach ($mailbox in $mailboxes) {
             RuleFromContains          = $rule.FromAddressContainsWords
         }
         $ruleObject = New-Object PSObject -Property $ruleHash
-        $ruleObject | Format-Table
+        $ruleObject | Select-Object SuspectTrait,DisplayName,PrimarySmtpAddress,RuleName | Format-Table
         $ruleObject | Export-Csv $OutputCSV -Append -NoTypeInformation -Encoding $Encoding
     }
 }

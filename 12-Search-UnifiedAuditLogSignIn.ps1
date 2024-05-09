@@ -47,9 +47,9 @@
 
 param(
     [string]$OutputPath,
-    [string]$StartDate,
-    [string]$EndDate,
-    [string]$daysago = "",
+    [datetime]$StartDate,
+    [datetime]$EndDate,
+    [int]$DaysAgo,
     [switch]$fail = $false, # if -fail parameter only show failed logins
     [string]$Encoding = "utf8bom" # "ascii","ansi","bigendianunicode","unicode","utf8","utf8","utf8NoBOM","utf32"
 )
@@ -114,15 +114,17 @@ if (!$CheckSubDir) {
 Write-Output "Script started. Version = $version`n"
 Write-Output "Script to display interactive user logins from Unified Audit log `n"
 
-Write-Output "Calculating day range"
 if (!$DaysAgo -and (!$StartDate -and !$EndDate)) {
     do {
         $NumberDays = Read-Host -Prompt "`nEnter total number of days back from today to search log (maximum: 90)" # Prompt for number of days to check
     } until ((-not [string]::IsNullOrEmpty($NumberDays)) -and ($NumberDays -match "^\d+$")) # Keep prompting until not blank and numeric
     Write-Output ""
-    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt "90") { $DaysAgo = "90" }
-    $NumberDaysInt = [int]::Parse($NumberDays) # Convert string to integer
-    $StartDateLocal = (Get-Date).adddays(- $NumberDaysInt)
+    $NumberDaysInt = [int]$NumberDays
+    $DaysAgo = $NumberDaysInt
+    if ($DaysAgo -gt 90) {
+        $DaysAgo = 90
+    }
+    $StartDateLocal = (Get-Date).adddays(-$DaysAgo)
     $StartDate = $StartDateLocal.touniversaltime() # Convert local start time to UTC
     $EndDate = (Get-Date).touniversaltime() # Ending date for audit log search UTC. Default = current time
 } elseif ($StartDate -and $EndDate) {
@@ -145,7 +147,6 @@ if (!$DaysAgo -and (!$StartDate -and !$EndDate)) {
 }
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
-$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_$($date)_Processed.csv"
 $diff = New-TimeSpan -Start $StartDate -End $EndDate # Determine the difference between start and finish dates
 $totalDays = ([int]$diff.TotalDays)
 
@@ -167,7 +168,7 @@ if ($User) {
 } else {
     $OutputUser = "ALL"
 }
-$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser)_$($date).csv"
+$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser)_between_$($StartDate.ToString(`"yyyyMMddHHmm`"))_and_$($EndDate.ToString(`"yyyyMMddHHmm`"))_`($($totalDays)_days`)_Processed.csv"
 
 Write-Output "`nTotal range of days to check for sign-ins: $totalDays"
 Write-Output "Start date: $StartDate"
