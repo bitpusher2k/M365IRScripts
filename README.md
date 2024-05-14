@@ -14,7 +14,7 @@
 
 ## By Bitpusher/The Digital Fox
 
-## v2.7 last updated 2024-04-14
+## v2.8 last updated 2024-05-12
 
 #comp #m365 #security #bec #script #irscript #powershell #collection #playbook #readme #lotlir #incident #response #investigation
 
@@ -52,6 +52,8 @@ Functions and scripts modified from other sources are attributed in each script 
 * 04-ProcessMailboxAuditLog.ps1 - Process CSV of Exchange Online mailbox audit log exported with script 34 below (Search-MailboxAuditLog command) to make more usable during manual review.
 * 05-ProcessUnifiedAuditLogFlatten.bat - Shim to enable drag-and-drop of downloaded log to PS script of the same name.
 * 05-ProcessUnifiedAuditLogFlatten.ps1 - Process CSV of any event logs from the Unified Audit Log exported with these scripts. Flattens objects and makes more usable during manual review.
+* 06-Lookup-IPInfoCSV.bat - Shim to enable drag-and-drop of downloaded log to PS script of the same name.
+* 06-Lookup-IPInfoCSV.ps1 - Process CSV of exported logs from the Unified Audit Log or other source which includes a column of IP addresses - Enrich the CSV with information on each IP address.
 * 10-Get-BasicTenantInformation.ps1 - Retrieve basic tenant information & settings relevant to further log collection. Verify tenant name, licensing level, UAL enabled, etc..
 * 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1 - Retrieve Entra ID sign-in and audit logs using AzureAD and Graph modules. Requires at least Entra ID P1 - otherwise logs must be retrieved through admin console.
 * 12-Search-UnifiedAuditLogSignIn.ps1 - Retrieve sign-in log entries from the Unified Audit Log (less detailed but longer retention than Entra ID sign-in logs).
@@ -67,7 +69,7 @@ Functions and scripts modified from other sources are attributed in each script 
 * 22-Get-EnterpriseApplications.ps1 - List all Enterprise Applications on a tenant, from most newest to oldest.
 * 23-Get-DefenderInformation.ps1 - Get information on Microsoft Defender alert configuration, threat detections, blocked senders, quarantine policy, and quarantined messages.
 * 24-Get-EntraIDRisk.ps1 - Generate report of recent risk detections by Entra ID.
-* 25-Lockdown-Account.ps1 - Lock down a given M365 that is suspected of being compromised (revoke sessions, set random password, block sign-in).
+* 25-Lockdown-Account.ps1 - Lock down a given M365 that is suspected of being compromised (revoke sessions, set random password, block sign-in - Not effective on AD-synced accounts unless password writeback is enabled).
 * 30-Get-BasicUserInformation.ps1 -  List the rolls and permissions (send as, send on behalf, full access) of specified user.
 * 31-Get-UserMFAMethodsAndDevices.ps1 - List the registered authentication methods and devices of a specified user.
 * 32-Get-UserJunkMailSettings.ps1 - List the junk mail settings of a specified user.

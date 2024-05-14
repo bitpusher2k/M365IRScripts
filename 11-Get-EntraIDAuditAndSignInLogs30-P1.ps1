@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-EntraIDAudieAndSignInLogs30-P1.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Function ConvertTo-FlatObject by https://github.com/EvotecIT
 # Script to export Azure AD sign-in and audit logs for past 30 days
 # (if they exist that far back)

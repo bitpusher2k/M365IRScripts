@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-DefenderInformation.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to export reports of MS Defender settings & status, including:
 # alert configuration, threat detections, blocked senders (restricted entities),
 # quarantine policy, and quarantined messages.

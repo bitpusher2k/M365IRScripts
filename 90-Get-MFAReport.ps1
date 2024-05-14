@@ -10,7 +10,7 @@
 # Get-MFAReport.ps1
 # Original report function created by o365reports.com - https://o365reports.com/2022/04/27/get-mfa-status-of-office-365-users-using-microsoft-graph-powershell
 # modified by Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to Export M365 MFA settings of each account using Microsoft Graph.
 #
 # Usage:

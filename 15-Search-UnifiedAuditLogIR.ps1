@@ -33,8 +33,7 @@ param(
 if ($PSVersionTable.PSVersion.Major -eq 5 -and ($Encoding -eq "utf8bom" -or $Encoding -eq "utf8nobom")) { $Encoding = "utf8" }
 
 # Initial variables
-$OutputPath = ""
-$DaysAgo = ""
+$resultSize = 5000 #Maximum number of records that can be retrieved per query
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
 $CheckLog = (Get-AdminAuditLogConfig).UnifiedAuditLogIngestionEnabled
@@ -100,7 +99,6 @@ if (!$DaysAgo) {
 }
 if ($DaysAgo -eq '') { $DaysAgo = "30" } elseif ($DaysAgo -gt "90") { $DaysAgo = "90" }
 Write-Output "Will search UAC $DaysAgo days back from today for relevant events."
-Write-Output "This script does not currently loop through UAC results - Maximum records retrieved for each event category is limited to 5000."
 
 ## Set Start and End Dates
 $StartDate = (Get-Date).AddDays(- $DaysAgo)
@@ -108,11 +106,12 @@ $EndDate = Get-Date
 
 ## Get changes to membership in Entra ID roles (new adds could indicate escalation of privilege)
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add member to role.`", `"Remove member from role.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add member to role.", "Remove member from role.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add member to role.", "Remove member from role.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -137,11 +136,12 @@ if (!$SearchResults) {
 
 ## Get changes to applications, client app credentials, permissions, and new consents (could indicate app abuse)
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add application.`", `"Add service principal.`", `"Add service principal credentials.`", `"Update application – Certificates and secrets`", `"Add app role assignment to service principal.`", `"Add app role assignment grant to user.`", `"Add delegated permission grant.", "Consent to application.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add application.", "Add service principal.", "Add service principal credentials.", "Update application – Certificates and secrets", "Add app role assignment to service principal.", "Add app role assignment grant to user.", "Add delegated permission grant.", "Consent to application.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add application.", "Add service principal.", "Add service principal credentials.", "Update application – Certificates and secrets", "Add app role assignment to service principal.", "Add app role assignment grant to user.", "Add delegated permission grant.", "Consent to application.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -164,11 +164,12 @@ if (!$SearchResults) {
 
 ## Get Conditional Access policy changes
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add policy.`", `"Update policy.`", `"Delete policy.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add policy.", "Update policy.", "Delete policy.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add policy.", "Update policy.", "Delete policy.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -191,11 +192,12 @@ if (!$SearchResults) {
 
 ## Get Domain changes
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add domain to company.`", `"Remove domain from company.`", `"Set domain authentication.`", `"Set federation settings on domain.`", `"Set DirSyncEnabled flag.`", `"Update domain.`", `"Verify domain.`", `"Verify email verified domain.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add domain to company.", "Remove domain from company.", "Set domain authentication.", "Set federation settings on domain.", "Set DirSyncEnabled flag.", "Update domain.", "Verify domain.", "Verify email verified domain.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add domain to company.", "Remove domain from company.", "Set domain authentication.", "Set federation settings on domain.", "Set DirSyncEnabled flag.", "Update domain.", "Verify domain.", "Verify email verified domain.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -218,11 +220,12 @@ if (!$SearchResults) {
 
 ## Get Partner changes
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add partner to company.`", `"Remove partner from company.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add partner to company.", "Remove partner from company.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add partner to company.", "Remove partner from company.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -245,11 +248,12 @@ if (!$SearchResults) {
 
 ## Get user add and delete events
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add user.`", `"Delete user.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add user.", "Delete user.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add user.", "Delete user.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -272,11 +276,12 @@ if (!$SearchResults) {
 
 ## Get password changes
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Change user password.`", `"Reset user password.`", `"Set force change user password.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Change user password.", "Reset user password.", "Set force change user password.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Change user password.", "Reset user password.", "Set force change user password.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -299,11 +304,12 @@ if (!$SearchResults) {
 
 ## Get user update events (this includes MFA registration / security info changes)
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Update user.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Update user.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Update user.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -326,11 +332,12 @@ if (!$SearchResults) {
 
 ## Get Entra ID Device add and delete events
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add device.`", `"Delete device.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add device.", "Delete device.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add device.", "Delete device.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -353,11 +360,12 @@ if (!$SearchResults) {
 
 ## Get Exchange admin log events (includes new inbox rules, mailbox forwarding, mailbox permissions, mailbox delegations, etc.)
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType ExchangeAdmin -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType ExchangeAdmin -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType ExchangeAdmin -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -380,11 +388,12 @@ if (!$SearchResults) {
 
 ## Get file creation & modification events
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations `"Created,FileModified`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "Created,FileModified" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "Created,FileModified" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -407,11 +416,12 @@ if (!$SearchResults) {
 
 ## Get file deletion events
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations `"FileDeleted,FileDeletedFirstStageRecycleBin,FileDeletedSecondStageRecycleBin`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "FileDeleted,FileDeletedFirstStageRecycleBin,FileDeletedSecondStageRecycleBin" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "FileDeleted,FileDeletedFirstStageRecycleBin,FileDeletedSecondStageRecycleBin" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -434,11 +444,12 @@ if (!$SearchResults) {
 
 ## Get Mailbox permission change events
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations `"Add-RecipientPermission,Remove-RecipientPermission,Set-mailbox,Add-MailboxPermission,Remove-MailboxPermission`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "Add-RecipientPermission,Remove-RecipientPermission,Set-mailbox,Add-MailboxPermission,Remove-MailboxPermission" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "Add-RecipientPermission,Remove-RecipientPermission,Set-mailbox,Add-MailboxPermission,Remove-MailboxPermission" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -460,13 +471,14 @@ if (!$SearchResults) {
 }
 
 ## Get all external user activity events
-# For just file access events: $SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations FileAccessed -UserIds "*#EXT*" -SessionCommand ReturnLargeSet -ResultSize 5000
+# For just file access events: $SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations FileAccessed -UserIds "*#EXT*" -SessionCommand ReturnLargeSet -ResultSize $resultSize
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds `"*#EXT*`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds "*#EXT*" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds "*#EXT*" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -489,11 +501,12 @@ if (!$SearchResults) {
 
 ## Get anonymous link events
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations `"AnonymousLinkRemoved,AnonymousLinkcreated,AnonymousLinkUpdated,AnonymousLinkUsed`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "AnonymousLinkRemoved,AnonymousLinkcreated,AnonymousLinkUpdated,AnonymousLinkUsed" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "AnonymousLinkRemoved,AnonymousLinkcreated,AnonymousLinkUpdated,AnonymousLinkUsed" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -516,11 +529,12 @@ if (!$SearchResults) {
 
 ## Get email deletion events
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations `"SoftDelete,HardDelete,MoveToDeletedItems`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "SoftDelete,HardDelete,MoveToDeletedItems" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations "SoftDelete,HardDelete,MoveToDeletedItems" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -543,11 +557,12 @@ if (!$SearchResults) {
 
 # ## Get XXXXXX events template
 #$sesid = Get-Random # Get random session number
+#Write-Output "Search-UnifiedAuditLog..."
 #$count = 1
 #do {
 #    Write-Output "Getting unified audit logs page $count - Please wait"
 #    try {
-#        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType XXXXXX -Operations XXXXXX -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+#        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType XXXXXX -Operations XXXXXX -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
 #    } catch {
 #        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
 #        Write-Output "Exception message:", $_.Exception.Message, "`n"

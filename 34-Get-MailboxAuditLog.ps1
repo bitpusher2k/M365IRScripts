@@ -90,6 +90,7 @@ if ($DaysAgo -gt 90) { $DaysAgo = "90" }
 
 $StartDate = (Get-Date).AddDays(- $DaysAgo)
 $EndDate = (Get-Date).AddDays(1)
+$resultSize = 5000 #Maximum number of records that can be retrieved per query
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
 Write-Output "Search-MailboxAuditLog is being deprecated by Microsoft in April 2024 (https://aka.ms/AuditCmdletBlog)"
@@ -113,11 +114,12 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
             $result | Export-Csv -NoTypeInformation -Path $outputFile -Encoding $Encoding -Append
 
             $sesid = Get-Random # Get random session number
+            Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $_.UserPrincipalName -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
             $count = 1
             do {
                 Write-Output "Getting unified audit logs page $count - Please wait"
                 try {
-                    $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $_.UserPrincipalName -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+                    $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $_.UserPrincipalName -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
                 } catch {
                     Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
                     Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -145,11 +147,12 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
         $result | Export-Csv -NoTypeInformation -Path $outputFile -Encoding $Encoding -Append
 
         $sesid = Get-Random # Get random session number
+        Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $user -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
         $count = 1
         do {
             Write-Output "Getting unified audit logs page $count - Please wait"
             try {
-                $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $user -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+                $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $user -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
             } catch {
                 Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
                 Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -174,11 +177,12 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
     $result | Export-Csv -NoTypeInformation -Path $outputFile -Encoding $Encoding -Append
 
     $sesid = Get-Random # Get random session number
+    Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $UserIds -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
     $count = 1
     do {
         Write-Output "Getting unified audit logs page $count - Please wait"
         try {
-            $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $UserIds -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+            $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $UserIds -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
         } catch {
             Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
             Write-Output "Exception message:", $_.Exception.Message, "`n"

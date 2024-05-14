@@ -57,7 +57,8 @@ param(
 if ($PSVersionTable.PSVersion.Major -eq 5 -and ($Encoding -eq "utf8bom" -or $Encoding -eq "utf8nobom")) { $Encoding = "utf8" }
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
-$version = "2.70"
+$version = "2.8"
+$resultSize = 5000 #Maximum number of records that can be retrieved per query
 $sesid = Get-Random # Get random session number
 $Results = @() # initialise array
 $displays = @() # initailise array
@@ -173,15 +174,16 @@ $OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser)_betw
 Write-Output "`nTotal range of days to check for sign-ins: $totalDays"
 Write-Output "Start date: $StartDate"
 Write-Output "End date: $EndDate"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $User -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize"
 
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
         if ($User) {
-            $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $User -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize 5000
+            $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $User -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize
         } else {
-            $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize 5000
+            $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize
         }
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"

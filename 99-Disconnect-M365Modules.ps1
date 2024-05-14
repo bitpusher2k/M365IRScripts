@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Disconnect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to disconnect from all M365 modules/sessions.
 #
 # Usage:

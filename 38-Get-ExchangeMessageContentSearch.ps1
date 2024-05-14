@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-ExchangeMessageContentSearch.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to walk through usual content search steps for dealing with spam/phishing messages:
 # * Search for messages by sender & subject
 # * Export preview report

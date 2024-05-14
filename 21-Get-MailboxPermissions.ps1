@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-MailboxPermissions.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to generate a report of non-standard permissions applied to Exchange Online user and shared mailboxes.
 #
 # Usage:

@@ -9,11 +9,11 @@
 #
 # ProcessUnifiedAuditLogFlatten.ps1 - By Bitpusher/The Digital Fox
 # Flatten-Object function created by iRon
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Processes an exported CSV of Unified Audit Log entries that contains cells with arrays/hash tables/objects and flattens it for ease of manual processing.
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\05-ProcessUnifiedAuditLogFlatten.ps1 -inputFile "Path\to\input\log.csv
+# powershell -executionpolicy bypass -f .\05-ProcessUnifiedAuditLogFlatten.ps1 -inputFile "Path\to\input\log.csv"
 #
 # Use with DropShim.bat to allow drag-and-drop processing of downloaded logs.
 #
@@ -194,14 +194,6 @@ param(
     [string]$logFileFolderPath = "C:\temp\log",
     [string]$ComputerName = $env:computername,
     [string]$ScriptUserName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
-    [string]$emailServer = "",
-    [string]$emailFrom = "",
-    [string]$emailTo = "",
-    [string]$emailUsername = "",
-    [string]$emailPassword = "",
-    [string]$shareLocation = "",
-    [string]$shareUsername = "",
-    [string]$sharePassword = "",
     [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
     [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
     [int]$logFileRetentionDays = 30

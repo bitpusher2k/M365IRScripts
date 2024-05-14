@@ -10,7 +10,7 @@
 # Get-AllM365EmailAddresses.ps1
 # Created by m365scripts.com
 # modified by Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to generate report of all email addresses on tenant.
 #
 # Usage:

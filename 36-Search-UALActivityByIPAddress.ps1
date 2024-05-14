@@ -88,15 +88,17 @@ Write-Output "`nWill search UAC $DaysAgo days back from today for relevant event
 
 $StartDate = (Get-Date).AddDays(- $DaysAgo)
 $EndDate = (Get-Date).AddDays(1)
+$resultSize = 5000 #Maximum number of records that can be retrieved per query
 
 $OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogEntries_IPaddress_going_back_$($DaysAgo)_days_from_$($date).csv"
 
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -IPAddresses $IPs -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -IPAddresses $IPs -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize 5000
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -IPAddresses $IPs -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"

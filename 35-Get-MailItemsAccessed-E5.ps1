@@ -10,7 +10,7 @@
 # Get-MailItemsAccessed-E5.ps1
 # Created by PricewaterhouseCoopers Advisory N.V.
 # modified by Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to get information on the mail items accessed in an Exchange Online mailbox.
 #
 # MUST HAVE Office 365 or Microsoft 365 E5 license or a Microsoft 365 E5 Compliance add-on subscription!!!

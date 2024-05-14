@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-UnifiedAuditLogEntries.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to export all available UAC entries going back
 # the specified number of days (max 90).
 #
@@ -119,6 +119,7 @@ while ($true) {
     $sessionID = [guid]::NewGuid().ToString() + "_" + "ExtractLogs" + (Get-Date).ToString("yyyyMMddHHmmssfff")
     Write-LogFile "INFO: Retrieving audit records for activities performed between $($currentStart) and $($currentEnd)"
     Write-Output "Retrieving audit records for activities performed between $($currentStart) and $($currentEnd)"
+    Write-Output "Search-UnifiedAuditLog -StartDate $currentStart -EndDate $currentEnd -SessionId $sessionID -SessionCommand ReturnLargeSet -ResultSize $resultSize"
     $currentCount = 0
 
     $sw = [Diagnostics.StopWatch]::StartNew()

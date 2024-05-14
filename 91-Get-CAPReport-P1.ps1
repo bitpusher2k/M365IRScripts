@@ -10,7 +10,7 @@
 # Get-CAPReport-P1.ps1
 # Report functions created by Donovan du Val
 # modified by Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to generate report of current Conditional Access Policies and Named Locations.
 # Functions modified to work with the IR Scripts collection flow.
 #

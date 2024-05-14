@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-BasicTenantInformation.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Script to collect basic Tenant information before further investigation.
 #
 # Allows quickly verifying the tenant name, subscriptions, and auditing status.

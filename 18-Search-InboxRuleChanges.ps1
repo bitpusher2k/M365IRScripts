@@ -182,7 +182,11 @@ $StartDate = (Get-Date).AddDays(- $DaysAgo)
 $EndDate = (Get-Date).AddDays(1)
 $SearchResultsProcessed = @()
 
+$StartDate
+$EndDate
+
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
@@ -200,6 +204,7 @@ do {
 Write-Output "$($SearchResults.Count) New-InboxRule/Set-InboxRule/UpdateInboxRules/Remove-InboxRule/Disable-InboxRule records found in logs..."
 
 $sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -Operations Set-Mailbox -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize"
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"

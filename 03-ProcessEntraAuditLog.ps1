@@ -9,13 +9,13 @@
 # https://github.com/bitpusher2k
 #
 # ProcessEntraAuditLog.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-02-26
+# v2.8 last updated 2024-05-12
 # Processes an exported CSV of Entra ID Audit log from the admin center,
 # removing columns not needed for manual review and reordering for ease of review.
 # Not the most efficient way to process CSV files - Not recommended for use on CSV files with more than 100,000 lines.
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\ProcessEntraAuditLog.ps1 -inputFile "Path\to\input\log.csv
+# powershell -executionpolicy bypass -f .\ProcessEntraAuditLog.ps1 -inputFile "Path\to\input\log.csv"
 #
 # Use with DropShim.bat to allow drag-and-drop processing of downloaded logs.
 #
@@ -35,14 +35,6 @@ param(
     [string]$logFileFolderPath = "C:\Temp\log",
     [string]$ComputerName = $env:computername,
     [string]$ScriptUserName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
-    [string]$emailServer = "",
-    [string]$emailFrom = "",
-    [string]$emailTo = "",
-    [string]$emailUsername = "",
-    [string]$emailPassword = "",
-    [string]$shareLocation = "",
-    [string]$shareUsername = "",
-    [string]$sharePassword = "",
     [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
     [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
     [int]$logFileRetentionDays = 30
