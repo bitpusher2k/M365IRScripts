@@ -9,7 +9,7 @@
 # https://github.com/bitpusher2k
 #
 # Lookup-IPInfoCSV.ps1 - By Bitpusher/The Digital Fox
-# v2.7 last updated 2024-05-12
+# v2.8 last updated 2024-05-12
 # Processes an exported CSV with a column of IP addresses, adding "IP_Country", "IP_Region",
 # "IP_City", "IP_ISP", "IP_Org", "IP_ProxyType", "IP_Score" columns and populating these
 # columns with available information from one of several online services.
