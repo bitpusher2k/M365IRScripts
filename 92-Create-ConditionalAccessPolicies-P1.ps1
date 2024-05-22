@@ -283,7 +283,7 @@ if ($Continue -eq "Y") {
         BuiltInControls = @('Block');
         Operator        = 'OR'
     }
-    $name = "Allow Sign-in from Specific Countries"
+    $name = "Allow Sign-in from Specific Countries Only"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
     Write-Output "Policy created."
