@@ -42,6 +42,10 @@ param(
     [int]$logFileRetentionDays = 30
 )
 
+
+$headerRow = Get-Content $inputFile | ConvertFrom-String -Delimiter "," | Select-Object -First 1 
+$headerRow
+
 $InputHeaders = ("Date", "RequestID", "UserAgent", "CorrelationID", "UserID", "User", "Username", "UserType", "CrossTenantAccess", "TokenType", "AuthenticationProtocol", "UniqueToken", "TransferMethod", "ClientCredential", "TokenProtection", "Application", "ApplicationID ", "Resource", "ResourceID", "ResourceTenantID", "HomeTenantID", "HomeTenantName", "IPaddress", "Location", "Status", "SignInError", "FailureReason", "ClientApp", "DeviceID", "Browser", "OS", "Compliant", "Managed", "JoinType", "MFAResult", "MFAMethod", "MFADetail", "AuthRequirement", "SignInIdentifier", "IPAddressSeen", "AutonomousSysNumber", "Flagged", "TokenIssuerType", "IncomingTokenType", "TokenIssuerName", "Latency", "ConditionalAccess", "ManagedIdentityType", "AssociatedResourceId")
 
 $EntraLog = Import-Csv $inputFile -Header $InputHeaders | Select-Object -Skip 1 | Select-Object *, @{ n = 'City'; e = { $_.Location.Split(',')[0] } }, @{ n = 'Region'; e = { $_.Location.Split(',')[1] } }, @{ n = 'Country'; e = { $_.Location.Split(',')[2] } }, @{ n = 'DateOnly'; e = { $_.Date.Split('T')[0] } }, @{ n = 'TimeOnly'; e = { $_.Date.Split('T')[1].Remove(8) } }

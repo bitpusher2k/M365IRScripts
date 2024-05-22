@@ -40,6 +40,10 @@ param(
     [int]$logFileRetentionDays = 30
 )
 
+
+$headerRow = Get-Content $inputFile | ConvertFrom-String -Delimiter "," | Select-Object -First 1 
+$headerRow
+
 $InputHeaders = ("Operation", "OperationResult", "LogonType", "ExternalAccess", "DestFolderId", "DestFolderPathName", "FolderId", "FolderPathName", "FolderName", "MemberRights", "MemberSid", "MemberUpn", "ClientInfoString", "ClientIPAddress", "ClientIP", "ClientMachineName", "ClientProcessName", "ClientVersion", "InternalLogonType", "MailboxOwnerUPN", "MailboxOwnerSid", "DestMailboxOwnerUPN", "DestMailboxOwnerSid", "DestMailboxGuid", "CrossMailboxOperation", "LogonUserDisplayName", "LogonUserSid", "SourceItems", "SourceFolders", "SourceItemIdsList", "SourceItemSubjectsList", "SourceItemAttachmentsList", "SourceItemFolderPathNamesList", "SourceFolderPathNamesList", "SourceItemInternetMessageIdsList", "ItemId", "ItemSubject", "ItemAttachments", "ItemInternetMessageId", "DirtyProperties", "OriginatingServer", "SessionId", "OperationProperties", "AuditOperationsCountInAggregatedRecord", "AggregatedRecordFoldersData", "AppId", "ClientAppId", "ItemIsRecord", "ItemComplianceLabel", "MailboxGuid", "MailboxResolvedOwnerName", "LastAccessed", "Identity", "IsValid", "ObjectState")
 
 $Log = Import-Csv $inputFile -Header $InputHeaders | Select-Object -Skip 1

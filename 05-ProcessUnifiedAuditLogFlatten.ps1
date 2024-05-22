@@ -242,6 +242,9 @@ function Flatten-Object { # Version 00.02.12, by iRon
 [string]$outputFile = (Get-Item $inputFile).BaseName
 [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed.csv"
 
+$headerRow = Get-Content $inputFile | ConvertFrom-String -Delimiter "," | Select-Object -First 1 
+$headerRow
+
 Import-Csv -Path $inputFile | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object | Sort-Object "CreationTime" | Export-Csv -Path "$outputPath" -NoTypeInformation
 
 exit

@@ -9,7 +9,7 @@
 # https://github.com/bitpusher2k
 #
 # Lookup-IPInfoCSV.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v2.8 last updated 2024-05-14
 # Processes an exported CSV with a column of IP addresses, adding "IP_Country", "IP_Region",
 # "IP_City", "IP_ISP", "IP_Org", "IP_ProxyType", "IP_Score" columns and populating these
 # columns with available information from one of several online services.
@@ -24,6 +24,8 @@
 # * ip2location.io - 30000 requests/month free - need to sign up for API key
 # * hostip.info - free location information
 # * iphub.info 1000 requests/day free - need to sign up for API key
+# * abuseipdb.com 1000 requests/day free - need to sign up for API key
+# * ipqualityscore.com 5000 requests/month free - need to sign up for API key
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\Lookup-IPInfoCSV.ps1 -inputFile "Path\to\input\log.csv" -outputFile "Path\to\output\file.csv" -IPcolumn "IP Column Name" -InfoSource "IP service to use" -APIKey "API key if required for service"
@@ -117,7 +119,11 @@ foreach ($Row in $Spreadsheet) {
             } elseif ($InfoSource -eq "hostipinfo") {
                 $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.hostip.info/get_json.php?ip=$IP"
             } elseif ($InfoSource -eq "iphubinfo") {
-                $IPInfo = Invoke-WebRequest http://v2.api.iphub.info/ip/$IP -Headers @{ "X-Key" = "$APIKey" }
+                $IPInfo = Invoke-WebRequest -Method Get -Uri "http://v2.api.iphub.info/ip/$IP" -Headers @{ "X-Key" = "$APIKey" }
+            } elseif ($InfoSource -eq "abuseipdbcom") {
+                $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.abuseipdb.com/api/v2/check/?ipAddress=$IP&maxAgeInDays=90" -AllowInsecureRedirect -Headers @{ "Accept" = "application/json"; "key" = "$APIKey" }
+            } elseif ($InfoSource -eq "ipqualityscorecom") {
+                $IPInfo = Invoke-WebRequest -Method Get -Uri "https://www.ipqualityscore.com/api/json/ip/$APIKey/$IP/?strictness=0&allow_public_access_points=true"
             }
             $IPAddressHash.Add([string]$IP, $IPInfo.content)
             $IPContent = $IPInfo.content
@@ -137,8 +143,8 @@ foreach ($Row in $Spreadsheet) {
             $Row.IP_Country = $scamalytics.ip_country_code
             $Row.IP_Region = $scamalytics.ip_state_name
             $Row.IP_City = $scamalytics.IP_City
-            $Row.IP_ISP = $scamalytics. "isp name"
-            $Row.IP_Org = $scamalytics. "Organization Name"
+            $Row.IP_ISP = $scamalytics.{isp name}
+            $Row.IP_Org = $scamalytics.{Organization Name}
             $Row.IP_ProxyType = $scamalytics.proxy_type
             $Row.IP_Score = $scamalytics.score
         } elseif ($InfoSource -eq "ipapico") {
@@ -185,6 +191,27 @@ foreach ($Row in $Spreadsheet) {
             $Row.IP_ISP = $iphubinfo.isp
             $Row.IP_Org = ""
             $Row.IP_ProxyType = ""
+            $Row.IP_Score = ""
+        } elseif ($InfoSource -eq "abuseipdbcom") {
+            $abuseipdbcom = $IPObject
+            $Row.IP_Country = $abuseipdbcom.data.countryCode
+            $Row.IP_Region = ""
+            $Row.IP_City = ""
+            $Row.IP_ISP = $abuseipdbcom.data.isp
+            $Row.IP_Org = $abuseipdbcom.data.domain
+            $Row.IP_ProxyType = $abuseipdbcom.data.usageType
+            $Row.IP_Score = ""
+        } elseif ($InfoSource -eq "ipqualityscorecom") {
+            $ipqualityscorecom = $IPObject
+            $Row.IP_Country = $ipqualityscorecom.country_code
+            $Row.IP_Region = $ipqualityscorecom.region
+            $Row.IP_City = $ipqualityscorecom.city
+            $Row.IP_ISP = $ipqualityscorecom.isp
+            $Row.IP_Org = $ipqualityscorecom.organization
+            # Grab subset of the properties related to proxy info that are "true" and smash them into a string
+            $subset = $ipqualityscorecom | Select-Object -Property proxy, vpn, tor, active_vpn, active_tor, recent_abuse, bot_status
+            $proxyInfo = $subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | join-string -Property name -DoubleQuote -Separator ','
+            $Row.IP_ProxyType = $proxyInfo
             $Row.IP_Score = ""
         }
 

@@ -8,11 +8,12 @@
 # https://github.com/bitpusher2k
 #
 # Create-ConditionalAccessPolicies.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v2.8 last updated 2024-05-20
 # Script to backup current Named Locations/Conditional Access Policies and
 # to set up basic set of Named Locations and Conditional Access Policies in report-only mode.
 #
-# * Will need to update policy creation to use new "Network" assignment instead of "Conditions" > "Location"
+# * Will need to update policy creation to use new "Network" assignment instead of "Conditions" > "Location" at some point if condition schema changes.
+# * May create 'Require compliant devices (Intune)' & 'Require Hybrid Azure AD joined device (Windows devices need to be on domain and Entra ID)' in the future.
 #
 # Prompts for creation of:
 # *'Allowed Sign-in Countries' Named Location
@@ -23,9 +24,10 @@
 # *'Block Sign-in from High Risk IPs' Conditional Access Policy
 # *'Require MFA for Device Registration' Conditional Access Policy
 # *'Block Legacy Authentication All Apps' Conditional Access Policy
-# *'Require Multifactor Authentication for Admin Roles' conditional access policy
-# *'Require Multifactor Authentication for Azure management' conditional access policy
-# *'Require Multifactor Authentication for All Users' conditional access policy
+# *'Block sign-in from unused operating systems' ('Windows Phone', 'MacOS', and 'Linux') Conditional Access Policy
+# *'Require Multifactor Authentication for Admin Roles' conditional access policy (1 hour)
+# *'Require Multifactor Authentication for Azure management' conditional access policy (1 hour)
+# *'Require Multifactor Authentication for All Users' conditional access policy (30 days)
 # *'Block High-Risk Sign-ins (P2)' conditional access policy (only works with Entra ID P2 subscription)
 # *'Block High-Risk Users (P2)' conditional access policy (only works with Entra ID P2 subscription)
 #
@@ -194,7 +196,6 @@ if ($Continue -eq "Y") {
         )
         IncludeUnknownCountriesAndRegions = $false
     }
-    New-MgIdentityConditionalAccessNamedLocation -BodyParameter $params
     Write-Output "Named location created."
     Write-Output ""
 }
@@ -252,7 +253,7 @@ if ($Continue -eq "Y") {
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Allow Sign-in from Specific Countries Only' Conditional Access Policy"
 if ($Continue -eq "Y") {
-    $location = Get-AzureADMSNamedLocationPolicy | Where-Object DisplayName -EQ "Allowed Sign-in Countries"
+    $location = Get-MgIdentityConditionalAccessNamedLocation | Where-Object DisplayName -EQ "Allowed Sign-in Countries"
     $locationid = $location.ID
     $conditions = @{
         Applications   = @{
@@ -293,7 +294,7 @@ if ($Continue -eq "Y") {
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Block Sign-in from High Risk Countries' Conditional Access Policy"
 if ($Continue -eq "Y") {
-    $location = Get-AzureADMSNamedLocationPolicy | Where-Object DisplayName -EQ "Blocked High Risk Countries"
+    $location = Get-MgIdentityConditionalAccessNamedLocation | Where-Object DisplayName -EQ "Blocked High Risk Countries"
     $locationid = $location.ID
     $conditions = @{
         Applications   = @{
@@ -331,7 +332,7 @@ if ($Continue -eq "Y") {
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Block Sign-in from High Risk IPs' Conditional Access Policy"
 if ($Continue -eq "Y") {
-    $location = Get-AzureADMSNamedLocationPolicy | Where-Object DisplayName -EQ "Blocked High Risk IP Addresses"
+    $location = Get-MgIdentityConditionalAccessNamedLocation | Where-Object DisplayName -EQ "Blocked High Risk IP Addresses"
     $locationid = $location.ID
     $conditions = @{
         Applications   = @{
@@ -425,6 +426,44 @@ if ($Continue -eq "Y") {
         Operator        = 'OR'
     }
     $name = "Block Legacy Authentication All Apps"
+    $state = "enabledForReportingButNotEnforced"
+    New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
+    Write-Output "Policy created."
+    Write-Output ""
+}
+
+## Create conditional access policy to block unused operating system authentication
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Block sign-in from unused operating systems' Conditional Access Policy (includes 'Windows Phone', 'MacOS', and 'Linux')"
+if ($Continue -eq "Y") {
+    $conditions = @{
+        Applications   = @{
+            includeApplications = 'All'
+        };
+        Users          = @{
+            includeUsers = @(
+                "All"
+            )
+            excludeUsers = @(
+                "$UserID"
+            )
+        };
+        ClientAppTypes = @(
+            'All'
+        );
+        Platforms      = @{
+            IncludePlatforms = @(
+                "windowsPhone",
+                "macOS",
+                "linux"
+            )
+        };
+    }
+    $grantcontrols = @{
+        BuiltInControls = @('Block');
+        Operator        = 'OR'
+    }
+    $name = "Block sign-in from unused operating systems"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
     Write-Output "Policy created."
