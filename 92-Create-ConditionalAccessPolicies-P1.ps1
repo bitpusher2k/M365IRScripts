@@ -196,7 +196,8 @@ if ($Continue -eq "Y") {
         )
         IncludeUnknownCountriesAndRegions = $false
     }
-    Write-Output "Named location created."
+    New-MgIdentityConditionalAccessNamedLocation -BodyParameter $params
+    Write-Output "Named Location created."
     Write-Output ""
 }
 
