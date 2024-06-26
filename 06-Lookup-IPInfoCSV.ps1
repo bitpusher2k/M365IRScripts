@@ -60,6 +60,8 @@ $RowCount = 0
 $LookupCount = 0
 $IPAddressHash = @{}
 
+$sw = [Diagnostics.StopWatch]::StartNew()
+
 Write-Output "$scriptName started"
 if (($InfoSource -eq "scamalytics" -or $InfoSource -eq "ip2location" -or $InfoSource -eq "iphubinfo") -and $APIKey -eq "") {
     $InfoSource = "ipapico"
@@ -231,5 +233,7 @@ Write-Output "Processed $RowCount rows using $LookupCount lookups"
 [string]$outputFile = (Get-Item $inputFile).BaseName
 [string]$outputPath = $outputFolder + "\" + $outputFile + "_IPEnriched.csv"
 $Spreadsheet | Export-Csv -Path "$outputPath" -NoTypeInformation
+
+Write-Output "Seconds elapsed for CSV processing: $($sw.elapsed.totalseconds)"
 
 exit

@@ -169,7 +169,7 @@ if ($User) {
 } else {
     $OutputUser = "ALL"
 }
-$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser)_between_$($StartDate.ToString(`"yyyyMMddHHmm`"))_and_$($EndDate.ToString(`"yyyyMMddHHmm`"))_`($($totalDays)_days`)_Processed.csv"
+$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser)_between_$($StartDate.ToString(`"yyyyMMddHHmm`"))_and_$($EndDate.ToString(`"yyyyMMddHHmm`"))_$($totalDays)_days_Processed.csv"
 
 Write-Output "`nTotal range of days to check for sign-ins: $totalDays"
 Write-Output "Start date: $StartDate"

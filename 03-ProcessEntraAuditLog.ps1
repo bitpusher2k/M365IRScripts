@@ -41,6 +41,8 @@ param(
 )
 
 
+$sw = [Diagnostics.StopWatch]::StartNew()
+
 $headerRow = Get-Content $inputFile | ConvertFrom-String -Delimiter "," | Select-Object -First 1 
 $headerRow
 
@@ -55,5 +57,7 @@ $OutputHeaders = ("Date", "ActorUserPrincipalName", "IPAddress", "Activity", "Re
 [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed.csv"
 
 $EntraLog | Select-Object $OutputHeaders | Export-Csv -Path "$outputPath" -NoTypeInformation
+
+Write-Output "Seconds elapsed for CSV processing: $($sw.elapsed.totalseconds)"
 
 exit

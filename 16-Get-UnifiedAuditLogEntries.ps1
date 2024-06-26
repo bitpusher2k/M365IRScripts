@@ -145,7 +145,7 @@ while ($true) {
         }
     } while (($results | Measure-Object).Count -ne 0)
     
-    Write-Output "Seconds elapsed for query: $sw.elapsed.totalseconds"
+    Write-Output "Seconds elapsed for query: $($sw.elapsed.totalseconds)"
 
     $currentStart = $currentEnd
 }
