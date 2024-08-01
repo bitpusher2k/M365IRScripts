@@ -177,6 +177,8 @@ if (!$DaysAgo) {
 }
 if ($DaysAgo -gt 90) { $DaysAgo = "90" }
 Write-Output "Will attempt to retrieve all UAC entries going back $DaysAgo days from today."
+Write-Output "NOTE: Recently it has taken multiple runs before all email rule change events are properly grabbed and parsed by this script. Reason unknown."
+Write-Output "NOTE: Run. Wait 10 minutes. Run again."
 
 $StartDate = (Get-Date).AddDays(- $DaysAgo)
 $EndDate = (Get-Date).AddDays(1)

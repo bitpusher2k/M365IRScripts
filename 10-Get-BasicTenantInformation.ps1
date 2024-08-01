@@ -68,9 +68,14 @@ if (!$CheckSubDir) {
 $info = Get-MsolCompanyInformation
 $orgconfig = Get-OrganizationConfig
 $logconfig = Get-AdminAuditLogConfig
+$connectors = Get-InboundConnector
+$rules = Get-TransportRule
 $info | Out-File -FilePath "$OutputPath\$DomainName\TenantCompanyInfo_$($date).txt" -Encoding $Encoding
 $orgconfig | Out-File -FilePath "$OutputPath\$DomainName\TenantOrgConfig_$($date).txt" -Encoding $Encoding
 $logconfig | Out-File -FilePath "$OutputPath\$DomainName\TenantAuditLogConfig_$($date).txt" -Encoding $Encoding
+$connectors | Out-File -FilePath "$OutputPath\$DomainName\ConnectorConfig_$($date).txt" -Encoding $Encoding
+$rules | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_$($date).txt" -Encoding $Encoding
+
 
 Write-Output "`nTenant details:"
 Get-AzureADTenantDetail
@@ -84,6 +89,12 @@ Get-MsolCompanyInformation | Select-Object lastdirsynctime
 Write-Output "`nMailbox auditing should be enabled by default."
 Write-Output "Checking the value of 'AuditDisabled' (this should be `"False`"):"
 $OrgConfig.AuditDisabled | Format-List
+
+Write-Output "`nInbound connectors:"
+$connectors | Format-List
+
+Write-Output "`nTransport rules:"
+$rules | Format-List
 
 # If mailbox auditing is disabled it can be enabled with these commands:
 # Get-Mailbox -Identity "UserName" | Format-List

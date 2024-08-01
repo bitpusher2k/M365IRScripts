@@ -917,6 +917,11 @@ if ($headerRow -match "AuditData") {
     # Import-Csv -Path $inputFile | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Sort-Object "CreationTime" | Export-Csv -Path "$outputPath" -NoTypeInformation
     # Write-Output "`n$outputPath written."
     # Write-Output "Seconds elapsed for CSV processing (lossy non-recursive json conversion): $($sw.elapsed.totalseconds)"
+
+    Write-Output "Done!"
+    Write-Output "If you now have multiple columns with IP information they can be consolidated in Excel with a formula like:"
+    Write-Output "=IF(ISBLANK(A2),IF(ISBLANK(B2),IF(ISBLANK(C2),"",C2),B2),A2)"
+    Write-Output "(The outermost cell listed in the nested IF that contains data is preferred)"
 } else {
     Write-Output "'AuditData' field not found. Please try again with exported UAL log containing this field."
 }

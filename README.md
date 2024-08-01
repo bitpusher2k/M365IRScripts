@@ -14,7 +14,7 @@
 
 ## By Bitpusher/The Digital Fox
 
-## v2.8 last updated 2024-05-12
+## v2.8 last updated 2024-07-14
 
 #comp #m365 #security #bec #script #irscript #powershell #collection #playbook #readme #lotlir #incident #response #investigation
 
@@ -27,7 +27,7 @@ When utilizing native M365 tools for business email compromise response/investig
 
 If you have SIEM/SOAR or other third-party monitoring and response tools in place, use them! However, such tools are often not immediately available at need due to cost, timeline, access permissions, outage, or other issues. In particular, responses to BEC in the SME/SMB sector may need to be performed without the support of third-party tools or more sophisticated native systems available at higher licensing levels. In these cases having a framework and set of scripts that are easy to follow, easy to learn from, which provide multiple methods for the retrieval of critical information, and which have no dependencies outside of native M365 modules can be very valuable. Welcome to LOtL IR - Living off the Land Incident Response.
 
-All scripts in this collection are pretty simple and do not require things like setting up application tokens before use. The utility of such simple scripts should show how much more can be done with more sophisticated automation & processing, as well as how such detection & response could be tuned to make SIEM/SOAR more effective.
+All scripts in this collection are pretty simple and do not require things like setting up application tokens before use (they are all meant to be run manually). The utility of such simple scripts should show how much more could be done with more sophisticated automation & processing, as well as how such detection & response could be tuned to make more capable SIEM/SOAR platforms even more effective. Think of these scripts as well-annotated command notes which should allow faster execution of the various processes, all documented just enough to clarify execution once experimented with a bit. And if much more than that is needed then there are real developers out there who have created real products that can do a lot more - but charge for them.
 
 
 # Script Organization:
@@ -35,6 +35,7 @@ All scripts in this collection are pretty simple and do not require things like 
 * 00-09: Scripts for module updating & connecting, as well as log processing.
 * 10-29: Broader tenant-wide information gathering scripts.
 * 30-39: Narrower user or IP-specific information gathering and setting altering scripts.
+* 80-89: Misc.
 * 90-99: Scripts for reviewing & updating tenant settings and disconnecting from modules when finished.
 
 
@@ -79,6 +80,7 @@ Functions and scripts modified from other sources are attributed in each script 
 * 36-Search-UALActivityByIPAddress.ps1 - Export all UAL entries associated with a given set of IP addresses.
 * 37-Search-UALActivityByUser.ps1 - Export all UAL entries associated with a given set of user accounts.
 * 38-Get-ExchangeMessageContentSearch.ps1 - Walk through frequently used content search steps for dealing with spam/phishing messages - Create Exchange search based on sender/date/message subject, export preview, export content, purge.
+* 80-OneLinerReference.ps1 - Reference for various PowerShell one-line commands that are useful during BEC response & investigation.
 * 90-Get-MFAReport.ps1 - Export report of M365 MFA settings of each account through Microsoft Graph.
 * 91-Get-CAPReport-P1.ps1 - Generate report of current Conditional Access Policies and Named Locations. Requires at least Entra ID P1.
 * 92-Create-ConditionalAccessPolicies-P1.ps1 - Backup current Named Locations/Conditional Access Policies and set up a recommended basic set of Named Locations and Conditional Access Policies in report-only mode. Requires at least Entra ID P1, and requires P2 for some policies.
@@ -132,6 +134,8 @@ M365 requires that some operations, such as downloading data found through compl
 
 # Recommended Resources:
 
+* Micorsoft's steps for responding to BEC - https://learn.microsoft.com/en-us/defender-office-365/responding-to-a-compromised-email-account
+* FBI site for BEC information - https://www.fbi.gov/how-we-can-help-you/scams-and-safety/common-scams-and-crimes/business-email-compromise
 * Awesome-BEC - https://randomaccess3.github.io/Awesome-BEC/
 * Sparrow - https://github.com/cisagov/Sparrow
 * Hawk - https://github.com/T0pCyber/hawk

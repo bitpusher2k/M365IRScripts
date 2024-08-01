@@ -12,6 +12,8 @@
 # Script to backup current Named Locations/Conditional Access Policies and
 # to set up basic set of Named Locations and Conditional Access Policies in report-only mode.
 #
+# CAP info from Microsoft: https://learn.microsoft.com/en-us/entra/identity/conditional-access/howto-conditional-access-policy-all-users-mfa
+#
 # * Will need to update policy creation to use new "Network" assignment instead of "Conditions" > "Location" at some point if condition schema changes.
 # * May create 'Require compliant devices (Intune)' & 'Require Hybrid Azure AD joined device (Windows devices need to be on domain and Entra ID)' in the future.
 #
