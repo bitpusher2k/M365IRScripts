@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Connect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v2.9 last updated 2024-11-19
 # Script to connect PowerShell session to all needed M365 modules before
 # running other investigation & remediation scripts.
 #
@@ -39,7 +39,7 @@ Write-Output "`nPart 1 of 5. MS Graph (connecting to Graph first works better)..
 # Import-Module Microsoft.Graph
 # Install-Module Microsoft.Graph.Beta
 # Import-Module Microsoft.Graph.Beta
-Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All"
+Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send"
 
 # list of all scopes:
 # Find-MgGraphPermission | ? {$_.Name -match "\bRead\b"}

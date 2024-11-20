@@ -21,7 +21,7 @@
 #
 # Uses (ExchangePowerShell), Microsoft Graph commands.
 #
-#comp #m365 #security #bec #script #irscript #powershell #mfa #report #per-user
+#comp #m365 #security #bec #script #irscript #powershell #mfa #report
 
 #Requires -Version 5.1
 

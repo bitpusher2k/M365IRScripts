@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-BasicTenantInformation.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v2.9 last updated 2024-11-19
 # Script to collect basic Tenant information before further investigation.
 #
 # Allows quickly verifying the tenant name, subscriptions, and auditing status.
@@ -65,13 +65,17 @@ if (!$CheckSubDir) {
     mkdir $OutputPath\$DomainName
 }
 
+$admins = Get-MgDirectoryRole | Select-Object DisplayName, Id | ForEach-Object {$role = $_.DisplayName; Get-MgDirectoryRoleMember -DirectoryRoleId $_.id | where-object {$_.AdditionalProperties."@odata.type" -eq "#microsoft.graph.user"} | ForEach-Object {Get-MgUser -userid $_.id } } | Select @{Name="Role"; Expression = {$role}}, DisplayName, UserPrincipalName, Mail, Id | Sort-Object -Property Mail -Unique
 $info = Get-MsolCompanyInformation
 $orgconfig = Get-OrganizationConfig
+$orgconfigGrph = Get-MgOrganization
 $logconfig = Get-AdminAuditLogConfig
 $connectors = Get-InboundConnector
 $rules = Get-TransportRule
+$admins | Out-File -FilePath "$OutputPath\$DomainName\TenantAdmins_$($date).txt" -Encoding $Encoding
 $info | Out-File -FilePath "$OutputPath\$DomainName\TenantCompanyInfo_$($date).txt" -Encoding $Encoding
 $orgconfig | Out-File -FilePath "$OutputPath\$DomainName\TenantOrgConfig_$($date).txt" -Encoding $Encoding
+$orgconfigGraph | Out-File -FilePath "$OutputPath\$DomainName\TenantOrgConfig_Graph_$($date).txt" -Encoding $Encoding
 $logconfig | Out-File -FilePath "$OutputPath\$DomainName\TenantAuditLogConfig_$($date).txt" -Encoding $Encoding
 $connectors | Out-File -FilePath "$OutputPath\$DomainName\ConnectorConfig_$($date).txt" -Encoding $Encoding
 $rules | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_$($date).txt" -Encoding $Encoding
