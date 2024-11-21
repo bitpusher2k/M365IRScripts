@@ -68,7 +68,7 @@ if (!$CheckSubDir) {
 $admins = Get-MgDirectoryRole | Select-Object DisplayName, Id | ForEach-Object {$role = $_.DisplayName; Get-MgDirectoryRoleMember -DirectoryRoleId $_.id | where-object {$_.AdditionalProperties."@odata.type" -eq "#microsoft.graph.user"} | ForEach-Object {Get-MgUser -userid $_.id } } | Select @{Name="Role"; Expression = {$role}}, DisplayName, UserPrincipalName, Mail, Id | Sort-Object -Property Mail -Unique
 $info = Get-MsolCompanyInformation
 $orgconfig = Get-OrganizationConfig
-$orgconfigGrph = Get-MgOrganization
+$orgconfigGraph = Get-MgOrganization
 $logconfig = Get-AdminAuditLogConfig
 $connectors = Get-InboundConnector
 $rules = Get-TransportRule

@@ -197,6 +197,24 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
     Write-Output "Results have been written to $outputFile & $outputFileUAL"
 }
 
+# * Check mailbox audit settings:
+# Get-OrganizationConfig | Format-List AuditDisabled
+# Get-MailboxAuditBypassAssociation | Select-Object Name, AuditByPassEnabled | Where-Object -Property AuditBypassEnabled -eq $True | FT
+# Get-Mailbox -ResultSize Unlimited | Where-Object { $_.AuditEnabled -eq "$true" } | Select-Object DisplayName, Alias, AuditEnabled, DefaultAuditSet, AuditLogAgeLimit, AuditOwner, AuditDelegate, AuditAdmin | Export-CSV MailboxAuditSettings.csv -NoTypeInformation -Encoding $encoding
+# Get-Mailbox -Identity "MailboxIdentity" | Select-Object DisplayName, Alias, AuditEnabled, DefaultAuditSet, AuditLogAgeLimit, AuditOwner, AuditDelegate, AuditAdmin
+# Get-Mailbox -Identity "MailboxIdentity" | Select-Object -ExpandProperty AuditOwner
+# Get-Mailbox -Identity "MailboxIdentity" | Select-Object -ExpandProperty AuditDelegate
+# Get-Mailbox -Identity "MailboxIdentity" | Select-Object -ExpandProperty AuditAdmin
+# Get-Mailbox -Identity "MailboxIdentity" | Format-List
+# Get-MailboxFolderStatistics -Identity "MailboxIdentity" | Where-Object {$_.FolderType -eq 'Audits'} | Format-Table Identity, ItemsInFolder, FolderSize –auto
+# * Restore default settings:
+# Set-OrganizationConfig -AuditDisabled $false
+# Set-Mailbox -Identity "MailboxIdentity" -DefaultAuditSet Admin,Delegate,Owner
+# * Enable auditing of all possible actions:
+# Set-Mailbox "MailboxIdentity" -AuditOwner "Create, SoftDelete, HardDelete, Update, Move, MoveToDeletedItems, MailboxLogin, UpdateFolderPermissions"
+# Set-Mailbox "MailboxIdentity" -AuditDelegate "Create, FolderBind, SendAs, SendOnBehalf, SoftDelete, HardDelete, Update, Move, MoveToDeletedItems, UpdateFolderPermissions"
+# Set-Mailbox "MailboxIdentity" -AuditAdmin "Create, FolderBind, MessageBind, SendAs, SendOnBehalf, SoftDelete, HardDelete, Update, Move, Copy, MoveToDeletedItems, UpdateFolderPermissions"
+
 Write-Output "`nDone! Check output path for results."
 Invoke-Item "$OutputPath\$DomainName"
 

@@ -27,7 +27,7 @@
 param(
     [string]$inputFile = "UALexport.csv",
     [string]$outputFile = "UALexport_Processed.csv",
-    [string]$function = "proxb", # Can be "iRon", "EvotecIT", "RamblingCookieMonster", "proxb", or "all"
+    [string]$function = "iRon", # Can be "iRon", "EvotecIT", "RamblingCookieMonster", "proxb", or "all"
     [string]$scriptName = "ProcessUnifiedAuditLogFlatten",
     [string]$Priority = "Normal",
     [int]$RandMax = "500",
@@ -911,7 +911,7 @@ if ($headerRow -match "AuditData") {
         Write-Output "Seconds elapsed for CSV processing (Convert-OutputForCSV - fast): $($sw.elapsed.totalseconds)"
     }
 
-    # One-level JSON to CSV export - very fast but looses all nested properties:
+    # One-level JSON to CSV export - very fast but loses all nested properties:
     # $sw = [Diagnostics.StopWatch]::StartNew()
     # [string]$outputPath = $outputFolder + "\" + $outputFile + "_Lossy_single_level_Processed.csv"
     # Import-Csv -Path $inputFile | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Sort-Object "CreationTime" | Export-Csv -Path "$outputPath" -NoTypeInformation
