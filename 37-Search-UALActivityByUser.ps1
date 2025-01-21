@@ -80,10 +80,10 @@ if (!$UserIds) {
 ## If DaysAgo variable is not defined, prompt for it
 if (!$DaysAgo) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available UAL entries associated with these user(s) (default: 10, maximum: 90)'
-    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 90) { $DaysAgo = "90" }
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available UAL entries associated with these user(s) (default: 10, maximum: 180)'
+    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
 }
-if ($DaysAgo -gt 90) { $DaysAgo = "90" }
+if ($DaysAgo -gt 180) { $DaysAgo = "180" }
 Write-Output "`nWill search UAC $DaysAgo days back from today for relevant events."
 
 $StartDate = (Get-Date).AddDays(- $DaysAgo)

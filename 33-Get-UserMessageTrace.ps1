@@ -76,7 +76,7 @@ if (!$UserIds) {
 ## If DaysAgo variable is not defined and StartDate/EndDate were also not defined, prompt for it
 if (!$DaysAgo -and (!$StartDate -or !$EndtDate)) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available message trace entries for specified account (default: 10, maximum: 90 - entries past 10 days ago will be in "historical" report)'
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available message trace entries for specified account (default: 10, maximum: 90 - entries past 10 days ago will be in "historical" report)' # https://learn.microsoft.com/en-us/exchange/monitoring/trace-an-email-message/message-trace-faq
     if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 90) { $DaysAgo = "90" }
     Write-Output "Will attempt to retrieve message trace entries going back $DaysAgo days from today."
 } elseif ($DaysAgo) {

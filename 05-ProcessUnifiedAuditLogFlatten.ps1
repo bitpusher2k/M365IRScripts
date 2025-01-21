@@ -27,7 +27,7 @@
 param(
     [string]$inputFile = "UALexport.csv",
     [string]$outputFile = "UALexport_Processed.csv",
-    [string]$function = "iRon", # Can be "iRon", "EvotecIT", "RamblingCookieMonster", "proxb", or "all"
+    [string]$function = "proxb", # Can be "iRon", "EvotecIT", "RamblingCookieMonster", "proxb", or "all"
     [string]$scriptName = "ProcessUnifiedAuditLogFlatten",
     [string]$Priority = "Normal",
     [int]$RandMax = "500",

@@ -82,11 +82,11 @@ if (!$UserIds) {
 ## If DaysAgo variable is not defined, prompt for it
 if (!$DaysAgo) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available Mailbox Audit Log entries (default: 30, maximum: 90)'
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available Mailbox Audit Log entries (default: 30, maximum: 180)'
     if ($DaysAgo -eq '') { $DaysAgo = "30" }
     Write-Output "Will attempt to retrieve all UAC entries going back $DaysAgo days from today."
 }
-if ($DaysAgo -gt 90) { $DaysAgo = "90" }
+if ($DaysAgo -gt 180) { $DaysAgo = "180" }
 
 $StartDate = (Get-Date).AddDays(- $DaysAgo)
 $EndDate = (Get-Date).AddDays(1)

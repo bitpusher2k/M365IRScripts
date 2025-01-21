@@ -78,10 +78,10 @@ if (!$UserIds) {
 ## If DaysAgo variable is not defined, prompt for it
 if (!$DaysAgo) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back ...s (default: 10, maximum: 90)'
-    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 90) { $DaysAgo = "90" }
+    $DaysAgo = Read-Host 'Enter how many days back ...s (default: 10, maximum: 180)'
+    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
 }
-if ($DaysAgo -gt 90) { $DaysAgo = "90" }
+if ($DaysAgo -gt 180) { $DaysAgo = "180" }
 Write-Output "Will attempt to ... going back $DaysAgo days from today."
 
 $StartDate = (Get-Date).AddDays(- $DaysAgo)

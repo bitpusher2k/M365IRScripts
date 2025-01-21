@@ -18,7 +18,8 @@
 #
 # The advantage to searching UAC for sign-in information
 # is that while Entra ID sign-in logs are retained
-# for a maximum of 30 days, UAC goes back 90 days.
+# for a maximum of 30 days, UAC goes back 180 days.
+# (https://learn.microsoft.com/en-us/purview/audit-log-retention-policies)
 # Disadvantage is less verbose information and no record
 # of non-interactive sign-ins.
 #
@@ -117,13 +118,13 @@ Write-Output "Script to display interactive user logins from Unified Audit log `
 
 if (!$DaysAgo -and (!$StartDate -and !$EndDate)) {
     do {
-        $NumberDays = Read-Host -Prompt "`nEnter total number of days back from today to search log (maximum: 90)" # Prompt for number of days to check
+        $NumberDays = Read-Host -Prompt "`nEnter total number of days back from today to search log (maximum: 180)" # Prompt for number of days to check
     } until ((-not [string]::IsNullOrEmpty($NumberDays)) -and ($NumberDays -match "^\d+$")) # Keep prompting until not blank and numeric
     Write-Output ""
     $NumberDaysInt = [int]$NumberDays
     $DaysAgo = $NumberDaysInt
-    if ($DaysAgo -gt 90) {
-        $DaysAgo = 90
+    if ($DaysAgo -gt 180) {
+        $DaysAgo = 180
     }
     $StartDateLocal = (Get-Date).adddays(-$DaysAgo)
     $StartDate = $StartDateLocal.touniversaltime() # Convert local start time to UTC
@@ -134,13 +135,13 @@ if (!$DaysAgo -and (!$StartDate -and !$EndDate)) {
     [datetime]$End = [datetime]$EndDate
     $StartDate = $Start.touniversaltime() # Convert local start time to UTC
     $EndDate = $End.touniversaltime() # Convert local end time to UTC
-    if ($StartDate -lt (Get-Date).adddays(-90)) {
-        Write-Output "Starting date is more than 90 days ago, and outside the range of UAL records. Please try again with a start date within 90 days ago. Ending."
+    if ($StartDate -lt (Get-Date).adddays(-180)) {
+        Write-Output "Starting date is more than 180 days ago, and outside the range of UAL records. Please try again with a start date within 180 days ago. Ending."
         exit
     }
     Write-Output "This is between $StartDate and $EndDate UTC..."
 } elseif ($DaysAgo) {
-    if ($DaysAgo -gt "90") { $DaysAgo = "90" }
+    if ($DaysAgo -gt "180") { $DaysAgo = "180" }
     $NumberDaysInt = [int]::Parse($DaysAgo) # Convert string to integer
     $StartDateLocal = (Get-Date).adddays(- $NumberDaysInt)
     $StartDate = $StartDateLocal.touniversaltime() # Convert local start time to UTC

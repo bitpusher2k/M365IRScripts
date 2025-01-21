@@ -12,7 +12,7 @@
 # modified by Bitpusher/The Digital Fox
 # v2.8 last updated 2024-05-03
 # Script to search UAC for inbox rule changes on all accounts
-# made recently (max past 90 days).
+# made recently (max past 180 days).
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\Search-InboxRuleChanges.ps1 -OutputPath "Default"
@@ -172,10 +172,10 @@ if ($UseClientIPExcludedRanges -eq $true) {
 ## If DaysAgo variable is not defined, prompt for it
 if (!$DaysAgo) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available inbox rule change events (default: 30, maximum: 90)'
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available inbox rule change events (default: 30, maximum: 180)'
     if ($DaysAgo -eq '') { $DaysAgo = "30" }
 }
-if ($DaysAgo -gt 90) { $DaysAgo = "90" }
+if ($DaysAgo -gt 180) { $DaysAgo = "180" }
 Write-Output "Will attempt to retrieve all UAC entries going back $DaysAgo days from today."
 Write-Output "NOTE: Recently it has taken multiple runs before all email rule change events are properly grabbed and parsed by this script. Reason unknown."
 Write-Output "NOTE: Run. Wait 10 minutes. Run again."
@@ -352,7 +352,6 @@ if ($SearchResultsProcessed.Count -ge 1) {
             Where-Object { $FinalOutputProperties.Name -notcontains $_.Name }
     }
     $SearchResultsProcessed | Export-Csv "$OutputPath\$DomainName\InboxRuleChanges_going_back_$($DaysAgo)_days_from_$($date)_Processed.csv" -NoTypeInformation -Encoding $Encoding
-    # Write-Output $SearchResultsProcessed | Tee-Object -FilePath C:\temp\InboxRuleChanges90.txt -Append | Select-Object -Property $FinalOutputProperties.Name
 }
 
 Write-Output "`nDone! Check output path for results."

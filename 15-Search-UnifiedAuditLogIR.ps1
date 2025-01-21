@@ -95,9 +95,9 @@ Write-Output ""
 Write-Output "In the future this script may be split up into more targeted scripts which parse UAL output specific to the retrieved records."
 Write-Output ""
 if (!$DaysAgo) {
-    $DaysAgo = Read-Host "Enter number of days back to search in the Unified Audit Log (default: 30, max: 90)"
+    $DaysAgo = Read-Host "Enter number of days back to search in the Unified Audit Log (default: 30, max: 180)"
 }
-if ($DaysAgo -eq '') { $DaysAgo = "30" } elseif ($DaysAgo -gt "90") { $DaysAgo = "90" }
+if ($DaysAgo -eq '') { $DaysAgo = "30" } elseif ($DaysAgo -gt "180") { $DaysAgo = "180" }
 Write-Output "Will search UAC $DaysAgo days back from today for relevant events."
 
 ## Set Start and End Dates

@@ -10,9 +10,9 @@
 # Get-UnifiedAuditLogEntries.ps1 - By Bitpusher/The Digital Fox
 # v2.8 last updated 2024-05-12
 # Script to export all available UAC entries going back
-# the specified number of days (max 90).
+# the specified number of days (max 180).
 #
-# UAC retention is 90 days.
+# UAC retention is 180 days.
 #
 # NOTE: Retrieving all log entries for a broad swath of time
 # and/or on a busy tenant can take a long time.
@@ -75,8 +75,8 @@ if (!$CheckSubDir) {
 ## If DaysAgo variable is not defined, prompt for it
 if (!$DaysAgo) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available Unified Audit Log entries for tenant (default: 10, maximum: 90)'
-    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt "90") { $DaysAgo = "90" }
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available Unified Audit Log entries for tenant (default: 10, maximum: 180)'
+    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt "180") { $DaysAgo = "180" }
     Write-Output "Will attempt to retrieve all UAC entries going back $DaysAgo days from today."
 }
 

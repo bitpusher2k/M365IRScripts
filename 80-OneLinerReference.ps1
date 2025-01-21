@@ -145,6 +145,26 @@ Write-Output 'https://4sysops.com/archives/configure-spam-filter-in-exchange-onl
 Write-Output `n
 Write-Output 'https://learn.microsoft.com/en-us/defender-office-365/outbound-spam-policies-configure'
 Write-Output `n '-----------------------------------------------'
+Write-Output 'Check password policy settings'
+Write-Output '-----------------------------------------------'
+Write-Output `n 'https://learn.microsoft.com/en-us/powershell/module/microsoft.graph.identity.signins/update-mgpolicyidentitysecuritydefaultenforcementpolicy?view=graph-powershell-1.0'
+Write-Output 'Get-MgPolicyIdentitySecurityDefaultEnforcementPolicy | Fl'
+Write-Output `n '-----------------------------------------------'
+Write-Output 'Misc'
+Write-Output '-----------------------------------------------'
+Write-Output `n 'Stuff'
+Write-Output 'https://security.microsoft.com/tenantAllowBlockList'
+Write-Output 'https://security.microsoft.com/threatpolicy'
+Write-Output 'https://security.microsoft.com/antispam'
+Write-Output 'Anti-spam outbound policy (Default)'
+Write-Output 'Get-AuthenticationPolicy'
+# Write-Output `n '-----------------------------------------------'
+# Write-Output 'Blank section'
+# Write-Output '-----------------------------------------------'
+# Write-Output `n 'Stuff'
+# Write-Output 'Stuff'
+# rite-Output 'Stuff'
+Write-Output `n '-----------------------------------------------'
 Write-Output `n`n "Done!"
 
 Exit

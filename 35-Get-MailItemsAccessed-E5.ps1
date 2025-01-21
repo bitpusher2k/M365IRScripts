@@ -155,7 +155,7 @@ The audit logs are in UTC, and they will be exported as such<br>
 <br>
 
 <b>What is the retention period?</b><br>
-Office 365 E3 - Audit records are retained for 90 days. That means you can search the audit log for activities that were performed within the last 90 days.
+Office 365 E3 - Audit records are retained for 180 days. That means you can search the audit log for activities that were performed within the last 180 days.
 
 Office 365 E5 - Audit records are retained for 365 days (one year). That means you can search the audit log for activities that were performed within the last year. Retaining audit records for one year is also available for users that are assigned an E3/Exchange Online Plan 1 license and have an Office 365 Advanced Compliance add-on license.
 <br>
@@ -544,7 +544,7 @@ function Email {
 
 function Main {
     if (!$StartDate) {
-        $StartDate = [datetime]::Now.ToUniversalTime().AddDays(-90) 
+        $StartDate = [datetime]::Now.ToUniversalTime().AddDays(-180) 
     }
     if (!$EndDate) {
         $EndDate = [datetime]::Now.ToUniversalTime() 
