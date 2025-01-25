@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-ExchangeMessageContentSearch.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v2.9 last updated 2025-01-24
 # Script to walk through usual content search steps for dealing with spam/phishing messages:
 # * Search for messages by sender & subject
 # * Export preview report
@@ -33,6 +33,7 @@ param(
     [string]$UserIds,
     [int]$DaysAgo,
     [string]$Subject,
+    [string]$Identifier,
     [datetime]$StartDate,
     [datetime]$EndDate,
     [string]$Encoding = "utf8bom" # "ascii","ansi","bigendianunicode","unicode","utf8","utf8","utf8NoBOM","utf32"
@@ -107,33 +108,38 @@ Write-Output "Add-eDiscoveryCaseAdmin $CurrentUser; Get-eDiscoveryCaseAdmin"
 Write-Output "."
 Write-Output "."
 
+## Search attribute information - https://learn.microsoft.com/en-us/purview/edisc-condition-builder#conditions-for-common-properties
+
 ## If UserIds variable is not defined, prompt for it
 if (!$UserIds) {
     Write-Output ""
     $UserIds = Read-Host 'Enter the email address of the spam message source to be searched for/purged (leave blank to search all senders)'
     if (!$UserIds) {
         $UserIds = "Any Sender"
-        Write-Output "Will search content for ANY sender - Use with caution."
+        Write-Output "Will search messages from ANY sender - Use with caution."
     }
 }
-
-if (!$DaysAgo) {
-    Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to search (default 5)'
-    if ($DaysAgo -eq '') { $DaysAgo = "5" }
-}
-if ($DaysAgo -gt 90) { $DaysAgo = "90" }
 
 if (!$Subject) {
     Write-Output ""
-    $Subject = Read-Host 'Enter partial or complete subject of the malicious message to search for (required - escape apostrophies and quote marks with backtick or possibly backslash)'
+    Write-Output 'Enter partial or complete subject of the malicious message to search for (escape apostrophies and quote marks with backslash)'
+    $Subject = Read-Host '(Note that subject search here using PS can include COMMAS, which is not possible through the web GUI - GUI always splits search terms at a comma)'
     if (!$Subject) {
-        Write-Output "Subject line required. Exiting"
-        exit
+        $Identifier = Read-Host 'Enter MessageID/Identifier to search for (e.g. <XXXXXX@XXXX.prod.outlook.com>):'
+        if (!$Identifier) {
+            Write-Output "Specifying a Subject line or MessageID is required for this script to search. Exiting"
+            exit
+        }
     }
 }
 
-$StartDate = (Get-Date).AddDays(- $DaysAgo)
+if (!$DaysAgo -and !$Identifier) {
+    Write-Output ""
+    $DaysAgo = Read-Host 'Enter how many days back to search for message to be "sent" from (default 30)'
+    if ($DaysAgo -eq '') { $DaysAgo = "30" }
+}
+
+$StartDate = (Get-Date).AddDays(-$DaysAgo)
 $EndDate = (Get-Date).AddDays(1)
 
 
@@ -147,7 +153,9 @@ $EndDate = (Get-Date).AddDays(1)
 Write-Output "."
 Write-Output "."
 $SearchName = "Suspicious email search $date"
-if ($UserIds -eq "Any Sender") {
+if ($Identifier) {
+    $Query = "(Identifier:" + $Identifier + ")"
+} elseif ($UserIds -eq "Any Sender") {
     $Query = "sent>=" + $StartDate + " AND (subject:" + $Subject + ")"
 } else {
     $Query = "From:" + $UserIds + " AND sent>=" + $StartDate + " AND (subject:" + $Subject + ")"
@@ -217,6 +225,9 @@ Write-Output "https://compliance.microsoft.com/contentsearchv2?viewid=export"
 Start-Process msedge.exe -ArgumentList "https://compliance.microsoft.com/contentsearchv2?viewid=export"
 # Start-Process msedge.exe -ArgumentList "https://compliance.microsoft.com/contentsearchv2?viewid=export -inprivate" # Use this string to open private window if Edge is not the browser being used for M365 management
 Write-Output "Sign-in with the account that started this content search, click `"Export`". When the export is 'Completed' retrieve the messages using `"Download results`" and the Export Key."
+
+# eDiscovery (Standard): compliance.microsoft.com/classicediscovery
+# eDiscovery (Premium): compliance.microsoft.com/advancedediscovery
 
 Write-Output "."
 Write-Output "."
