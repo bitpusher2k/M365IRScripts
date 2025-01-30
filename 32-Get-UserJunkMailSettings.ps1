@@ -84,7 +84,8 @@ $JunkSettings | Format-List
 $JunkSettings | Export-Csv $OutputCSV -Append -NoTypeInformation -Encoding $Encoding
 Write-Output "`n`nExample commands to update the above settings if needed:"
 Write-Output "Set-MailboxJunkEMailConfiguration –Identity $UserIds –BlockedSendersAndDomains @{Add=`"JunkMailEmailOrDomain@spam.online`"}"
-Write-Output "Set-MailboxJunkEmailConfiguration $UserIds -BlockedSendersAndDomains @{remove=`"name@domain.com`"}"
+Write-Output "Set-MailboxJunkEmailConfiguration –Identity $UserIds -BlockedSendersAndDomains @{remove=`"name@domain.com`"}"
+Write-Output "Set-MailboxJunkEmailConfiguration –Identity $UserIds -TrustedSendersAndDomains @{remove=`"name@domain.com`"}"
 Write-Output "`nTo completely erase & recreate the junk mail settings:"
 Write-Output "Set-MailboxJunkEmailConfiguration $UserIds -Enabled $false"
 Write-Output "Set-MailboxJunkEmailConfiguration $UserIds -Enabled $true"

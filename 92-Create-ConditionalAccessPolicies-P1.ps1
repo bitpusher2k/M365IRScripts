@@ -8,14 +8,16 @@
 # https://github.com/bitpusher2k
 #
 # Create-ConditionalAccessPolicies.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-20
+# v2.9 last updated 2025-01-29
 # Script to backup current Named Locations/Conditional Access Policies and
 # to set up basic set of Named Locations and Conditional Access Policies in report-only mode.
 #
-# CAP info from Microsoft: https://learn.microsoft.com/en-us/entra/identity/conditional-access/howto-conditional-access-policy-all-users-mfa
+# CAP info from Microsoft:
+# https://learn.microsoft.com/en-us/entra/identity/conditional-access/howto-conditional-access-policy-all-users-mfa
+# https://learn.microsoft.com/en-us/entra/identity/conditional-access/plan-conditional-access
+# https://learn.microsoft.com/en-us/entra/identity/conditional-access/howto-conditional-access-insights-reporting
+# https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-continuous-access-evaluation
 #
-# * Will need to update policy creation to use new "Network" assignment instead of "Conditions" > "Location" at some point if condition schema changes.
-# * May create 'Require compliant devices (Intune)' & 'Require Hybrid Azure AD joined device (Windows devices need to be on domain and Entra ID)' in the future.
 #
 # Prompts for creation of:
 # *'Allowed Sign-in Countries' Named Location
@@ -30,6 +32,16 @@
 # *'Require Multifactor Authentication for Admin Roles' conditional access policy (1 hour)
 # *'Require Multifactor Authentication for Azure management' conditional access policy (1 hour)
 # *'Require Multifactor Authentication for All Users' conditional access policy (30 days)
+# *'Require Hybrid Azure AD joined device (Windows devices need to be on domain and Entra ID)'
+# *'Require phishing-resistant MFA for administrators' conditional access policy (new style recommended by Microsoft)
+# *'Require MFA authentication strength for all users' conditional access policy (new style recommended by Microsoft)
+# *'Require MFA authentication strength for guests' conditional access policy (new style recommended by Microsoft)
+# *'Secure security info registration' conditional access policy (new style recommended by Microsoft)
+# *'Require authentication strength for device registration' conditional access policy (new style recommended by Microsoft)
+# *'Require device compliance' conditional access policy
+# *'Restrict device code flow and authentication transfer' conditional access policy
+# *'Require MFA for risky sign-in (P2)' conditional access policy (new style recommended by Microsoft)
+# *'Require password change for risky users (P2)' conditional access policy (new style recommended by Microsoft)
 # *'Block High-Risk Sign-ins (P2)' conditional access policy (only works with Entra ID P2 subscription)
 # *'Block High-Risk Users (P2)' conditional access policy (only works with Entra ID P2 subscription)
 #
@@ -38,6 +50,22 @@
 # 'Require Multifactor Authentication for Admin Roles'
 # 'Require Multifactor Authentication for Azure management'
 # 'Require Multifactor Authentication for All Users'
+#
+# The ten policies recommended by Microsoft are:
+# 'Block legacy authentication'
+# 'Require phishing-resistant MFA for administrators'
+# 'Require MFA authentication strength for all users'
+# 'Require MFA authentication strength for guests'
+# 'Secure security info registration'
+# 'Require MFA for risky sign-in'
+# 'Require password change for risky users'
+# 'Require authentication strength for device registration'
+# 'Require device compliance'
+# 'Restrict device code flow and authentication transfer'
+#
+#
+# Note that conditional access policies are not applied in any particular order. All matching policies apply and the resulting access controls required by the policies are merged. If both "grant" and "block" policies match, block will always win. If multiple policies match and they have different Access Controls like Require MFA, Require Compliant Device or Require Azure AD Joined, the requirements will all be merged and all the access controls from all matching policies have to be met.
+#
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\Create-ConditionalAccessPolicies.ps1 -OutputPath "Default"
@@ -51,7 +79,7 @@
 # To check needed permissions for a command:
 # (Find-MgGraphCommand -Command New-MgIdentityConditionalAccessNamedLocation)[0].Permissions.name
 #
-#comp #m365 #security #bec #script #irscript #powershell #conditional #access #policies #CAP #named #location
+#comp #m365 #security #bec #script #irscript #powershell #conditional #access #policies #CAP #named #location #MFA
 
 #Requires -Version 5.1
 
@@ -189,7 +217,7 @@ if ($Continue -eq "Y") {
         "@odata.type"                     = "#microsoft.graph.countryNamedLocation"
         DisplayName                       = "Blocked High Risk Countries"
         CountriesAndRegions               = @(# 2022 BEC sources: https://static.fortra.com/agari/pdfs/guide/ag-acid-geography-of-bec-gd.pdf - Percentages by location:
-            "RU" # Russia - less than 1%, but it's high signal
+            "RU" # Russia - less than 1%, but it's high signal and low noise
             "NG" # Nigeria - 50% (!)
             "ZA" # South Africa - 9%
             "AE" # United Arab Emirates - 2%
@@ -495,6 +523,7 @@ if ($Continue -eq "Y") {
                 )
                 includeRoles = @(
                     "62e90394-69f5-4237-9190-012177145e10" # Global Administrator role
+                    "d2562ede-74db-457e-a7b6-544e236ebb61" # AI Administrator
                     "194ae4cb-b126-40b2-bd5b-6091b380977d" # Security Administrator role
                     "f28a1f50-f6e7-4571-818b-6a12f2af6b6c" # SharePoint Administrator role
                     "29232cdf-9323-42fd-ade2-1d097af3e4de" # Exchange Administrator role
@@ -609,6 +638,436 @@ if ($Continue -eq "Y") {
             signInFrequency = @{
                 value     = 30
                 type      = "days"
+                isEnabled = $true
+            }
+        }
+    }
+    New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
+    Write-Output "Policy created."
+    Write-Output ""
+}
+
+## Create Require Hybrid Azure AD joined device policy
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Require Hybrid Azure AD joined device' conditional access policy"
+if ($Continue -eq "Y") {
+    $PolicySettings = @{
+        DisplayName     = "Require Hybrid Azure AD joined device"
+        state           = "enabledForReportingButNotEnforced"
+        conditions      = @{
+            Applications   = @{
+                includeApplications = @(
+                    "All"
+                )
+            }
+            Users          = @{
+                includeUsers = @(
+                    "All"
+                )
+                excludeUsers = @(
+                    "$UserID"
+                )
+            }
+            ClientAppTypes = @(
+                "all"
+            )
+        }
+        grantControls   = @{
+            Operator        = "AND"
+            BuiltInControls = @(
+                "domainJoinedDevice"
+            )
+        }
+    }
+    New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
+    Write-Output "Policy created."
+    Write-Output ""
+}
+
+## Create Require phishing-resistant MFA for administrators policy - If you use external authentication methods, these are currently incompatible with authentication strength and you should use the Require multifactor authentication grant control.
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Require phishing-resistant MFA for administrators' conditional access policy"
+if ($Continue -eq "Y") {
+    $PolicySettings = @{
+        DisplayName     = "Require phishing-resistant MFA for administrators"
+        state           = "enabledForReportingButNotEnforced"
+        conditions      = @{
+            ClientAppTypes = @(
+                "all"
+            )
+            Applications   = @{
+                includeApplications = @(
+                    "All"
+                )
+            }
+            Users          = @{
+                excludeUsers = @(
+                    "$UserID"
+                )
+                includeRoles = @(
+                    "62e90394-69f5-4237-9190-012177145e10" # Global Administrator role
+                    "d2562ede-74db-457e-a7b6-544e236ebb61" # AI Administrator
+                    "194ae4cb-b126-40b2-bd5b-6091b380977d" # Security Administrator role
+                    "f28a1f50-f6e7-4571-818b-6a12f2af6b6c" # SharePoint Administrator role
+                    "29232cdf-9323-42fd-ade2-1d097af3e4de" # Exchange Administrator role
+                    "b1be1c3e-b65d-4f19-8427-f6fa0d97feb9" # Conditional Access Administrator role
+                    "729827e3-9c14-49f7-bb1b-9608f156bbb8" # Helpdesk Administrator role
+                    "b0f54661-2d74-4c50-afa3-1ec803f12efe" # Billing Administrator role
+                    "fe930be7-5e62-47db-91af-98c3a49a38b1" # User Administrator role
+                    "c4e39bd9-1100-46d3-8c65-fb160da0071f" # Authentication Administrator role
+                    "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3" # Application Administrator role
+                    "158c047a-c907-4556-b7ef-446551a6b5f7" # Cloud Application Administrator role
+                    "966707d0-3269-4727-9be2-8c3a10f19b9d" # Password Administrator role
+                    "7be44c8a-adaf-4e2a-84d6-ab2649e08a13" # Privileged Authentication Administrator role
+                    "e8611ab8-c189-46e8-94e1-60213ab1f814" # Privileged Role Administrator role
+                ) # https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/permissions-reference
+            }
+        }
+        grantControls   = @{
+            Operator        = "OR"
+            AuthenticationStrength = @{
+                Id = "00000000-0000-0000-0000-000000000004"
+            }
+        }
+    }
+    New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
+    Write-Output "Policy created."
+    Write-Output ""
+}
+
+## Create Require MFA authentication strength for all users policy - If you use external authentication methods, these are currently incompatable with authentication strength and you should use the Require multifactor authentication grant control.
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Require MFA authentication strength for all users' conditional access policy"
+if ($Continue -eq "Y") {
+    $PolicySettings = @{
+        DisplayName     = "Require MFA authentication strength for all users"
+        state           = "enabledForReportingButNotEnforced"
+        conditions      = @{
+            Applications   = @{
+                includeApplications = @(
+                    "All"
+                )
+            }
+            Users          = @{
+                includeUsers = @(
+                    "All"
+                )
+                excludeUsers = @(
+                    "$UserID"
+                )
+            }
+            ClientAppTypes = @(
+                "all"
+            )
+        }
+        grantControls   = @{
+            Operator        = "OR"
+            AuthenticationStrength = @{
+                Id = "00000000-0000-0000-0000-000000000002"
+            }
+        }
+    }
+    New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
+    Write-Output "Policy created."
+    Write-Output ""
+}   
+    
+## Create Require MFA authentication strength for guests policy - Currently, you can only apply authentication strength policies to external users who authenticate with Microsoft Entra ID. For email one-time passcode, SAML/WS-Fed, and Google federation users, use the MFA grant control to require MFA.
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Require MFA authentication strength for guests' conditional access policy"
+if ($Continue -eq "Y") {
+    $PolicySettings = @{
+        DisplayName     = "Require MFA authentication strength for guests"
+        state           = "enabledForReportingButNotEnforced"
+        conditions      = @{
+            Applications   = @{
+                includeApplications = @(
+                    MembershipKind = "All"
+                )
+            }
+            Users          = @{
+                IncludeGuestsOrExternalUsers = @{
+                    ExternalTenants = @(
+                        "All"
+                    )
+                    GuestOrExternalUserTypes = "internalGuest,b2bCollaborationGuest,b2bCollaborationMember,b2bDirectConnectUser,otherExternalUser,serviceProvider"
+                }
+                excludeUsers = @(
+                    "$UserID"
+                )
+            }
+            ClientAppTypes = @(
+                "all"
+            )
+        }
+        grantControls   = @{
+            Operator        = "OR"
+            AuthenticationStrength = @{
+                Id = "00000000-0000-0000-0000-000000000002"
+            }
+        }
+    }
+    New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
+    Write-Output "Policy created."
+    Write-Output ""
+}   
+
+## Create Secure security info registration policy - If you use external authentication methods, these are currently incompatable with authentication strength and you should use the Require multifactor authentication grant control.
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Secure security info registration policy' conditional access policy"
+if ($Continue -eq "Y") {
+    $conditions = @{
+        Users          = @{
+            includeUsers = @(
+                "All"
+            )
+            excludeUsers = @(
+                "$UserID"
+            )
+            "ExcludeGuestsOrExternalUsers" = @{
+				"ExternalTenants" = @{
+					MembershipKind = "all"
+				}
+				GuestOrExternalUserTypes = "internalGuest,b2bCollaborationGuest,b2bCollaborationMember,b2bDirectConnectUser,otherExternalUser,serviceProvider"
+			}
+        };
+        Applications = @{
+            IncludeUserActions = @(
+                'urn:user:registerdevice'
+            );
+        }
+        Locations      = @{
+            includeLocations = @(
+                "All"
+            );
+            excludeLocations = @(
+                "AllTrusted"
+            )
+        }
+    }
+    $grantControls   = @{
+        Operator        = "OR"
+        AuthenticationStrength = @{
+            Id = "00000000-0000-0000-0000-000000000002"
+        }
+    }
+    $name = "Secure security info registration policy"
+    $state = "enabledForReportingButNotEnforced"
+    New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
+    Write-Output "Policy created."
+    Write-Output ""
+}
+
+## Create Require authentication strength for device registration policy - If you use external authentication methods, these are currently incompatible with authentication strength and you should use the Require multifactor authentication grant control.
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Require authentication strength for device registration' conditional access policy"
+if ($Continue -eq "Y") {
+    $conditions = @{
+        Users          = @{
+            includeUsers = @(
+                "All"
+            )
+            excludeUsers = @(
+                "$UserID"
+            )
+        };
+        Applications = @{
+            IncludeUserActions = @(
+                'urn:user:registerdevice'
+            );
+        }
+    }
+    $grantControls   = @{
+        Operator        = "OR"
+        AuthenticationStrength = @{
+            Id = "00000000-0000-0000-0000-000000000002"
+        }
+    }
+    $name = "Require authentication strength for device registration"
+    $state = "enabledForReportingButNotEnforced"
+    New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
+    Write-Output "Policy created."
+    Write-Output ""
+}
+
+## Create Require device compliance policy - Without a compliance policy created in Microsoft Intune this Conditional Access policy will not function as intended. Create a compliance policy first and ensure you have at least one compliant device before proceeding.
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Require device compliance' conditional access policy"
+if ($Continue -eq "Y") {
+    $PolicySettings = @{
+        DisplayName     = "Require device compliance"
+        state           = "enabledForReportingButNotEnforced"
+        conditions      = @{
+            Applications   = @{
+                includeApplications = @(
+                    "All"
+                )
+            }
+            Platforms          = @{
+                IncludePlatforms = @(
+                    "All"
+                )
+                ExcludePlatforms = @(
+                    "android"
+                    "iOS"
+                    "macOS"
+                    "linux"
+                )
+            }
+            Users          = @{
+                includeUsers = @(
+                    "All"
+                )
+                excludeUsers = @(
+                    "$UserID"
+                )
+            }
+            ClientAppTypes = @(
+                "all"
+            )
+        }
+        grantControls   = @{
+            Operator        = "OR"
+            BuiltInControls = @(
+                "compliantDevice"
+            )
+        }
+    }
+    New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
+    Write-Output "Policy created."
+    Write-Output ""
+}
+
+## Create Restrict device code flow and authentication transfer policy
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Restrict device code flow and authentication transfer' conditional access policy (manual completion of configuration required)"
+if ($Continue -eq "Y") {
+    $PolicySettings = @{
+        DisplayName     = "Restrict device code flow and authentication transfer"
+        state           = "enabledForReportingButNotEnforced"
+        conditions      = @{
+            Applications   = @{
+                includeApplications = @(
+                    "All"
+                )
+            }
+            Users          = @{
+                includeUsers = @(
+                    "All"
+                )
+                excludeUsers = @(
+                    "$UserID"
+                )
+            }
+            ClientAppTypes = @(
+                "all"
+            )
+        }
+        grantControls   = @{
+            Operator        = "AND"
+            BuiltInControls = @(
+                "block"
+            )
+        }
+    }
+    New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
+    Write-Output "Policy created."
+    Write-Output "NOTE: Authentication Flows is in preview and NOT FULLY CONFIGURABLE FROM POWERSHELL - Go to this policy > Conditions > Authentication Flows, set Configure to Yes, Select Device code flow and Authentication transfer, and Save to finish configuration."
+    Write-Output "Opening Edge browser window to finish policy configuration..."
+    Write-Output "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"
+    Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"
+    Write-Output ""
+}
+
+## Create Require MFA for risky sign-in (P2) policy
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Require MFA for risky sign-in (P2)' conditional access policy (only works with Entra ID P2 subscription)"
+if ($Continue -eq "Y") {
+    $PolicySettings = @{
+        DisplayName     = "Require MFA for risky sign-in (P2)"
+        state         = "enabledForReportingButNotEnforced"
+        conditions    = @{
+            Applications     = @{
+                includeApplications = @(
+                    "All"
+                )
+            }
+            Users            = @{
+                includeUsers = @(
+                    "All"
+                )
+                excludeUsers = @(
+                    "$UserID"
+                )
+            }
+            ClientAppTypes   = @(
+                "all"
+            )
+            signInRiskLevels = @(
+                "high"
+                "medium"
+            )
+        }
+        grantControls   = @{
+            Operator        = "OR"
+            AuthenticationStrength = @{
+                Id = "00000000-0000-0000-0000-000000000002"
+            }
+        }
+        sessionControls = @{
+            signInFrequency = @{
+                AuthenticationType = "primaryAndSecondaryAuthentication"
+                FrequencyInterval = "everyTime"
+                isEnabled = $true
+            }
+        }
+    }
+    New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
+    Write-Output "Policy created."
+    Write-Output ""
+}
+
+## Create Require password change for risky users (P2) policy
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Require password change for risky users (P2)' conditional access policy (only works with Entra ID P2 subscription)"
+if ($Continue -eq "Y") {
+    $PolicySettings = @{
+        DisplayName     = "Require password change for risky users (P2)"
+        state         = "enabledForReportingButNotEnforced"
+        conditions    = @{
+            Applications     = @{
+                includeApplications = @(
+                    "All"
+                )
+            }
+            Users            = @{
+                includeUsers = @(
+                    "All"
+                )
+                excludeUsers = @(
+                    "$UserID"
+                )
+            }
+            ClientAppTypes   = @(
+                "all"
+            )
+            userRiskLevels = @(
+                "high"
+            )
+        }
+        grantControls   = @{
+            Operator        = "AND"
+            AuthenticationStrength = @{
+                Id = "00000000-0000-0000-0000-000000000002"
+            }
+            BuiltInControls = @(
+                "passwordChange"
+            )
+        }
+        sessionControls = @{
+            signInFrequency = @{
+                AuthenticationType = "primaryAndSecondaryAuthentication"
+                FrequencyInterval = "everyTime"
                 isEnabled = $true
             }
         }
@@ -741,6 +1200,16 @@ Get-MgIdentityConditionalAccessPolicy | Select-Object DisplayName, ID, CreatedDa
 Write-Output ""
 Write-Output "To enable a policy above use the command: Update-MgIdentityConditionalAccessPolicy -ConditionalAccessPolicyId 'XXXX-XXXX-XXXX-XXXXXX' -State enabled"
 Write-Output "Or go to https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies to review and enable policies in the Admin Center."
+Write-Output ""
+Write-Output "For additional policies view Microsoft templates - https://aka.ms/ConditionalAccessTemplateDocs"
+Write-Output ""
+Write-Output "To view Microsoft Conditional Access templates in PowerShell:"
+Write-Output "Get-MgBetaIdentityConditionalAccessTemplate"
+Write-Output ""
+Write-Output "To deploy Conditional Access policy from template in PowerShell:"
+Write-Output '$catemplate = Get-MgBetaIdentityConditionalAccessTemplate -ConditionalAccessTemplateId XXXX-XXXX-XXXX-XXXXXX'
+Write-Output 'New-MgIdentityConditionalAccessPolicy -TemplateId $catemplate.Id -DisplayName $catemplate.Name -State enabledForReportingButNotEnforce' # https://ourcloudnetwork.com/how-to-deploy-conditional-access-templates-with-graph-powershell/
+Write-Output ""
 Invoke-Item "$OutputPath\$DomainName"
 
 exit

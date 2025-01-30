@@ -101,7 +101,7 @@ try { Get-RoleGroupMember -Identity ComplianceAdministrator -ErrorAction stop | 
 
 
 Write-Output ""
-Write-Output "If your username is included in the above manager/admin permissions you can continue. Otherwise: Ctrl+c, update permissions (https://compliance.microsoft.com/compliancecenterpermissions), sign-out, sign-in, and try again..."
+Write-Output "If your username is included in the above manager/admin permissions you can continue. Otherwise: Ctrl+c, update permissions (https://purview.microsoft.com/settings/purviewpermissions  Old link: https://compliance.microsoft.com/compliancecenterpermissions), sign-out, sign-in, and try again..."
 Write-Output "`nOr use these commands from PoswerShell:"
 Write-Output "Add-RoleGroupMember `"eDiscovery Manager`" -Member $CurrentUser; Get-RoleGroupMember -Identity `"eDiscovery Manager`""
 Write-Output "Add-eDiscoveryCaseAdmin $CurrentUser; Get-eDiscoveryCaseAdmin"
@@ -190,7 +190,7 @@ Write-Output "Starting preview export - `"$SearchName`""
 Write-Output "New-ComplianceSearchAction -SearchName `"$SearchName`" -Preview`n"
 New-ComplianceSearchAction -SearchName "$SearchName" -Preview
 Write-Output "If there is an error above about `"A parameter cannot be found that matches parameter name 'Preview'`" you need to add the eDiscovery manager or admin role to your account and sign out/sign in again."
-Write-Output "Go to https://compliance.microsoft.com/contentsearchv2 in Edge to manage through admin center."
+Write-Output "Go to https://purview.microsoft.com/ediscovery/contentsearchv2 / https://purview.microsoft.com/ediscovery/casespage (old link: https://compliance.microsoft.com/contentsearchv2) in Edge to manage through admin center."
 $Continue = ""
 while ($Continue -ne "Y") {
     $OperationStatus = Get-ComplianceSearchAction -Identity "$($SearchName)_Preview"
@@ -221,8 +221,8 @@ $OperationStatus.Name
 $OperationStatus.Status
 
 Write-Output "Opening Edge browser window so content search export can be retrieved and reviewed..."
-Write-Output "https://compliance.microsoft.com/contentsearchv2?viewid=export"
-Start-Process msedge.exe -ArgumentList "https://compliance.microsoft.com/contentsearchv2?viewid=export"
+Write-Output "https://purview.microsoft.com/ediscovery/contentsearchv2?viewid=export (old link: https://compliance.microsoft.com/contentsearchv2?viewid=export)"
+Start-Process msedge.exe -ArgumentList "https://purview.microsoft.com/ediscovery/contentsearchv2?viewid=export"
 # Start-Process msedge.exe -ArgumentList "https://compliance.microsoft.com/contentsearchv2?viewid=export -inprivate" # Use this string to open private window if Edge is not the browser being used for M365 management
 Write-Output "Sign-in with the account that started this content search, click `"Export`". When the export is 'Completed' retrieve the messages using `"Download results`" and the Export Key."
 

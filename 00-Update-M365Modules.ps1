@@ -148,8 +148,10 @@ Write-Output "Prompt to install missing modules =", $prompt"`n"
 
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal ([Security.Principal.WindowsIdentity]::GetCurrent())
 if ($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Output "(1 of 16) Update NuGet provider"
-    test-package -packagename NuGet
+    Write-Output "(1 of 16) Update package provider"
+    # test-package -packagename NuGet
+    test-package -packagename PowerShellGet
+    # Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
     Write-Output "(2 of 16) Update Azure AD module"
     test-install -ModuleName AzureAD
     Write-Output "(3 of 16) Update Azure Information Protection module"
