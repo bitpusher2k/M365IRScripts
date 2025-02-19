@@ -16,7 +16,7 @@
 
 ## v2.8 last updated 2024-07-14
 
-#comp #m365 #security #bec #script #irscript #powershell #collection #playbook #readme #lotlir #incident #response #investigation
+#comp #m365 #security #bec #script #irscript #powershell #collection #playbook #readme #lotlir #lolir #incident #response #investigation
 
 ### Scripts provided as-is. Use at your own risk. No guarantees or warranty provided.
 

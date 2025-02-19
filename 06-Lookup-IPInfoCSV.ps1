@@ -9,13 +9,17 @@
 # https://github.com/bitpusher2k
 #
 # Lookup-IPInfoCSV.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-14
+# v2.9 last updated 2025-02-12
 # Processes an exported CSV with a column of IP addresses, adding "IP_Country", "IP_Region",
 # "IP_City", "IP_ISP", "IP_Org", "IP_ProxyType", "IP_Score" columns and populating these
 # columns with available information from one of several online services.
 # The addition of this information supports identification of activity patterns
 # during manual review of logs.
 # Script uses a hash table for IP information to increase speed and reduce API calls.
+# Saves IP information to "IPAddressData.xml" in script directory to save on API
+# calls when processing multiple files in a row.
+#
+# It is recommended that "IPAddressData.xml" be periodically deleted to keep data current.
 #
 # Currently includes syntax to lookup & add IP information from these services:
 # * scamalytics.com - 5000 requests/month free - need to sign up for API key
@@ -58,7 +62,12 @@ param(
 
 $RowCount = 0
 $LookupCount = 0
-$IPAddressHash = @{}
+
+if (Test-Path "$PSScriptRoot\IPAddressData.xml") {
+    $IPAddressHash = Import-CliXml "$PSScriptRoot\IPAddressData.xml"
+} else {
+    $IPAddressHash = @{}
+}
 
 $sw = [Diagnostics.StopWatch]::StartNew()
 
@@ -225,6 +234,8 @@ foreach ($Row in $Spreadsheet) {
 
     $RowCount++
 }
+
+$IPAddressHash | Export-Clixml -path "$PSScriptRoot\IPAddressData.xml" -Force
 
 Write-Output "Processed $RowCount rows using $LookupCount lookups"
 
