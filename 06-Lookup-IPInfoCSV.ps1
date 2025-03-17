@@ -22,14 +22,14 @@
 # It is recommended that "IPAddressData.xml" be periodically deleted to keep data current.
 #
 # Currently includes syntax to lookup & add IP information from these services:
-# * scamalytics.com - 5000 requests/month free - need to sign up for API key
-# * ipapi.co - 1000 requests/day free
+# * scamalytics.com - 5,000 requests/month free - need to sign up for API key
+# * ipapi.co - 1,000 requests/day free
 # * ip-api.com - free for non-commercial use - 45 requests/minute rate limit
-# * ip2location.io - 30000 requests/month free - need to sign up for API key
+# * ip2location.io - 50,000 requests/month free - need to sign up for API key
 # * hostip.info - free location information
-# * iphub.info 1000 requests/day free - need to sign up for API key
-# * abuseipdb.com 1000 requests/day free - need to sign up for API key
-# * ipqualityscore.com 5000 requests/month free - need to sign up for API key
+# * iphub.info 1,000 requests/day free - need to sign up for API key
+# * abuseipdb.com 1,000 requests/day free - need to sign up for API key
+# * ipqualityscore.com 5,000 requests/month free - need to sign up for API key
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\Lookup-IPInfoCSV.ps1 -inputFile "Path\to\input\log.csv" -outputFile "Path\to\output\file.csv" -IPcolumn "IP Column Name" -InfoSource "IP service to use" -APIKey "API key if required for service"
@@ -85,8 +85,20 @@ Write-Output "`nColumn headers found in CSV:"
 $Headers.Name
 
 if (!$IPcolumn) {
-    $IPcolumn = Read-Host "`nWhat CSV column should be used for IP addresses (default: `"ClientIP`")?"
-    if ($IPcolumn -eq "") { $IPcolumn = "ClientIP" }
+    if ($Headers.name -contains "IPaddress") {
+        $IPcolumn = "IPaddress"
+    } elseif ($Headers.name -contains "ClientIP") {
+        $IPcolumn = "ClientIP"
+    } elseif ($Headers.name -match "IP") {
+        $ColumnNumber = [array]::indexof($Headers.Name,$($Headers.name -match "IP"))
+        $IPcolumn = $Headers[$ColumnNumber[0]].name
+    } else {
+        $IPcolumn = $Headers[0].name
+    }
+    $IPcolumnInput = Read-Host "`nWhat CSV column should be used for IP addresses (default: `"$IPcolumn`")?"
+    if ($IPcolumnInput) {
+        $IPcolumn = $IPcolumnInput
+    }
 }
 
 if ($Headers.Name -notcontains $IPcolumn) {

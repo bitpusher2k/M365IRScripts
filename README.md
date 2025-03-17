@@ -96,13 +96,13 @@ Scripts in this collection are organized roughly in the order in which they are 
 
 All scripts that output reports by default do so to a new folder named "Investigation" on the current user's desktop, in a subfolder with the name of the primary domain of tenant under investigation. The prompt for this can be skipped by setting -OutputFolder parameter to "Default" when running a script.
 
-Playbook steps coming soon...  For now, review comments on script usage documented within each script.
+General playbook steps for investigating a BEC incident in M365.
 
-1. Coming soon
-2. Coming soon
-3. Coming soon
-4. Coming soon
-5. Coming soon
+1. 
+2. 
+3. 
+4. 
+5. 
 
 
 # Key Takeaways:
