@@ -96,13 +96,15 @@ Scripts in this collection are organized roughly in the order in which they are 
 
 All scripts that output reports by default do so to a new folder named "Investigation" on the current user's desktop, in a subfolder with the name of the primary domain of tenant under investigation. The prompt for this can be skipped by setting -OutputFolder parameter to "Default" when running a script.
 
-General playbook steps for investigating a BEC incident in M365.
+General playbook steps for investigating & remediating a BEC incident in M365.
 
-1. 
-2. 
-3. 
-4. 
-5. 
+1. Contain incident - block sign-in to known or suspected compromised accounts and initiate password resets. Check user roles and mailbox permissions, and expand scope of incident accordingly.
+2. Retrieve and review account logs - start with sign-in logs, audit logs, inbox rules, mailbox audit logs. 
+3. Check built-in protections - Entra ID risk detections and Microsoft Defender alerts/incidents/quarantine
+4. Review tenant Enterprise Applications, impacted account MFA methods, registered devices, changes to OneDrive files and junk mail configurations.
+5. Pivot through logs following events from known malicious/suspicious to find related events - Chronology is the first element of induction; topology is the second. Link events by proximity in time and proximity in source.
+6. If impacted account scope is expanded by findings from logs & settings start back at step one and repeat.
+7. Once investigation is concluded and accounts secured clear messages from Microsoft Defender quarantine, unblock sending of any blocked accounts, use eDiscovory to find and remove identified spam/phishing messages from mailboxes. 
 
 
 # Key Takeaways:
