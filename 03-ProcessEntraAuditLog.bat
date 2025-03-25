@@ -54,6 +54,8 @@
 
 :: Another way to run with same permissions as current user (direct through drive-path-name variable): 
 C:\Windows\System32\WindowsPowerShell\v1.0\PowerShell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '%path%%script%' %args%"
+:: For PowerShell Core use:
+:: "C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -ExecutionPolicy Bypass -Command "& '%path%%script%' %args%"
 
 :: If PowerShell is in your path you can remove the full directory location:
 :: PowerShell -NoProfile -ExecutionPolicy Bypass -Command "& '%path%%script%' '%args%'"
