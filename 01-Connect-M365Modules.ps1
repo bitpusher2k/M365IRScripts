@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Connect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v2.9 last updated 2024-11-19
+# v3.0 last updated 2025-05-31
 # Script to connect PowerShell session to all needed M365 modules before
 # running other investigation & remediation scripts.
 #
@@ -25,13 +25,13 @@
 #Requires -Version 5.1
 
 
-Write-Output "Script will initiate connections to several M365 modules - Graph, MSOL, IPPS, Exchange, & AzureAD."
+Write-Output "Script will initiate connections to several M365 modules - Graph, IPPS, Exchange, & AzureAD."
 Write-Output "You will need to enter Global Admin credentials to the desired tenant a few times."
 if ($host.version.major -gt 5) {
-    Write-Output "Not running in Windows PowerShell (5)."
-    Write-Output "Some older modules may have connection issues or have output deserialized`n"
+    Write-Output "`nNot running in Windows PowerShell (5)."
+    Write-Output "Some older modules may have connection issues or have output deserialized"
 }
-Write-Output "Starting..."
+Write-Output "`nStarting..."
 Write-Output "Press F5 if sign-in window opens but does not load..."
 
 
@@ -39,7 +39,7 @@ Write-Output "`nPart 1 of 5. MS Graph (connecting to Graph first works better)..
 # Import-Module Microsoft.Graph
 # Install-Module Microsoft.Graph.Beta
 # Import-Module Microsoft.Graph.Beta
-Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send"
+Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All","Directory.AccessAsUser.All"
 
 # list of all scopes:
 # Find-MgGraphPermission | ? {$_.Name -match "\bRead\b"}
@@ -53,31 +53,40 @@ $Test = Get-MgDomain -ErrorAction SilentlyContinue
 if ($Test) {
     Write-Output "`nMS Graph module connected."
 } else {
-    Write-Output "`n*** MS Graph failed to connect - Try to connect again with: Connect-MgGraph -Scopes `"UserAuthenticationMethod.ReadWrite.All`",`"Directory.ReadWrite.All`",`"User.ReadWrite.All`",`"Group.ReadWrite.All`",`"GroupMember.Read.All`",`"Policy.Read.All`",`"Policy.ReadWrite.ConditionalAccess`",`"Application.ReadWrite.All`",`"Files.ReadWrite.All`",`"Sites.ReadWrite.All`",`"AuditLog.Read.All`",`"Agreement.Read.All`",`"IdentityRiskEvent.Read.All`",`"IdentityRiskyUser.ReadWrite.All`""
+    Write-Output "`n*** MS Graph failed to connect - Try to connect again with: Connect-MgGraph -Scopes `"UserAuthenticationMethod.ReadWrite.All`",`"Directory.ReadWrite.All`",`"User.ReadWrite.All`",`"Group.ReadWrite.All`",`"GroupMember.Read.All`",`"Policy.Read.All`",`"Policy.ReadWrite.ConditionalAccess`",`"Application.ReadWrite.All`",`"Files.ReadWrite.All`",`"Sites.ReadWrite.All`",`"AuditLog.Read.All`",`"Agreement.Read.All`",`"IdentityRiskEvent.Read.All`",`"IdentityRiskyUser.ReadWrite.All`",`"Mail.Send`",`"Mail.Read`",`"SecurityEvents.ReadWrite.All`",`"Directory.AccessAsUser.All`""
 }
 
+# To connect to GCC High/DOD the -Environment parameter needs to be specified:
+# GCC
+# Connect-MgGraph
+# GCC High
+# Connect-MgGraph -Environment USGov
+# DOD
+# Connect-MgGraph -Environment USGovDoD
+# List available environments -  Get-MgEnvironment
 
-Write-Output "`nPart 2 of 5. MSOL Service (Deprecated)..."
-if ($host.version.major -gt 5) { Import-Module MSonline -UseWindowsPowerShell } # else {Import-Module MSonline}
-# if ( $host.version.major -gt 5 ) {Import-Module MSonline -SkipEditionCheck}
-try {
-    Connect-MsolService
-} catch {
-    Write-Output "*** Error calling Connect-MsolService."
-}
+
+Write-Output "`nPart 2 of 5. MSOL Service (Deprecated - skipping)..."
+# if ($host.version.major -gt 5) { Import-Module MSonline -UseWindowsPowerShell } # else {Import-Module MSonline}
+# # if ( $host.version.major -gt 5 ) {Import-Module MSonline -SkipEditionCheck}
+# try {
+#     Connect-MsolService
+# } catch {
+#     Write-Output "*** Error calling Connect-MsolService."
+# }
 
 
-try {
-    $Test = $Null
-    $Test = Get-MsolDomain -ErrorAction SilentlyContinue
-    if ($Test) {
-        Write-Output "`nMSOL module connected."
-    } else {
-        Write-Output "`n*** MSOL failed to connect - Try to connect again with: Connect-MsolService"
-    }
-} catch {
-    Write-Output "`nMSOL failed to connect - Try to connect again with: Connect-MsolService"
-}
+# try {
+#     $Test = $Null
+#     $Test = Get-MsolDomain -ErrorAction SilentlyContinue
+#     if ($Test) {
+#         Write-Output "`nMSOL module connected."
+#     } else {
+#         Write-Output "`n*** MSOL failed to connect - Try to connect again with: Connect-MsolService"
+#     }
+# } catch {
+#     Write-Output "`nMSOL failed to connect - Try to connect again with: Connect-MsolService"
+# }
 
 
 Write-Output "`nPart 3 of 5. IPPS (Security & Compliance)..."
@@ -95,6 +104,15 @@ if ($isconnected) {
 } else {
     Write-Output "`n*** Exchange Online/IPPS failed to connect - Try to connect again with: Connect-IPPSSession ; Connect-ExchangeOnline"
 }
+
+# To connect to GCC High/DOD the -ExchangeEnvironmentName parameter needs to be specified:
+# GCC
+# Connect-IPPSSession ; Connect-ExchangeOnline
+# GCC High
+# Connect-IPPSSession -ExchangeEnvironmentName O365USGovGCCHigh ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovGCCHigh
+# DOD
+# Connect-IPPSSession -ExchangeEnvironmentName O365USGovDoD ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovDoD
+-ExchangeEnvironmentName
 
 
 Write-Output "`nPart 5 of 5. Azure AD (Deprecated)."
@@ -143,5 +161,7 @@ if (!$ConnectedUser) {
     Write-Output "Connected as:"
     $ConnectedUser
 }
+Get-MgContext
+(Get-MgContext).Scopes
 Write-Output "`nAddress any connection failures or errors above and"
 Write-Output "proceed with investigation scripts."

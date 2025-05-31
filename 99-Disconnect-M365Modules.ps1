@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Disconnect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v3.0 last updated 2025-05-31
 # Script to disconnect from all M365 modules/sessions.
 #
 # Usage:
@@ -24,6 +24,7 @@
 #Requires -Version 5.1
 
 Write-Output "Currently connected as:"
+(Get-MgContext).Account
 (Get-ConnectionInformation).UserPrincipalName
 Get-PSSession
 
@@ -41,7 +42,6 @@ if ($Test) {
 }
 
 
-try { [Microsoft.Online.Administration.Automation.ConnectMsolService]::ClearUserSessionState(); Write-Output "`nMSOL session state cleared." } catch { Write-Output "`nUnable to clear MSOL session state - close PS window to ensure it is cleared." }
 try {
     $Test = $Null
     $Test = Get-MsolDomain -ErrorAction SilentlyContinue

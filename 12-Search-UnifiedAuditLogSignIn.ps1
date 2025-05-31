@@ -10,7 +10,7 @@
 # Search-UnifiedAuditLogSignIn.ps1
 # Original script created by https://github.com/directorcia @directorcia
 # Modified and updated by Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-03
+# v3.0 last updated 2025-05-31
 # Script to search the Unified Audit Logs (UAC) for
 # sign-ins made by a specified user or all users.
 #
@@ -47,15 +47,65 @@
 #Requires -Version 5.1
 
 param(
-    [string]$OutputPath,
+    [string]$OutputPath = "Default",
     [datetime]$StartDate,
     [datetime]$EndDate,
     [int]$DaysAgo,
+    [string]$UserIds,
     [switch]$fail = $false, # if -fail parameter only show failed logins
+    [string]$scriptName = "Search-UnifiedAuditLogSignIn",
+    [string]$Priority = "Normal",
+    [string]$DebugPreference = "SilentlyContinue",
+    [string]$VerbosePreference = "SilentlyContinue",
+    [string]$InformationPreference = "Continue",
+    [string]$logFileFolderPath = "C:\temp\log",
+    [string]$ComputerName = $env:computername,
+    [string]$ScriptUserName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+    [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
+    [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
+    [int]$logFileRetentionDays = 30,
     [string]$Encoding = "utf8bom" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
 )
 
+#region initialization
 if ($PSVersionTable.PSVersion.Major -eq 5 -and ($Encoding -eq "utf8bom" -or $Encoding -eq "utf8nobom")) { $Encoding = "utf8" }
+
+function Get-TimeStamp {
+    param(
+        [switch]$NoWrap,
+        [switch]$Utc
+    )
+    $dt = Get-Date
+    if ($Utc -eq $true) {
+        $dt = $dt.ToUniversalTime()
+    }
+    $str = "{0:yyyy-MM-dd} {0:HH:mm:ss}" -f $dt
+
+    if ($NoWrap -ne $true) {
+        $str = "[$str]"
+    }
+    return $str
+}
+
+if ($logFileFolderPath -ne "") {
+    if (!(Test-Path -PathType Container -Path $logFileFolderPath)) {
+        Write-Output "$(Get-TimeStamp) Creating directory $logFileFolderPath" | Out-Null
+        New-Item -ItemType Directory -Force -Path $logFileFolderPath | Out-Null
+    } else {
+        $DatetoDelete = $(Get-Date).AddDays(- $logFileRetentionDays)
+        Get-ChildItem $logFileFolderPath | Where-Object { $_.Name -like "*$logFilePrefix*" -and $_.LastWriteTime -lt $DatetoDelete } | Remove-Item | Out-Null
+    }
+    $logFilePath = $logFileFolderPath + "\$logFilePrefix" + (Get-Date -Format $logFileDateFormat) + ".LOG"
+}
+
+$sw = [Diagnostics.StopWatch]::StartNew()
+Write-Output "$scriptName started on $ComputerName by $ScriptUserName at  $(Get-TimeStamp)" | Tee-Object -FilePath $logFilePath -Append
+
+$process = Get-Process -Id $pid
+Write-Output "Setting process priority to `"$Priority`"" | Tee-Object -FilePath $logFilePath -Append
+$process.PriorityClass = $Priority
+
+#endregion initialization
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 $version = "2.8"
@@ -82,34 +132,40 @@ $operation = "userloginfailed", "userloggedin" # use this line to report failed 
 # $operation = "userloginfailed" # use this line to report just failed logins
 # $operation = "userloggedin" # use this line to report just successful logins
 
-# If OutputPath variable is not defined, prompt for it
+## If OutputPath variable is not defined, prompt for it
 if (!$OutputPath) {
     Write-Output ""
-    $OutputPath = Read-Host "Enter the output base path, e.g. $($env:userprofile)\Desktop\Investigation (default)"
-    if ($OutputPath -eq '') { $OutputPath = "$($env:userprofile)\Desktop\Investigation" }
-    Write-Output "Output base path will be in $OutputPath"
+    $OutputPath = Read-Host "Enter the output base path, e.g. $($env:userprofile)\Desktop\Investigation (default)" | Tee-Object -FilePath $logFilePath -Append
+    If ($OutputPath -eq '') { $OutputPath = "$($env:userprofile)\Desktop\Investigation" }
+    Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
 } elseif ($OutputPath -eq 'Default') {
     Write-Output ""
     $OutputPath = "$($env:userprofile)\Desktop\Investigation"
-    Write-Output "Output base path will be in $OutputPath"
+    Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
 }
 
-# If OutputPath does not exist, create it
+## If OutputPath does not exist, create it
 $CheckOutputPath = Get-Item $OutputPath -ErrorAction SilentlyContinue
 if (!$CheckOutputPath) {
     Write-Output ""
-    Write-Output "Output path does not exist. Directory will be created."
+    Write-Output "Output path does not exist. Directory will be created." | Tee-Object -FilePath $logFilePath -Append
     mkdir $OutputPath
 }
 
-# Get Primary Domain Name for output subfolder
-$PrimaryDomain = Get-AcceptedDomain | Where-Object Default -EQ $true
-$DomainName = $PrimaryDomain.DomainName
+## Get Primary Domain Name for output subfolder
+# $PrimaryDomain = Get-AcceptedDomain | Where-Object Default -eq $true
+# $DomainName = $PrimaryDomain.DomainName
+$PrimaryDomain = Get-MgDomain | Where-Object { $_.isdefault -eq $True } | Select-Object -Property ID
+if ($PrimaryDomain) {
+    $DomainName = $PrimaryDomain.ID
+} else {
+    $DomainName = "DefaultOutput"
+}
 
 $CheckSubDir = Get-Item $OutputPath\$DomainName -ErrorAction SilentlyContinue
 if (!$CheckSubDir) {
     Write-Output ""
-    Write-Output "Domain sub-directory does not exist. Sub-directory `"$DomainName`" will be created."
+    Write-Output "Domain sub-directory does not exist. Sub-directory `"$DomainName`" will be created." | Tee-Object -FilePath $logFilePath -Append
     mkdir $OutputPath\$DomainName
 }
 
@@ -162,28 +218,35 @@ if ((Get-Module -ListAvailable -Name ExchangeOnlineManagement) -or (Get-Module -
     exit 1 # Terminate script
 }
 
-# Search the defined date(s), SessionId + SessionCommand in combination with the loop will return and append 5000 object per iteration until all objects are returned (minimum limit is 50k objects)
-$User = Read-Host "`nEnter the user's primary email address (UPN) - leave blank to retrieve authentication entries for all users, comma-separate multiple users"
+if (!$UserIds) {
+    $UserIds = Read-Host "`nEnter the user's primary email address (UPN) - leave blank to retrieve authentication entries for all users, comma-separate multiple users"
+}
 
-if ($User) {
-    $OutputUser = $User
+if ($UserIds) {
+    $OutputUser = $UserIds
 } else {
     $OutputUser = "ALL"
 }
-$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser)_between_$($StartDate.ToString(`"yyyyMMddHHmm`"))_and_$($EndDate.ToString(`"yyyyMMddHHmm`"))_$($totalDays)_days_Processed.csv"
+$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser.Replace(',','-'))_between_$($StartDate.ToString(`"yyyyMMddHHmm`"))_and_$($EndDate.ToString(`"yyyyMMddHHmm`"))_$($totalDays)_days_Processed.csv"
+Write-Output "`nWill search for records related to: $UserIds user(s)"
 
+# Search the defined date(s), SessionId + SessionCommand in combination with the loop will return and append 5000 object per iteration until all objects are returned (minimum limit is 50k objects)
 Write-Output "`nTotal range of days to check for sign-ins: $totalDays"
 Write-Output "Start date: $StartDate"
 Write-Output "End date: $EndDate"
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $User -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize"
 
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        if ($User) {
-            $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $User -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize
+        if ($UserIds -eq "ALL") {
+            Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize"
+            $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize
+        } elseif ($UserIds) {
+            Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize"
+            $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize
         } else {
+            Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize"
             $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize
         }
     } catch {
@@ -245,14 +308,18 @@ foreach ($display in $displays) {
 Write-Output "`nScript Completed`n"
 
 if ((Test-Path -Path $OutputCSV) -eq "True") {
-    Write-Output `n" The Output file is available at:"
-    Write-Output $OutputCSV
-    $Prompt = New-Object -ComObject wscript.shell
-    $UserInput = $Prompt.popup("Do you want to open output file?", 0, "Open Output File", 4)
-    if ($UserInput -eq 6) {
-        Invoke-Item "$OutputCSV"
-    }
+    Write-Output `n" The Output file is available at:" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output $OutputCSV | Tee-Object -FilePath $logFilePath -Append
+    # $Prompt = New-Object -ComObject wscript.shell
+    # $UserInput = $Prompt.popup("Do you want to open output file?", 0, "Open Output File", 4)
+    # if ($UserInput -eq 6) {
+    #     Invoke-Item "$OutputCSV"
+    # }
 }
 
-Write-Output "`nDone! Check output path for results. If results are empty check that Unified Audit Logging is enabled on the tenant."
+Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
+Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "`nDone! Check output path for results. If results are empty check that Unified Audit Logging is enabled on the tenant." | Tee-Object -FilePath $logFilePath -Append
 Invoke-Item "$OutputPath\$DomainName"
+
+Exit

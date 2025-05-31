@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # OneLinerReference.ps1 - By Bitpusher/The Digital Fox
-# v1.0 last updated 2024-07-14
+# v3.0 last updated 2025-05-31
 # Script to print list of PowerShell one-liners that are useful for M365 BEC investigation & response. 
 #
 # For use as reference to remember syntax & other details of short commands & sets of commands that don't have a full script in this set.
@@ -21,7 +21,7 @@
 #Requires -Version 5.1
 
 Param (
-    [string]$OutputPath,
+    [string]$OutputPath = "Default",
     [string]$UserIds,
     [int]$DaysAgo,
     [datetime]$StartDate,

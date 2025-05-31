@@ -9,10 +9,12 @@
 # https://github.com/bitpusher2k
 #
 # ProcessMailboxAuditLog.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v3.0 last updated 2025-05-31
 # Processes an exported CSV of Exchange Online Mailbox Audit log,
 # removing columns not needed for manual review and reordering for ease of review.
 # Not the most efficient way to process CSV files - Not recommended for use on CSV files with more than 100,000 lines.
+#
+# Mailbox Audit Logs are no longer available, and this data should be retrieved from Unified Audit Log entries of RecordType: ExchangeItem
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\ProcessMailboxAuditLog.ps1 -inputFile "Path\to\input\log.csv"
@@ -43,7 +45,7 @@ param(
 
 $sw = [Diagnostics.StopWatch]::StartNew()
 
-$headerRow = Get-Content $inputFile | ConvertFrom-String -Delimiter "," | Select-Object -First 1 
+$headerRow = Get-Content $inputFile | Select-Object -First 1 | ConvertFrom-String -Delimiter ","
 $headerRow
 
 $InputHeaders = ("Operation", "OperationResult", "LogonType", "ExternalAccess", "DestFolderId", "DestFolderPathName", "FolderId", "FolderPathName", "FolderName", "MemberRights", "MemberSid", "MemberUpn", "ClientInfoString", "ClientIPAddress", "ClientIP", "ClientMachineName", "ClientProcessName", "ClientVersion", "InternalLogonType", "MailboxOwnerUPN", "MailboxOwnerSid", "DestMailboxOwnerUPN", "DestMailboxOwnerSid", "DestMailboxGuid", "CrossMailboxOperation", "LogonUserDisplayName", "LogonUserSid", "SourceItems", "SourceFolders", "SourceItemIdsList", "SourceItemSubjectsList", "SourceItemAttachmentsList", "SourceItemFolderPathNamesList", "SourceFolderPathNamesList", "SourceItemInternetMessageIdsList", "ItemId", "ItemSubject", "ItemAttachments", "ItemInternetMessageId", "DirtyProperties", "OriginatingServer", "SessionId", "OperationProperties", "AuditOperationsCountInAggregatedRecord", "AggregatedRecordFoldersData", "AppId", "ClientAppId", "ItemIsRecord", "ItemComplianceLabel", "MailboxGuid", "MailboxResolvedOwnerName", "LastAccessed", "Identity", "IsValid", "ObjectState")

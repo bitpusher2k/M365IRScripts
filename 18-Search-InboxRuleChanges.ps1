@@ -10,7 +10,7 @@
 # Search-InboxRuleChanges.ps1
 # Created by https://github.com/JeremyTBradshaw/
 # modified by Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-03
+# v3.0 last updated 2025-05-31
 # Script to search UAC for inbox rule changes on all accounts
 # made recently (max past 180 days).
 #
@@ -98,17 +98,65 @@
 
 [CmdletBinding()]
 param(
-    [string]$OutputPath,
+    [string]$OutputPath = "Default",
     [int]$DaysAgo,
     [datetime]$StartDate,
     [datetime]$EndDate,
     [ValidateRange(1, 5000)] [int]$ResultSize = 5000,
     [bool]$UseClientIPExcludedRanges = $false,
+    [string]$scriptName = "Search-InboxRuleChanges",
+    [string]$Priority = "Normal",
+    [string]$DebugPreference = "SilentlyContinue",
+    [string]$VerbosePreference = "SilentlyContinue",
+    [string]$InformationPreference = "Continue",
+    [string]$logFileFolderPath = "C:\temp\log",
+    [string]$ComputerName = $env:computername,
+    [string]$ScriptUserName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+    [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
+    [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
+    [int]$logFileRetentionDays = 30,
     [string]$Encoding = "utf8bom" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
 )
 
+#region initialization
 if ($PSVersionTable.PSVersion.Major -eq 5 -and ($Encoding -eq "utf8bom" -or $Encoding -eq "utf8nobom")) { $Encoding = "utf8" }
 
+function Get-TimeStamp {
+    param(
+        [switch]$NoWrap,
+        [switch]$Utc
+    )
+    $dt = Get-Date
+    if ($Utc -eq $true) {
+        $dt = $dt.ToUniversalTime()
+    }
+    $str = "{0:yyyy-MM-dd} {0:HH:mm:ss}" -f $dt
+
+    if ($NoWrap -ne $true) {
+        $str = "[$str]"
+    }
+    return $str
+}
+
+if ($logFileFolderPath -ne "") {
+    if (!(Test-Path -PathType Container -Path $logFileFolderPath)) {
+        Write-Output "$(Get-TimeStamp) Creating directory $logFileFolderPath" | Out-Null
+        New-Item -ItemType Directory -Force -Path $logFileFolderPath | Out-Null
+    } else {
+        $DatetoDelete = $(Get-Date).AddDays(- $logFileRetentionDays)
+        Get-ChildItem $logFileFolderPath | Where-Object { $_.Name -like "*$logFilePrefix*" -and $_.LastWriteTime -lt $DatetoDelete } | Remove-Item | Out-Null
+    }
+    $logFilePath = $logFileFolderPath + "\$logFilePrefix" + (Get-Date -Format $logFileDateFormat) + ".LOG"
+}
+
+$sw = [Diagnostics.StopWatch]::StartNew()
+Write-Output "$scriptName started on $ComputerName by $ScriptUserName at  $(Get-TimeStamp)" | Tee-Object -FilePath $logFilePath -Append
+
+$process = Get-Process -Id $pid
+Write-Output "Setting process priority to `"$Priority`"" | Tee-Object -FilePath $logFilePath -Append
+$process.PriorityClass = $Priority
+
+#endregion initialization
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
@@ -354,7 +402,10 @@ if ($SearchResultsProcessed.Count -ge 1) {
     $SearchResultsProcessed | Export-Csv "$OutputPath\$DomainName\InboxRuleChanges_going_back_$($DaysAgo)_days_from_$($date)_Processed.csv" -NoTypeInformation -Encoding $Encoding
 }
 
-Write-Output "`nDone! Check output path for results."
+Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
+Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append
+
+Write-Output "`nDone! Check output path for results." | Tee-Object -FilePath $logFilePath -Append
 Invoke-Item "$OutputPath\$DomainName"
 
 exit

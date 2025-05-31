@@ -10,7 +10,7 @@
 # Get-MailItemsAccessed-E5.ps1
 # Created by PricewaterhouseCoopers Advisory N.V.
 # modified by Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v3.0 last updated 2025-05-31
 # Script to get information on the mail items accessed in an Exchange Online mailbox.
 #
 # MUST HAVE Office 365 or Microsoft 365 E5 license or a Microsoft 365 E5 Compliance add-on subscription!!!
@@ -190,7 +190,7 @@ param(
     [datetime]$EndDate = (Get-Date),
     [ValidateRange(1, 5000)] [int]$ResultSize = 5000,
     [string]$Save,
-    [string]$OutputPath,
+    [string]$OutputPath = "Default",
     [string]$Encoding = "utf8bom" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
 )
 

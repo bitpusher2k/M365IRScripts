@@ -7,27 +7,48 @@
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
-# Get-BasicTenantInformation.ps1 - By Bitpusher/The Digital Fox
+# Hydra-Collect.ps1 - By Bitpusher/The Digital Fox
 # v3.0 last updated 2025-05-31
-# Script to collect basic Tenant information at outset of investigation.
+# Script to trigger set of oft-used investigation scripts with default options at the outset of an investigation.
+# "Hydra" because each sub-script "head" is independent (a failure of one will not impact others), and because it's memorable.
 #
-# Allows quickly verifying the tenant name, subscriptions, auditing status - and saving info to files.
+# Sets output to default "investigation" desktop folder and sets scope to past seven days by default.
+#
+# Runs:
+# * 10-Get-BasicTenantInformation.ps1
+# * 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1
+# * 12-Search-UnifiedAuditLogSignIn.ps1
+# * 13-Get-AllM365EmailAddresses.ps1
+# * 14-Get-AllUserPasswordReport.ps1
+# * 17-Search-MailboxSuspiciousRules.ps1
+# * 18-Search-InboxRuleChanges.ps1
+# * 19-Get-AllInboxRules.ps1
+# * 22-Get-EnterpriseApplications.ps1
+# * 23-Get-DefenderInformation.ps1
+# * 24-Get-EntraIDRisk.ps1
+# * 90-Get-MFAReport.ps1
+# * 91-Get-CAPReport-P1.ps1
+# * 93-Get-SecureScoreInformation.ps1
+# * OPTIONALLY: Get-UnifiedAuditLogEntries.ps1
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Get-BasicTenantInformation.ps1 -OutputPath "Default"
+# powershell -executionpolicy bypass -f .\Hydra-Collect.ps1
+#
+# powershell -executionpolicy bypass -f .\Hydra-Collect.ps1 -OutputPath "Default" -DaysAgo 7
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
-# Uses ExchangePowerShell, MSOnline, AzureAD, Microsoft Graph commands. ** NEED TO UPDATE TO REMOVE MSOL DEPENDANCY
+# Uses ExchangePowerShell, AzureAD, Microsoft Graph commands. 
 #
-#comp #m365 #security #bec #script #info #tenant
+#comp #m365 #security #bec #script #info #hydra #collect #tenant
 
 #Requires -Version 5.1
 
 param(
     [string]$OutputPath = "Default",
-    [string]$scriptName = "Get-BasicTenantInformation",
+    [string]$DaysAgo = 7,
+    [string]$scriptName = "Hydra-Collect",
     [string]$Priority = "Normal",
     [string]$DebugPreference = "SilentlyContinue",
     [string]$VerbosePreference = "SilentlyContinue",
@@ -120,64 +141,52 @@ if (!$CheckSubDir) {
     mkdir $OutputPath\$DomainName
 }
 
-$admins = Get-MgDirectoryRole | Select-Object DisplayName, Id | ForEach-Object {$role = $_.DisplayName; Get-MgDirectoryRoleMember -DirectoryRoleId $_.id | where-object {$_.AdditionalProperties."@odata.type" -eq "#microsoft.graph.user"} | ForEach-Object {Get-MgUser -userid $_.id } } | Select @{Name="Role"; Expression = {$role}}, DisplayName, UserPrincipalName, Mail, Id | Sort-Object -Property Mail -Unique
-$info = Get-MsolCompanyInformation
-$orgconfig = Get-OrganizationConfig
-$orgconfigGraph = Get-MgOrganization
-$SecureityDefaultsInfo = Get-MgPolicyIdentitySecurityDefaultEnforcementPolicy
-$logconfig = Get-AdminAuditLogConfig
-$connectors = Get-InboundConnector
-$rules = Get-TransportRule
-$admins | Out-File -FilePath "$OutputPath\$DomainName\TenantAdmins_$($date).txt" -Encoding $Encoding
-$info | Out-File -FilePath "$OutputPath\$DomainName\TenantCompanyInfo_$($date).txt" -Encoding $Encoding
-$orgconfig | Out-File -FilePath "$OutputPath\$DomainName\TenantOrgConfig_$($date).txt" -Encoding $Encoding
-$orgconfigGraph | FL | Out-File -FilePath "$OutputPath\$DomainName\TenantOrgConfig_Graph_$($date).txt" -Encoding $Encoding
-$logconfig | Out-File -FilePath "$OutputPath\$DomainName\TenantAuditLogConfig_$($date).txt" -Encoding $Encoding
-$connectors | Out-File -FilePath "$OutputPath\$DomainName\ConnectorConfig_$($date).txt" -Encoding $Encoding
-$rules | Format-Table -AutoSize -Wrap | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_$($date).txt" -Encoding $Encoding
-$rules | FL | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_Detailed_$($date).txt" -Encoding $Encoding
+Write-Output "`nRunning 10-Get-BasicTenantInformation.ps1..."
+& "$PSScriptRoot\10-Get-BasicTenantInformation.ps1" -OutputPath $OutputPath
 
+Write-Output "`nRunning 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1..."
+& "$PSScriptRoot\11-Get-EntraIDAuditAndSignInLogs30-P1.ps1" -OutputPath $OutputPath -DaysAgo $DaysAgo
 
-Write-Output "`nTenant details:"
-Get-AzureADTenantDetail
+Write-Output "`nRunning 12-Search-UnifiedAuditLogSignIn.ps1..."
+& "$PSScriptRoot\12-Search-UnifiedAuditLogSignIn.ps1" -OutputPath $OutputPath -DaysAgo $DaysAgo -UserIds "ALL"
 
-Write-Output "`nEntra ID subscriptions (look for AAD premium):"
-(Get-MgSubscribedSku).ServicePlans | Where-Object serviceplanname -Like "*aad*"
+Write-Output "`nRunning 13-Get-AllM365EmailAddresses.ps1..."
+& "$PSScriptRoot\13-Get-AllM365EmailAddresses.ps1" -OutputPath $OutputPath
 
-Write-Output "`nLast directory sync time:"
-Get-MsolCompanyInformation | Select-Object lastdirsynctime
+Write-Output "`nRunning 14-Get-AllUserPasswordReport.ps1..."
+& "$PSScriptRoot\14-Get-AllUserPasswordReport.ps1" -OutputPath $OutputPath
 
-Write-Output "`nMailbox auditing should be enabled by default."
-Write-Output "Checking the value of 'AuditDisabled' (this should be `"False`"):"
-$OrgConfig.AuditDisabled | Format-List
+Write-Output "`nRunning 17-Search-MailboxSuspiciousRules.ps1..."
+& "$PSScriptRoot\17-Search-MailboxSuspiciousRules.ps1" -OutputPath $OutputPath
 
-Write-Output "Security Defaults enabled: $($SecureityDefaultsInfo.IsEnabled)"
+Write-Output "`nRunning 18-Search-InboxRuleChanges.ps1..."
+& "$PSScriptRoot\18-Search-InboxRuleChanges.ps1" -OutputPath $OutputPath -DaysAgo $DaysAgo
 
-Write-Output "`nInbound connectors:"
-$connectors | Format-List
+Write-Output "`nRunning 19-Get-AllInboxRules.ps1..."
+& "$PSScriptRoot\19-Get-AllInboxRules.ps1" -OutputPath $OutputPath
 
-Write-Output "`nTransport rules:"
-$rules | Format-List
+Write-Output "`nRunning 22-Get-EnterpriseApplications.ps1..."
+& "$PSScriptRoot\22-Get-EnterpriseApplications.ps1" -OutputPath $OutputPath
 
-# If mailbox auditing is disabled it can be enabled with these commands:
-# Get-Mailbox -Identity "UserName" | Format-List
-# Set-Mailbox -Identity "UserName" -AuditEnabled $true
-# $UserMailboxes= Get-mailbox-Filter {(RecipientTypeDetails-eq 'UserMailbox')} ; $UserMailboxes | ForEach {Set-Mailbox $_.Identity -AuditEnabled$true}
+Write-Output "`nRunning 23-Get-DefenderInformation.ps1..."
+& "$PSScriptRoot\23-Get-DefenderInformation.ps1" -OutputPath $OutputPath
 
-Write-Output "`nChecking if Unified Audit Log is enabled - value of 'UnifiedAuditLogIngestionEnabled' (this should be `"True`"):"
-$AuditLogEnabled = Get-AdminAuditLogConfig
-$AuditLogEnabled.UnifiedAuditLogIngestionEnabled | Format-List
-if (!$AuditLogEnabled.UnifiedAuditLogIngestionEnabled) {
-    Write-Output "Unified Audit Log does NOT appear to be enabled on tenant. This value will always be 'False' if run from the IPPS (Security & Compliance) PowerShell"
-    Write-Output "session instead of Exchange Online Powershell (https://learn.microsoft.com/en-us/purview/audit-log-enable-disable)."
-    Write-Output "Check https://compliance.microsoft.com/auditlogsearch and see if searching the audit log from there is possible before"
-    Write-Output "attempting to enable the UAC from here."
-    $Answer = Read-Host "Enter 'Y' to attempt to enable the UAC now, or simply press enter to continue"
-    if ($Answer -eq "Y") {
-        Enable-OrganizationCustomization
-        Set-AdminAuditLogConfig -UnifiedAuditLogIngestionEnabled $true
-        Write-Output "Commands to enable the Unified Audit Log have been run, but if it really was not yet enabled data from the UAC will not be available for this investigation."
-    }
+Write-Output "`nRunning 24-Get-EntraIDRisk.ps1..."
+& "$PSScriptRoot\24-Get-EntraIDRisk.ps1" -OutputPath $OutputPath
+
+Write-Output "`nRunning 90-Get-MFAReport.ps1..."
+& "$PSScriptRoot\90-Get-MFAReport.ps1" -OutputPath $OutputPath
+
+Write-Output "`nRunning 91-Get-CAPReport-P1.ps1..."
+& "$PSScriptRoot\91-Get-CAPReport-P1.ps1" -OutputPath $OutputPath
+
+Write-Output "`nRunning 93-Get-SecureScoreInformation.ps1..."
+& "$PSScriptRoot\93-Get-SecureScoreInformation.ps1" -OutputPath $OutputPath
+
+$UAL = Read-Host 'Retrieve all available UAL entries for past $DaysAgo days? (Y/N)'
+if ($UAL -eq 'Y') {
+    Write-Output "`nRunning Get-UnifiedAuditLogEntries.ps1..."
+    & "$PSScriptRoot\Get-UnifiedAuditLogEntries.ps1" -OutputPath $OutputPath -DaysAgo $DaysAgo
 }
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append

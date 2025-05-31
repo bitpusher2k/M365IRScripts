@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Create-ConditionalAccessPolicies.ps1 - By Bitpusher/The Digital Fox
-# v2.9 last updated 2025-01-29
+# v3.0 last updated 2025-05-31
 # Script to backup current Named Locations/Conditional Access Policies and
 # to set up basic set of Named Locations and Conditional Access Policies in report-only mode.
 #
@@ -84,31 +84,84 @@
 #Requires -Version 5.1
 
 param(
-    [string]$OutputPath,
-    [string]$Encoding = "utf8bom" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
+    [string]$OutputPath = "Default",
+    [string]$UserIds,
+    [int]$DaysAgo,
+    [datetime]$StartDate,
+    [datetime]$EndDate,
+    [string]$scriptName = "Create-ConditionalAccessPolicies",
+    [string]$Priority = "Normal",
+    [string]$DebugPreference = "SilentlyContinue",
+    [string]$VerbosePreference = "SilentlyContinue",
+    [string]$InformationPreference = "Continue",
+    [string]$logFileFolderPath = "C:\temp\log",
+    [string]$ComputerName = $env:computername,
+    [string]$ScriptUserName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+    [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
+    [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
+    [int]$logFileRetentionDays = 30,
+    [string]$Encoding = "utf8NoBOM" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
 )
 
+#region initialization
 if ($PSVersionTable.PSVersion.Major -eq 5 -and ($Encoding -eq "utf8bom" -or $Encoding -eq "utf8nobom")) { $Encoding = "utf8" }
+
+function Get-TimeStamp {
+    param(
+        [switch]$NoWrap,
+        [switch]$Utc
+    )
+    $dt = Get-Date
+    if ($Utc -eq $true) {
+        $dt = $dt.ToUniversalTime()
+    }
+    $str = "{0:yyyy-MM-dd} {0:HH:mm:ss}" -f $dt
+
+    if ($NoWrap -ne $true) {
+        $str = "[$str]"
+    }
+    return $str
+}
+
+if ($logFileFolderPath -ne "") {
+    if (!(Test-Path -PathType Container -Path $logFileFolderPath)) {
+        Write-Output "$(Get-TimeStamp) Creating directory $logFileFolderPath" | Out-Null
+        New-Item -ItemType Directory -Force -Path $logFileFolderPath | Out-Null
+    } else {
+        $DatetoDelete = $(Get-Date).AddDays(- $logFileRetentionDays)
+        Get-ChildItem $logFileFolderPath | Where-Object { $_.Name -like "*$logFilePrefix*" -and $_.LastWriteTime -lt $DatetoDelete } | Remove-Item | Out-Null
+    }
+    $logFilePath = $logFileFolderPath + "\$logFilePrefix" + (Get-Date -Format $logFileDateFormat) + ".LOG"
+}
+
+$sw = [Diagnostics.StopWatch]::StartNew()
+Write-Output "$scriptName started on $ComputerName by $ScriptUserName at  $(Get-TimeStamp)" | Tee-Object -FilePath $logFilePath -Append
+
+$process = Get-Process -Id $pid
+Write-Output "Setting process priority to `"$Priority`"" | Tee-Object -FilePath $logFilePath -Append
+$process.PriorityClass = $Priority
+
+#endregion initialization
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
 ## If OutputPath variable is not defined, prompt for it
 if (!$OutputPath) {
     Write-Output ""
-    $OutputPath = Read-Host "Enter the output base path, e.g. $($env:userprofile)\Desktop\Investigation (default)"
-    if ($OutputPath -eq '') { $OutputPath = "$($env:userprofile)\Desktop\Investigation" }
-    Write-Output "Output base path will be in $OutputPath"
+    $OutputPath = Read-Host "Enter the output base path, e.g. $($env:userprofile)\Desktop\Investigation (default)" | Tee-Object -FilePath $logFilePath -Append
+    If ($OutputPath -eq '') { $OutputPath = "$($env:userprofile)\Desktop\Investigation" }
+    Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
 } elseif ($OutputPath -eq 'Default') {
     Write-Output ""
     $OutputPath = "$($env:userprofile)\Desktop\Investigation"
-    Write-Output "Output base path will be in $OutputPath"
+    Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## If OutputPath does not exist, create it
 $CheckOutputPath = Get-Item $OutputPath -ErrorAction SilentlyContinue
 if (!$CheckOutputPath) {
     Write-Output ""
-    Write-Output "Output path does not exist. Directory will be created."
+    Write-Output "Output path does not exist. Directory will be created." | Tee-Object -FilePath $logFilePath -Append
     mkdir $OutputPath
 }
 
@@ -116,12 +169,16 @@ if (!$CheckOutputPath) {
 # $PrimaryDomain = Get-AcceptedDomain | Where-Object Default -eq $true
 # $DomainName = $PrimaryDomain.DomainName
 $PrimaryDomain = Get-MgDomain | Where-Object { $_.isdefault -eq $True } | Select-Object -Property ID
-$DomainName = $PrimaryDomain.ID
+if ($PrimaryDomain) {
+    $DomainName = $PrimaryDomain.ID
+} else {
+    $DomainName = "DefaultOutput"
+}
 
 $CheckSubDir = Get-Item $OutputPath\$DomainName -ErrorAction SilentlyContinue
 if (!$CheckSubDir) {
     Write-Output ""
-    Write-Output "Domain sub-directory does not exist. Sub-directory will be created."
+    Write-Output "Domain sub-directory does not exist. Sub-directory `"$DomainName`" will be created." | Tee-Object -FilePath $logFilePath -Append
     mkdir $OutputPath\$DomainName
 }
 
@@ -193,13 +250,14 @@ if ($ConfiguredPolicies) {
 
 ## Create allowed countries named location
 Write-Output ""
-$Continue = Read-Host "Enter 'Y' to create 'Allowed Sign-in Countries' Named Location (US only)"
+$Continue = Read-Host "Enter 'Y' to create 'Allowed Sign-in Countries' Named Location (US & CA only)"
 if ($Continue -eq "Y") {
     $params = @{
         "@odata.type"                     = "#microsoft.graph.countryNamedLocation"
         DisplayName                       = "Allowed Sign-in Countries"
         CountriesAndRegions               = @(
-            "US"
+            "US",
+            "CA"
         )
         IncludeUnknownCountriesAndRegions = $false
     }
@@ -242,7 +300,7 @@ if ($Continue -eq "Y") {
         IpRanges      = @()
     }
     # [array]$Location4 = Read-Host "Enter slash-formatted IPv4 ranges to add to the block list, comma separated (e.g.: '97.98.134.100/32','98.114.200.24/32','98.47.98.66/32','99.115.38.155/32')" # Need to split input into array
-    Write-Output "Enter slash-formatted IPv4 range to add to the block list (if any) (e.g.: '97.98.134.100/32')"
+    Write-Output "Enter slash-formatted IPv4 range to add to the block list (if any) (e.g.: '97.98.134.100/32' for single IP, '97.98.134.1/24' for full class C range)"
     $Location4 = do {
         $IPv4 = Read-Host "Enter IP range, or leave blank to finish"
         $IPv4
@@ -259,7 +317,7 @@ if ($Continue -eq "Y") {
         }
     }
     # [array]$Location6 = Read-Host "Enter slash-formatted IPv6 ranges to add to the block list (if any), comma separated (e.g.: '2603:8001:bf40:f00:855a:4064:fd77:abcd/128')" # Need to split input into array
-    Write-Output "Enter slash-formatted IPv6 range to add to the block list (if any) (e.g.: '2603:8001:bf40:f00:855a:4064:fd77:abcd/128', '2603:8001:bf40:f00:855a:::/64)"
+    Write-Output "Enter slash-formatted IPv6 range to add to the block list (if any) (e.g.: '2603:8001:bf40:f00:855a:4064:fd77:abcd/128' for single IP, '2603:8001:bf40:f00:855a:::/64 for full network/subnet range)"
     $Location6 = do {
         $IPv6 = Read-Host "Enter IP range, or leave blank to finish"
         $IPv6
@@ -431,6 +489,8 @@ if ($Continue -eq "Y") {
 }
 
 ## Create conditional access policy to block legacy authentication
+## Check for legacy auth from sign-in logs by filtering for "Client app" and selecting all legacy ones - Autodiscover, Exchange ActiveSync, Exchange Online Powershell, 
+## Exchange Web Services, IMAP, MAPI Over HTTP, Offline Address Book, Other clients, Outlook Anywhere (RPC over HTTP), POP, Reporting Web Services, SMTP, Universal Outlook
 Write-Output ""
 Write-Output "Blocked Legacy Protocols include POP, IMAP, SMTP, Older Office Clients and ActiveSync using Basic authentication."
 $Continue = Read-Host "Enter 'Y' to create 'Block Legacy Authentication All Apps' Conditional Access Policy"
@@ -1209,7 +1269,11 @@ Write-Output ""
 Write-Output "To deploy Conditional Access policy from template in PowerShell:"
 Write-Output '$catemplate = Get-MgBetaIdentityConditionalAccessTemplate -ConditionalAccessTemplateId XXXX-XXXX-XXXX-XXXXXX'
 Write-Output 'New-MgIdentityConditionalAccessPolicy -TemplateId $catemplate.Id -DisplayName $catemplate.Name -State enabledForReportingButNotEnforce' # https://ourcloudnetwork.com/how-to-deploy-conditional-access-templates-with-graph-powershell/
-Write-Output ""
+
+Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
+Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append
+
+Write-Output "`nDone! Check output path for results." | Tee-Object -FilePath $logFilePath -Append
 Invoke-Item "$OutputPath\$DomainName"
 
 exit

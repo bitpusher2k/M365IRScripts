@@ -14,7 +14,7 @@
 
 ## By Bitpusher/The Digital Fox
 
-## v2.8 last updated 2024-07-14
+## v3.0 last updated 2025-05-31 - Reviewed all scripts, updated functions, homogenized structure and started removing MSOL versions of commands
 
 #comp #m365 #security #bec #script #irscript #powershell #collection #playbook #readme #lotlir #lolir #incident #response #investigation
 
@@ -55,6 +55,9 @@ Functions and scripts modified from other sources are attributed in each script 
 * 05-ProcessUnifiedAuditLogFlatten.ps1 - Process CSV of any event logs from the Unified Audit Log exported with these scripts. Flattens objects and makes more usable during manual review.
 * 06-Lookup-IPInfoCSV.bat - Shim to enable drag-and-drop of downloaded log to PS script of the same name.
 * 06-Lookup-IPInfoCSV.ps1 - Process CSV of exported logs from the Unified Audit Log or other source which includes a column of IP addresses - Enrich the CSV with information on each IP address.
+* 07-ProcessObjectFlatten.bat - Shim to enable drag-and-drop of downloaded log to PS script of the same name.
+* 07-ProcessObjectFlatten.ps1 - Process JSON file into flattened CSV more usable during manual review.
+* 09-Hydra-Collect.ps1 - Run oft used set of collection scripts sequentially with default settings at outset of an investigation. "Hydra" because each sub-script "head" is independent, and because it's memorable.
 * 10-Get-BasicTenantInformation.ps1 - Retrieve basic tenant information & settings relevant to further log collection. Verify tenant name, licensing level, UAL enabled, etc..
 * 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1 - Retrieve Entra ID sign-in and audit logs using AzureAD and Graph modules. Requires at least Entra ID P1 - otherwise logs must be retrieved through admin console.
 * 12-Search-UnifiedAuditLogSignIn.ps1 - Retrieve sign-in log entries from the Unified Audit Log (less detailed but longer retention than Entra ID sign-in logs).
@@ -80,10 +83,13 @@ Functions and scripts modified from other sources are attributed in each script 
 * 36-Search-UALActivityByIPAddress.ps1 - Export all UAL entries associated with a given set of IP addresses.
 * 37-Search-UALActivityByUser.ps1 - Export all UAL entries associated with a given set of user accounts.
 * 38-Get-ExchangeMessageContentSearch.ps1 - Walk through frequently used content search steps for dealing with spam/phishing messages - Create Exchange search based on sender/date/message subject, export preview, export content, purge.
+* 39-Search-UALMailItemsAccessedByUser.ps1 - Export all "MailItemsAccessed" records from the Unified Audit Log for specified users - Such records should be more widely available now.
+* 40-Search-MessageByID.ps1 - Search Exchange Online mailbox using Graph API by Message IDs and save messages to folder along with a metadata index CSV.
 * 80-OneLinerReference.ps1 - Reference for various PowerShell one-line commands that are useful during BEC response & investigation.
 * 90-Get-MFAReport.ps1 - Export report of M365 MFA settings of each account through Microsoft Graph.
 * 91-Get-CAPReport-P1.ps1 - Generate report of current Conditional Access Policies and Named Locations. Requires at least Entra ID P1.
 * 92-Create-ConditionalAccessPolicies-P1.ps1 - Backup current Named Locations/Conditional Access Policies and set up a recommended basic set of Named Locations and Conditional Access Policies in report-only mode. Requires at least Entra ID P1, and requires P2 for some policies.
+* 93-Get-SecureScoreInformation.ps1 Retrieve and list M365 Secure Score information.
 * 99-Disconnect-M365Modules.ps1 - Disconnect from all M365 modules. Run when finished with above scripts.
 * IRScript-Template.ps1 - Template for additional scripts in this series.
 
@@ -94,12 +100,12 @@ Functions and scripts modified from other sources are attributed in each script 
 
 Scripts in this collection are organized roughly in the order in which they are used during the course of a BEC investigation and response.
 
-All scripts that output reports by default do so to a new folder named "Investigation" on the current user's desktop, in a subfolder with the name of the primary domain of tenant under investigation. The prompt for this can be skipped by setting -OutputFolder parameter to "Default" when running a script.
+All scripts that output reports do so to a folder named "Investigation" on the current user's desktop (this can be overridden by setting -OutputFolder parameter to desired path when running a script.), in a subfolder created with the name of the primary domain of tenant under investigation. 
 
-General playbook steps for investigating & remediating a BEC incident in M365.
+General playbook steps for investigating & remediating a BEC incident in M365. IR scripts can be iterated through to support the investigation as it progresses.
 
 1. Contain incident - block sign-in to known or suspected compromised accounts and initiate password resets. Check user roles and mailbox permissions, and expand scope of incident accordingly.
-2. Retrieve and review account logs - start with sign-in logs, audit logs, inbox rules, mailbox audit logs. 
+2. Retrieve and review account logs - start with sign-in logs, audit logs, inbox rules, mailbox audit logs. Hydra-Collect.ps1 script can be used to collect some initial setting & log information.
 3. Check built-in protections - Entra ID risk detections and Microsoft Defender alerts/incidents/quarantine
 4. Review tenant Enterprise Applications, impacted account MFA methods, registered devices, changes to OneDrive files and junk mail configurations.
 5. Pivot through logs following events from known malicious/suspicious to find related events - Chronology is the first element of induction; topology is the second. Link events by proximity in time and proximity in source.

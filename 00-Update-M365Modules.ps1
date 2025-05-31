@@ -10,7 +10,7 @@
 # UpdateM365Modules.ps1
 # Created by https://github.com/directorcia @directorcia
 # Modified by Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v3.0 last updated 2025-05-31
 # Script to install/update MSOL PowerShell modules.
 #
 # Usage:

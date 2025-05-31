@@ -7,29 +7,33 @@
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
-# Get-UserMFAMethodsAndDevices.ps1 - By Bitpusher/The Digital Fox
+# Search-UALMailItemsAccessedByUser.ps1 - By Bitpusher/The Digital Fox
 # v3.0 last updated 2025-05-31
-# Script to list the registered authentication methods and devices of the specified user.
+# Script to export all "MailItemsAccessed" records from the Unified Audit Log for specified users.
+#
+# For more information see:
+# https://learn.microsoft.com/en-us/purview/audit-log-investigate-accounts
+# https://office365itpros.com/2019/01/07/using-exchange-session-identifiers-audit-log/
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Get-UserMFAMethodsAndDevices.ps1 -OutputPath "Default" -UserIds "compromisedaccount@contoso.com"
+# powershell -executionpolicy bypass -f .\Search-UALActivityByUser.ps1 -OutputPath "Default" -UserIds "compromisedaccount@contoso.com" -DaysAgo "10"
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
-# Uses (ExchangePowerShell), Azure AD, Microsoft Graph commands.
+# Uses ExchangePowerShell commands.
 #
-#comp #m365 #security #bec #script #irscript #powershell #authentication #methods #devices
+#comp #m365 #security #bec #script #irscript #powershell #unified #audit #log #search #user
 
 #Requires -Version 5.1
 
-[CmdletBinding()]
 param(
     [string]$OutputPath = "Default",
     [string]$UserIds,
+    [int]$DaysAgo,
     [datetime]$StartDate,
     [datetime]$EndDate,
-    [string]$scriptName = "Get-UserMFAMethodsAndDevices",
+    [string]$scriptName = "Search-UALMailItemsAccessedByUser",
     [string]$Priority = "Normal",
     [string]$DebugPreference = "SilentlyContinue",
     [string]$VerbosePreference = "SilentlyContinue",
@@ -85,6 +89,11 @@ $process.PriorityClass = $Priority
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
+$CheckLog = (Get-AdminAuditLogConfig).UnifiedAuditLogIngestionEnabled
+if (!$CheckLog) {
+    Write-Output "The Unified Audit Log does not appear to be enabled on this tenant. Export of UAL activities may fail. Try running 'Set-AdminAuditLogConfig -UnifiedAuditLogIngestionEnabled $true' if export fails."
+}
+
 ## If OutputPath variable is not defined, prompt for it
 if (!$OutputPath) {
     Write-Output ""
@@ -126,34 +135,71 @@ Write-Output "Domain sub-directory will be `"$DomainName`"" | Tee-Object -FilePa
 ## If UserIds variable is not defined, prompt for it
 if (!$UserIds) {
     Write-Output ""
-    $UserIds = Read-Host 'Enter the userPrincipalName (email address) of the user to list authentication methods/devices'
+    $UserIds = Read-Host "Enter the user's primary email address (UPN). Comma-separated to search for entries from multiple users"
 }
 
-Write-Output "Collecting all user authentication methods and devices..."
+## If DaysAgo variable is not defined, prompt for it
+if (!$DaysAgo) {
+    Write-Output ""
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve mailitemsaccessed UAL entries associated with these user(s) (default: 10, maximum: 180)'
+    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
+}
+if ($DaysAgo -gt 180) { $DaysAgo = "180" }
+Write-Output "`nWill search UAC $DaysAgo days back from today for relevant events."
 
-# get-mguser -userid (get-mguser -UserId "$UserIds").id -property signinactivity | Select-Object -expandproperty signinactivity
+$StartDate = (Get-Date).AddDays(- $DaysAgo)
+$EndDate = (Get-Date).AddDays(1)
+$resultSize = 5000 #Maximum number of records that can be retrieved per query
 
-# Get-MgUserAuthenticationMethod -UserId $UserIds | fl *
-# Get-MgUserAuthenticationPhoneMethod -UserId $UserIds | fl *
-# Get-MgUserAuthenticationMicrosoftAuthenticatorMethod -UserId $UserIds | fl *
-# Get-MgUserAuthenticationMicrosoftAuthenticatorMethod -UserId $UserIds | Select-Object -expandproperty additionalproperties
+$OutputCSV = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date).csv"
 
-$authMethod = Get-MgUserAuthenticationMethod -UserId $UserIds
-# $authMethod.additionalProperties
-# $authMethod.Id
+$amountResults = (Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations "MailItemsAccessed" -ResultSize 1 | Select-Object -First 1 -ExpandProperty ResultCount)
+$throttledResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations MailItemsAccessed -ResultSize 1000 | Where {$_.AuditData -like '*"IsThrottled","Value":"True"*'}
+$syncResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations MailItemsAccessed -ResultSize 1000 | Where {$_.AuditData -like '*"MailAccessType","Value":"Sync"*'}
 
-(Get-MsolUser -UserPrincipalName $UserIds).StrongAuthenticationMethods | Format-List * | Out-File -FilePath "$OutputPath\$DomainName\AllUserAuthenticationMethods_$($UserIds)_$($date).txt" -Append -Encoding $Encoding
-$authMethod | Format-List * | Out-File -FilePath "$OutputPath\$DomainName\AllUserAuthenticationMethods_$($UserIds)_$($date).txt" -Append -Encoding $Encoding
+Write-Output "`nNumber of MailItemsAccessed events logged for specified user(s) during time range: $amountResults.`n"
 
-$AzUser = Get-AzureADUser -ObjectId "$UserIds"
-$User_ObjectID = $AzUser.ObjectID
-$Get_User_Devices = (Get-AzureADUserRegisteredDevice -ObjectId $User_ObjectID)
-$Count_User_Devices = $Get_User_Devices.count
-Write-Output "`n"
-Write-Output "User has $Count_User_Devices devices in Azure AD/Entra ID"
+if ($throttledResults) {
+    Write-Output "`nWARNING: MailItemsAccessed events THROTTLED for specified user(s) during search range - Not all events were logged.`n"
+}
 
-$Get_User_Devices | Export-Csv "$OutputPath\$DomainName\AllUserDevices_$($UserIds)_$($date).csv" -Append -NoTypeInformation -Encoding $Encoding
-Write-Output "`n"
+if ($syncResults) {
+    Write-Output "`nWARNING: MailItemsAccessed SYNC events for specified user(s) logged during search range - Desktop Outlook client used and only FOLDER level operations are logged - ALL items in synced folder must be assumed accessed.`n"
+}
+
+$sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations `"MailItemsAccessed`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations "MailItemsAccessed" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $AuditOutput += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
+
+if (!$AuditOutput) {
+    Write-Output "`nThere are no activities in the audit log for the time period specified`n"
+} else {
+    $AuditOutput | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
+    Write-Output "`nSee user activities report in the output path.`n"
+    Write-Output "Pivot through MailItemsAccessed logs searching by date/time of suspect events, by suspect IP ('ClientIPAddress'), and by associated suspect Session ID ('SessionId')."
+}
+
+if ((Test-Path -Path $OutputCSV) -eq "True") {
+    Write-Output `n" The Output file is available at:"
+    Write-Output $OutputCSV
+    # $Prompt = New-Object -ComObject wscript.shell
+    # $UserIdsInput = $Prompt.popup("Do you want to open output file?",0,"Open Output File",4)
+    # If ($UserIdsInput -eq 6) {
+    # 	Invoke-Item "$OutputCSV"
+    # }
+}
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
 Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append

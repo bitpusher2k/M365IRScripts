@@ -9,7 +9,7 @@
 # https://github.com/bitpusher2k
 #
 # ProcessEntraAuditLog.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v3.0 last updated 2025-05-31
 # Processes an exported CSV of Entra ID Audit log from the admin center,
 # removing columns not needed for manual review and reordering for ease of review.
 # Not the most efficient way to process CSV files - Not recommended for use on CSV files with more than 100,000 lines.
@@ -44,7 +44,7 @@ param(
 $sw = [Diagnostics.StopWatch]::StartNew()
 
 $headerText = Get-Content $inputFile | Select-Object -First 1 
-$headerRow = Get-Content $inputFile | ConvertFrom-String -Delimiter "," | Select-Object -First 1 
+$headerRow = Get-Content $inputFile | Select-Object -First 1 | ConvertFrom-String -Delimiter ","
 $headerRow
 
 
