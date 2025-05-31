@@ -39,7 +39,7 @@ Write-Output "`nPart 1 of 5. MS Graph (connecting to Graph first works better)..
 # Import-Module Microsoft.Graph
 # Install-Module Microsoft.Graph.Beta
 # Import-Module Microsoft.Graph.Beta
-Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All","Directory.AccessAsUser.All"
+Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All","Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All"
 
 # list of all scopes:
 # Find-MgGraphPermission | ? {$_.Name -match "\bRead\b"}
@@ -53,7 +53,7 @@ $Test = Get-MgDomain -ErrorAction SilentlyContinue
 if ($Test) {
     Write-Output "`nMS Graph module connected."
 } else {
-    Write-Output "`n*** MS Graph failed to connect - Try to connect again with: Connect-MgGraph -Scopes `"UserAuthenticationMethod.ReadWrite.All`",`"Directory.ReadWrite.All`",`"User.ReadWrite.All`",`"Group.ReadWrite.All`",`"GroupMember.Read.All`",`"Policy.Read.All`",`"Policy.ReadWrite.ConditionalAccess`",`"Application.ReadWrite.All`",`"Files.ReadWrite.All`",`"Sites.ReadWrite.All`",`"AuditLog.Read.All`",`"Agreement.Read.All`",`"IdentityRiskEvent.Read.All`",`"IdentityRiskyUser.ReadWrite.All`",`"Mail.Send`",`"Mail.Read`",`"SecurityEvents.ReadWrite.All`",`"Directory.AccessAsUser.All`""
+    Write-Output "`n*** MS Graph failed to connect - Try to connect again with: Connect-MgGraph -Scopes `"UserAuthenticationMethod.ReadWrite.All`",`"Directory.ReadWrite.All`",`"User.ReadWrite.All`",`"Group.ReadWrite.All`",`"GroupMember.Read.All`",`"Policy.Read.All`",`"Policy.ReadWrite.ConditionalAccess`",`"Application.ReadWrite.All`",`"Files.ReadWrite.All`",`"Sites.ReadWrite.All`",`"AuditLog.Read.All`",`"Agreement.Read.All`",`"IdentityRiskEvent.Read.All`",`"IdentityRiskyUser.ReadWrite.All`",`"Mail.Send`",`"Mail.Read`",`"SecurityEvents.ReadWrite.All`",`"Directory.AccessAsUser.All`",`"AppRoleAssignment.ReadWrite.All`""
 }
 
 # To connect to GCC High/DOD the -Environment parameter needs to be specified:

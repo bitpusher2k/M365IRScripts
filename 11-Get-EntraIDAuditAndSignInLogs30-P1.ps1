@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-EntraIDAudieAndSignInLogs30-P1.ps1 - By Bitpusher/The Digital Fox
-# v2.8 last updated 2024-05-12
+# v3.0 last updated 2025-05-31
 # Function ConvertTo-FlatObject by https://github.com/EvotecIT
 # Script to export Azure AD sign-in and audit logs for past 30 days
 # (if they exist that far back)
@@ -22,30 +22,80 @@
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
-# Uses (ExchangePowerShell), AzureAD, Microsoft Graph commands.
+# Uses Microsoft Graph commands (scopes "AuditLog.Read.All","Directory.Read.All").
+# Deprecated AzureAD versions commented out.
 #
 #comp #m365 #security #bec #script #azure #entra #audit #sign-in #logs #p1
 
 #Requires -Version 5.1
 
 param(
-    [string]$OutputPath,
+    [string]$OutputPath = "Default",
     [int]$DaysAgo,
+    [string]$scriptName = "Get-EntraIDAudieAndSignInLogs30-P1",
+    [string]$Priority = "Normal",
+    [string]$DebugPreference = "SilentlyContinue",
+    [string]$VerbosePreference = "SilentlyContinue",
+    [string]$InformationPreference = "Continue",
+    [string]$logFileFolderPath = "C:\temp\log",
+    [string]$ComputerName = $env:computername,
+    [string]$ScriptUserName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name,
+    [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
+    [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
+    [int]$logFileRetentionDays = 30,
     [string]$Encoding = "utf8bom" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
 )
 
+#region initialization
 if ($PSVersionTable.PSVersion.Major -eq 5 -and ($Encoding -eq "utf8bom" -or $Encoding -eq "utf8nobom")) { $Encoding = "utf8" }
+
+function Get-TimeStamp {
+    param(
+        [switch]$NoWrap,
+        [switch]$Utc
+    )
+    $dt = Get-Date
+    if ($Utc -eq $true) {
+        $dt = $dt.ToUniversalTime()
+    }
+    $str = "{0:yyyy-MM-dd} {0:HH:mm:ss}" -f $dt
+
+    if ($NoWrap -ne $true) {
+        $str = "[$str]"
+    }
+    return $str
+}
+
+if ($logFileFolderPath -ne "") {
+    if (!(Test-Path -PathType Container -Path $logFileFolderPath)) {
+        Write-Output "$(Get-TimeStamp) Creating directory $logFileFolderPath" | Out-Null
+        New-Item -ItemType Directory -Force -Path $logFileFolderPath | Out-Null
+    } else {
+        $DatetoDelete = $(Get-Date).AddDays(- $logFileRetentionDays)
+        Get-ChildItem $logFileFolderPath | Where-Object { $_.Name -like "*$logFilePrefix*" -and $_.LastWriteTime -lt $DatetoDelete } | Remove-Item | Out-Null
+    }
+    $logFilePath = $logFileFolderPath + "\$logFilePrefix" + (Get-Date -Format $logFileDateFormat) + ".LOG"
+}
+
+$sw = [Diagnostics.StopWatch]::StartNew()
+Write-Output "$scriptName started on $ComputerName by $ScriptUserName at  $(Get-TimeStamp)" | Tee-Object -FilePath $logFilePath -Append
+
+$process = Get-Process -Id $pid
+Write-Output "Setting process priority to `"$Priority`"" | Tee-Object -FilePath $logFilePath -Append
+$process.PriorityClass = $Priority
+
+#endregion initialization
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
 
 function ConvertTo-FlatObject {
-    <#
+    <# https://evotec.xyz/powershell-converting-advanced-object-to-flat-object/
     .SYNOPSIS
-    Flattends a nested object into a single level object.
+    Flattens a nested object into a single level object.
 
     .DESCRIPTION
-    Flattends a nested object into a single level object.
+    Flattens a nested object into a single level object.
 
     .PARAMETER Objects
     The object (or objects) to be flatten.
@@ -55,9 +105,9 @@ function ConvertTo-FlatObject {
 
     .PARAMETER Base
     The first index name of an embedded array:
-    - 1, arrays will be 1 based: <Parent>.1, <Parent>.2, <Parent>.3, …
-    - 0, arrays will be 0 based: <Parent>.0, <Parent>.1, <Parent>.2, …
-    - "", the first item in an array will be unnamed and than followed with 1: <Parent>, <Parent>.1, <Parent>.2, …
+    - 1, arrays will be 1 based: <Parent>.1, <Parent>.2, <Parent>.3, ...
+    - 0, arrays will be 0 based: <Parent>.0, <Parent>.1, <Parent>.2, ...
+    - "", the first item in an array will be unnamed and than followed with 1: <Parent>, <Parent>.1, <Parent>.2, ...
 
     .PARAMETER Depth
     The maximal depth of flattening a recursive property. Any negative value will result in an unlimited depth and could cause a infinitive loop.
@@ -66,7 +116,7 @@ function ConvertTo-FlatObject {
     The maximal depth of flattening a recursive property. Any negative value will result in an unlimited depth and could cause a infinitive loop.
 
     .PARAMETER ExcludeProperty
-    The propertys to be excluded from the output.
+    The properties to be excluded from the output.
 
     .EXAMPLE
     $Object3 = [PSCustomObject] @{
@@ -100,7 +150,7 @@ function ConvertTo-FlatObject {
         }
         ListTest  = @(
             [PSCustomObject] @{
-                "Name" = "Sława Klys"
+                "Name" = "Slawa Klys"
                 "Age"  = "33"
             }
         )
@@ -116,7 +166,7 @@ function ConvertTo-FlatObject {
         [Parameter(ValueFromPipeLine)] [Object[]]$Objects,
         [string]$Separator = ".",
         [ValidateSet("", 0, 1)] $Base = 1,
-        [int]$Depth = 5,
+        [int]$Depth = 10,
         [string[]]$ExcludeProperty,
         [Parameter(DontShow)] [String[]]$Path,
         [Parameter(DontShow)] [System.Collections.IDictionary]$OutputObject
@@ -204,35 +254,40 @@ function ConvertTo-FlatObject {
 ## If OutputPath variable is not defined, prompt for it
 if (!$OutputPath) {
     Write-Output ""
-    $OutputPath = Read-Host "Enter the output base path, e.g. $($env:userprofile)\Desktop\Investigation (default)"
-    if ($OutputPath -eq '') { $OutputPath = "$($env:userprofile)\Desktop\Investigation" }
-    Write-Output "Output base path will be in $OutputPath"
+    $OutputPath = Read-Host "Enter the output base path, e.g. $($env:userprofile)\Desktop\Investigation (default)" | Tee-Object -FilePath $logFilePath -Append
+    If ($OutputPath -eq '') { $OutputPath = "$($env:userprofile)\Desktop\Investigation" }
+    Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
+} elseif ($OutputPath -eq 'Default') {
+    Write-Output ""
+    $OutputPath = "$($env:userprofile)\Desktop\Investigation"
+    Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## If OutputPath does not exist, create it
 $CheckOutputPath = Get-Item $OutputPath -ErrorAction SilentlyContinue
 if (!$CheckOutputPath) {
     Write-Output ""
-    Write-Output "Output path does not exist. Directory will be created."
+    Write-Output "Output path does not exist. Directory will be created." | Tee-Object -FilePath $logFilePath -Append
     mkdir $OutputPath
-} elseif ($OutputPath -eq 'Default') {
-    Write-Output ""
-    $OutputPath = "$($env:userprofile)\Desktop\Investigation"
-    Write-Output "Output base path will be in $OutputPath"
 }
 
 ## Get Primary Domain Name for output subfolder
 # $PrimaryDomain = Get-AcceptedDomain | Where-Object Default -eq $true
 # $DomainName = $PrimaryDomain.DomainName
 $PrimaryDomain = Get-MgDomain | Where-Object { $_.isdefault -eq $True } | Select-Object -Property ID
-$DomainName = $PrimaryDomain.ID
+if ($PrimaryDomain) {
+    $DomainName = $PrimaryDomain.ID
+} else {
+    $DomainName = "DefaultOutput"
+}
 
 $CheckSubDir = Get-Item $OutputPath\$DomainName -ErrorAction SilentlyContinue
 if (!$CheckSubDir) {
     Write-Output ""
-    Write-Output "Domain sub-directory does not exist. Sub-directory `"$DomainName`" will be created."
+    Write-Output "Domain sub-directory does not exist. Sub-directory `"$DomainName`" will be created." | Tee-Object -FilePath $logFilePath -Append
     mkdir $OutputPath\$DomainName
 }
+Write-Output "Domain sub-directory will be `"$DomainName`"" | Tee-Object -FilePath $logFilePath -Append
 
 if (!$DaysAgo) {
     $DaysAgo = Read-Host "Enter number of days back to retrieve Sign-in and Audit log entries (default: 7, max: 30)"
@@ -246,11 +301,11 @@ $StartDate = $(Get-Date).AddDays(- $DaysAgo).ToString("yyyy-MM-dd")
 # Get-AzureADSubscribedSku | Select -Property Sku*,ConsumedUnits -ExpandProperty PrepaidUnits
 # (Get-MgSubscribedSku).ServicePlans | ? { $_.ServicePlanName -Like 'AAD_PREMIUM*' }
 # https://portal.azure.com/#view/Microsoft_AAD_IAM/LicensesMenuBlade/~/Products
-Get-AzureADDomain
+# Get-AzureADDomain
 
 Write-Output "`nWARNING - Logs retrieved via AzureAD or Microsoft Graph do NOT contain the 'Authentication Protocol' field - https://www.invictus-ir.com/news/do-not-use-the-get-mgauditlogsignin-for-your-investigations"
 Write-Output "This script will attempt to use the beta cmdlet versions to retrieve more sign-in data."
-Write-Output "`nPart 1 of 4. Attempting to retrieve Entra ID Audit logs (past $DaysAgo days)..."
+Write-Output "`nAttempting to retrieve Entra ID Audit logs (past $DaysAgo days)..."
 
 if ($host.version.Major -eq 5) {
     Write-Output "Running in AzureAD module native Windows PowerShell 5."
@@ -263,28 +318,28 @@ if ($host.version.Major -eq 5) {
 } else {
     Write-Output "Running in unsupported PowerShell version. Please run in PowerShell 5+."
 }
-Write-Output "`nPart 1 done..."
+Write-Output "`nDone..."
 
 
-Write-Output "`nPart 2 of 4. Attempting to retrieve Entra ID Audit logs (past $DaysAgo days) via beta graph cmdlet..."
+Write-Output "`nAttempting to retrieve Entra ID Audit logs (past $DaysAgo days) via beta graph cmdlet..."
 
-$EntraAuditLogs = Get-MgBetaAuditLogDirectoryAudit -Filter "activityDateTime gt $StartDate"
+$EntraAuditLogs = Get-MgBetaAuditLogDirectoryAudit -All -Filter "activityDateTime gt $StartDate"
 $EntraAuditLogsJSON = $EntraAuditLogs | ConvertTo-Json -Depth 100
 $EntraAuditLogsJSON | Out-File -FilePath "$OutputPath\$DomainName\EntraIDAuditLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).json" -Encoding $Encoding
-$EntraAuditLogs | ConvertTo-FlatObject | Export-Csv -Path "$OutputPath\$DomainName\EntraIDAuditLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-
-Write-Output "`nPart 2 done..."
+$EntraAuditLogs | ConvertTo-FlatObject -Base 1 -Depth 20 | Export-Csv -Path "$OutputPath\$DomainName\EntraIDAuditLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+[io.file]::readalltext("$OutputPath\$DomainName\EntraIDAuditLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv").replace("System.Object[]","") | Out-File "$OutputPath\$DomainName\EntraIDAuditLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv" -Encoding utf8 –Force
+Write-Output "`nDone..."
 
 $License = (Get-MgSubscribedSku).ServicePlans | Where-Object { $_.ServicePlanName -like 'AAD_PREMIUM*' }
 Write-Output "`n$License"
 
 [bool]$LicenseBool = $License
 if (!$LicenseBool) {
-    Write-Output "`nPart 3. Retrieval of Entra ID/AAD sign-in logs through AzureAD and Microsoft Graph API requires Entra ID premium license (P1 or P2)"
+    Write-Output "`nRetrieval of Entra ID/AAD sign-in logs through AzureAD and Microsoft Graph API requires Entra ID premium license (P1 or P2)"
     Write-Output "License does not appear to be present - you will have to retrieve logs manually from:"
     Write-Output "`nhttps://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/SignIns"
 } else {
-    Write-Output "`nPart 3 of 4. Attempting to retrieve Entra ID Sign-in logs (past $DaysAgo days)..."
+    Write-Output "`nAttempting to retrieve Entra ID Sign-in logs (past $DaysAgo days)..."
 
     if ($host.version.Major -eq 5) {
         Write-Output "Running in AzureAD module native Windows PowerShell 5."
@@ -297,19 +352,75 @@ if (!$LicenseBool) {
     } else {
         Write-Output "Running in unsupported PowerShell version. Please run in PowerShell 5+."
     }
-    Write-Output "`nPart 3 done..."
+    Write-Output "`nDone..."
 
-    Write-Output "`nPart 4 of 4. Attempting to retrieve Entra ID Sign-in logs (past $DaysAgo days) via beta graph cmdlet..."
+    Write-Output "`nAttempting to retrieve Entra ID Sign-in logs (past $DaysAgo days) via beta graph cmdlet..."
 
-    $EntraSignInLogs = Get-MgBetaAuditLogSignIn -Filter "createdDateTime gt $StartDate"
+    # $EntraSignInLogs = Get-MgBetaAuditLogSignIn -Filter "createdDateTime gt $StartDate" # Limited to 1000 records
+    $EntraSignInLogs = Get-MgBetaAuditLogSignIn -All -Filter "createdDateTime gt $StartDate"
+    
+    # Rough outline of potential code to retrieve pagenated sign-in logs through Invoke-MgGraphRequests, including non-interactive sign-ins.
+    #
+    # $Url = "https://graph.microsoft.com/beta/auditLogs/signIns"
+    # $results = (Invoke-MgGraphRequest -Uri $Url -Method GET).value
+    # 
+    #  $AppId = <Get app-id from app registration>
+    #  $AppSecret = <Get app secret from app registration>
+    #  $TenantName = "<yourtenant>.onmicrosoft.com"
+    # 
+    # $Scope = "https://graph.microsoft.com/.default" $Url = "https://login.microsoftonline.com/$TenantName/oauth2/v2.0/token"
+    # Add System.Web for urlencode
+    # 
+    # Add-Type -AssemblyName System.Web
+    # 
+    # $Body = @{ client_id = $AppId client_secret = $AppSecret scope = $Scope grant_type = 'client_credentials' }
+    # Splat the parameters for Invoke-Restmethod for cleaner code
+    # 
+    # $PostSplat = @{ ContentType = 'application/x-www-form-urlencoded' Method = 'POST' # Create string by joining bodylist with '&' Body = $Body Uri = $Url }
+    # 
+    # $Request = Invoke-RestMethod @PostSplat
+    # 
+    # $Header = @{ Authorization = "$($Request.token_type) $($Request.access_token)" } $tokenttl = (Get-Date).AddSeconds(3599) $AADToken = @{ Header = $Header TTL = $tokenttl } 
+    # 
+    #  $filterQuery += " (signInEventTypes/any(t: t eq 'interactiveUser' or t eq 'nonInteractiveUser' or t eq 'servicePrincipal' or t eq 'managedIdentity'))"
+    #  $Uri = "https://graph.microsoft.com/beta/auditLogs/signIns?`$filter=$encodedFilterQuery"
+    #  Invoke-MgGraphRequest -Uri $Uri -Method Get -ContentType "application/json; odata.metadata=minimal; odata.streaming=true;" -OutputType Json
+    #
+    # $i = 1
+    # $uri = "https://graph.microsoft.com/beta/auditLogs/signIns?$filter=createdDateTime gt $($dates.filterstart) and createdDateTime lt $($dates.filterend)"
+    # try {$output = Invoke-RestMethod -Uri $Uri -Headers $AADToken.Header -Method Get -ContentType "application/json"} catch {$err = $_; break} 
+    # $Logs = $output.value 
+    # $count = $logs.Count 
+    # $currentprog = $output.value.createddatetime | Select-Object -Last 1 Write-Host "loop: $in $count items found `n Currently on $currentprog"
+    # while ($null -ne $output.'@odata.nextLink') { $currenttime = Get-Date $ttl = ($AADToken.TTL - $currenttime).TotalMinutes if ($ttl -lt 3){
+    #     $AADToken = GetToken
+    # } 
+    # try {$output = Invoke-RestMethod -Uri $output.'@odata.nextLink' -Headers $AADToken.Header -Method Get -ContentType "application/json"} catch {$err = $_; break} 
+    # $Logs += $output.value 
+    # $currentprog = $output.value.createddatetime | Select-Object -Last 1 
+    # $count = $logs.count 
+    # $i++ 
+    # Write-Host "loop: $i n $count items foundn Currently on $currentprog" } 
+    # $logs | ConvertTo-Json | Out-File -FilePath $dates.txt 
+    
+    
     $EntraSignInLogsJSON = $EntraSignInLogs | ConvertTo-Json -Depth 100
     $EntraSignInLogsJSON | Out-File -FilePath "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).json" -Encoding $Encoding
-    $EntraSignInLogs | ConvertTo-FlatObject | Export-Csv -Path "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "`nPart 4 done..."
+    $EntraSignInLogs | ConvertTo-FlatObject -Base 1 -Depth 20 | Export-Csv -Path "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+    [io.file]::readalltext("$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv").replace("System.Object[]","") | Out-File "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv" -Encoding utf8 –Force
+    
+    # Reload & sort CSV into preferred column order
+    $EntraLog = Import-Csv "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv"
+    $EntraLog = $EntraLog | Select-Object *, @{ n = 'DateOnly'; e = { $_.CreatedDateTime.Split(' ')[0] } }, @{ n = 'TimeOnly'; e = { $_.CreatedDateTime.Split(' ')[1] } }
+    $EntraLog | Select-Object "CreatedDateTime", "DateOnly", "TimeOnly", "UserDisplayName", "UserPrincipalName", "IPAddress", "Location.City", "Location.State", "Location.CountryOrRegion", "UserType", "Status.ErrorCode", "Status.FailureReason", "Status.AdditionalDetails", "Status.AdditionalProperties", "AuthenticationRequirement", "ConditionalAccessStatus", "IncomingTokenType", "ResourceDisplayName", "ResourceId", "ClientAppUsed", "DeviceDetail.Browser", "DeviceDetail.OperatingSystem", "UserAgent", "DeviceDetail.DisplayName", "DeviceDetail.IsCompliant", "DeviceDetail.IsManaged", "DeviceDetail.TrustType", "SessionId", * -ErrorAction SilentlyContinue | Export-Csv -Path "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date)_Processed.csv" -NoTypeInformation -Encoding $Encoding
+
+    Write-Output "`nDone..."
 }
 
-Write-Output ""
-Write-Output "`nDone! Check output path for results."
+Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
+Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append
+
+Write-Output "`nDone! Check output path for results." | Tee-Object -FilePath $logFilePath -Append
 Invoke-Item "$OutputPath\$DomainName"
 
 exit
