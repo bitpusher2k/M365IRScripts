@@ -1844,7 +1844,7 @@ Function Flatten-PsCustomObject{
 Write-Output "`nLoading $inputFile..."
 
 $Data = Get-Content $inputFile
-Write-Output "Imported data $(($Data | Measure-Object -Character).Characters) characters long."
+Write-Output "Imported data is $(($Data | Measure-Object -Character).Characters) characters long."
 $headerRow = $Data | Select-Object -First 1 | ConvertFrom-String -Delimiter ","
 $headerRow
 
@@ -1852,6 +1852,8 @@ if ($headerRow -match "AuditData") {
     Write-Output "Starting recursive flattening of 'AuditData' field from UAL log. Recursive JSON flattening not recommended for log exports larger than around 10mb (5,000 records, 10,000,000 characters)..."
 
     $CsvData = Import-Csv -Path $inputFile
+    Write-Output "Imported CSV is $($CsvData.length) records long."
+    Write-Output "Parsing with $function function(s)..."
 
     # Simple not-recursive JSON to CSV export - very fast but only flattens JSON data by one level:
     if ($function -match "simple" -or $function -eq "all") {
@@ -1861,9 +1863,12 @@ if ($headerRow -match "AuditData") {
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-SingleLevel.csv"
         $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json
         $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id
-        $Combined | Sort-Object "CreationTime" | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-        Write-Output "`n$outputPath written."
-        Write-Output "Seconds elapsed for CSV processing (non-recursive json conversion): $($sw.elapsed.totalseconds)"
+        $Combined = $Combined | Sort-Object * -Unique
+        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
+        Write-Output "`n$outputPath written (simple)."
+        Write-Output "Processed CSV is $($Combined.length) records long."
+        Write-Output "Seconds elapsed for CSV processing (non-recursive json conversion): $($sw.elapsed.totalseconds)`n"
     }
 
     if ($function -match "iRon" -or $function -eq "all") {
@@ -1873,9 +1878,12 @@ if ($headerRow -match "AuditData") {
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-flatten.csv"
         $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
         $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id
-        $Combined | Sort-Object "CreationTime" | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-        Write-Output "`n$outputPath written."
-        Write-Output "Seconds elapsed for CSV processing (Flatten-Object - slow): $($sw.elapsed.totalseconds)"
+        $Combined = $Combined | Sort-Object * -Unique
+        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
+        Write-Output "`n$outputPath written (iRon)."
+        Write-Output "Processed CSV is $($Combined.length) records long."
+        Write-Output "Seconds elapsed for CSV processing (Flatten-Object - slow): $($sw.elapsed.totalseconds)`n"
     }
     if ($function -match "EvotecIT" -or $function -eq "all") {
         $sw = [Diagnostics.StopWatch]::StartNew()
@@ -1884,10 +1892,13 @@ if ($headerRow -match "AuditData") {
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlatObject.csv"
         $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
         $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id
-        $Combined | Sort-Object "CreationTime" | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
+        $Combined = $Combined | Sort-Object * -Unique
+        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
         [io.file]::readalltext("$outputPath").replace("System.Object[]","") | Out-File "$outputPath" -Encoding utf8 –Force
-        Write-Output "`n$outputPath written."
-        Write-Output "Seconds elapsed for CSV processing (ConvertTo-FlatObject - fast): $($sw.elapsed.totalseconds)"
+        Write-Output "`n$outputPath written (EvotecIT)."
+        Write-Output "Processed CSV is $($Combined.length) records long."
+        Write-Output "Seconds elapsed for CSV processing (ConvertTo-FlatObject - fast): $($sw.elapsed.totalseconds)`n"
     }
     if ($function -match "RamblingCookieMonster" -or $function -eq "all") {
         $sw = [Diagnostics.StopWatch]::StartNew()
@@ -1896,20 +1907,28 @@ if ($headerRow -match "AuditData") {
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlatObject2.csv"
         $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject2 -MaxDepth 20
         $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals '$Object.Id'
-        $Combined | Sort-Object "CreationTime" | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-        Write-Output "`n$outputPath written."
-        Write-Output "Seconds elapsed for CSV processing (ConvertTo-FlatObject2 - slowest): $($sw.elapsed.totalseconds)"
+        $Combined = $Combined | Sort-Object * -Unique
+        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
+        Write-Output "`n$outputPath written (RamblingCookieMonster)."
+        Write-Output "Processed CSV is $($Combined.length) records long."
+        Write-Output "Seconds elapsed for CSV processing (ConvertTo-FlatObject2 - slowest): $($sw.elapsed.totalseconds)`n"
     }
     if ($function -match "proxb" -or $function -eq "all") {
         $sw = [Diagnostics.StopWatch]::StartNew()
         $Audit = ""
         $Combined = ""
+        $CsvDataReplace = ""
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-OutputForCsv.csv"
-        $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Convert-OutputForCSV -OutputPropertyType "Comma"
+        $CsvDataReplace = $CsvData | ForEach-Object { $_.AuditData = $_.AuditData -replace '“', '' ; $_.AuditData = $_.AuditData -replace '”', '' ; $_ }
+        $Audit = $CsvDataReplace | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Convert-OutputForCSV -OutputPropertyType "Comma"
         $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id
-        $Combined | Sort-Object "CreationTime" | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-        Write-Output "`n$outputPath written."
-        Write-Output "Seconds elapsed for CSV processing (Convert-OutputForCSV - fast): $($sw.elapsed.totalseconds)"
+        $Combined = $Combined | Sort-Object * -Unique
+        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
+        Write-Output "`n$outputPath written (proxb)."
+        Write-Output "Processed CSV is $($Combined.length) records long."
+        Write-Output "Seconds elapsed for CSV processing (Convert-OutputForCSV - fast): $($sw.elapsed.totalseconds)`n"
     }
 
     # Not yet working
@@ -1920,9 +1939,12 @@ if ($headerRow -match "AuditData") {
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlattenObject.csv"
         ForEach ($Record in $CsvData) { $Audit += $Record.AuditData | ConvertFrom-Json | Flatten-PsCustomObject -Parent "AuditData" }
         $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals AuditData.Id # function currently outputs flattened data another level lower and currently unable to join
-        $Combined | Sort-Object "CreationTime" | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-        Write-Output "`n$outputPath written."
-        Write-Output "Seconds elapsed for CSV processing (Flatten-PsCustomObject - fast): $($sw.elapsed.totalseconds)"
+        $Combined = $Combined | Sort-Object * -Unique
+        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
+        Write-Output "`n$outputPath written (solidstate888)."
+        Write-Output "Processed CSV is $($Combined.length) records long."
+        Write-Output "Seconds elapsed for CSV processing (Flatten-PsCustomObject - fast): $($sw.elapsed.totalseconds)`n"
     }
 
     Write-Output "`n`nDone!"
