@@ -1862,9 +1862,9 @@ if ($headerRow -match "AuditData") {
         $Combined = ""
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-SingleLevel.csv"
         $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json
-        $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id
+        if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
         $Combined = $Combined | Sort-Object * -Unique
-        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined = $Combined | Sort-Object "CreationTime"
         $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
         Write-Output "`n$outputPath written (simple)."
         Write-Output "Processed CSV is $($Combined.length) records long."
@@ -1877,9 +1877,9 @@ if ($headerRow -match "AuditData") {
         $Combined = ""
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-flatten.csv"
         $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
-        $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id
+        if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id }
         $Combined = $Combined | Sort-Object * -Unique
-        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined = $Combined | Sort-Object "CreationTime"
         $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
         Write-Output "`n$outputPath written (iRon)."
         Write-Output "Processed CSV is $($Combined.length) records long."
@@ -1891,9 +1891,9 @@ if ($headerRow -match "AuditData") {
         $Combined = ""
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlatObject.csv"
         $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
-        $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id
+        if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id }
         $Combined = $Combined | Sort-Object * -Unique
-        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined = $Combined | Sort-Object "CreationTime"
         $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
         [io.file]::readalltext("$outputPath").replace("System.Object[]","") | Out-File "$outputPath" -Encoding utf8 –Force
         Write-Output "`n$outputPath written (EvotecIT)."
@@ -1906,9 +1906,9 @@ if ($headerRow -match "AuditData") {
         $Combined = ""
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlatObject2.csv"
         $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject2 -MaxDepth 20
-        $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals '$Object.Id'
+        if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals '$Object.Id' }
         $Combined = $Combined | Sort-Object * -Unique
-        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined = $Combined | Sort-Object "CreationTime"
         $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
         Write-Output "`n$outputPath written (RamblingCookieMonster)."
         Write-Output "Processed CSV is $($Combined.length) records long."
@@ -1922,9 +1922,9 @@ if ($headerRow -match "AuditData") {
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-OutputForCsv.csv"
         $CsvDataReplace = $CsvData | ForEach-Object { $_.AuditData = $_.AuditData -replace '“', '' ; $_.AuditData = $_.AuditData -replace '”', '' ; $_ }
         $Audit = $CsvDataReplace | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Convert-OutputForCSV -OutputPropertyType "Comma"
-        $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id
+        if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id }
         $Combined = $Combined | Sort-Object * -Unique
-        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined = $Combined | Sort-Object "CreationTime"
         $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
         Write-Output "`n$outputPath written (proxb)."
         Write-Output "Processed CSV is $($Combined.length) records long."
@@ -1938,9 +1938,9 @@ if ($headerRow -match "AuditData") {
         $Combined = ""
         [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlattenObject.csv"
         ForEach ($Record in $CsvData) { $Audit += $Record.AuditData | ConvertFrom-Json | Flatten-PsCustomObject -Parent "AuditData" }
-        $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals AuditData.Id # function currently outputs flattened data another level lower and currently unable to join
+        if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals AuditData.Id } # function currently outputs flattened data another level lower and currently unable to join
         $Combined = $Combined | Sort-Object * -Unique
-        $Combined = $Combined | Sort-Object "CreationTime","ResultIndex"
+        $Combined = $Combined | Sort-Object "CreationTime"
         $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
         Write-Output "`n$outputPath written (solidstate888)."
         Write-Output "Processed CSV is $($Combined.length) records long."
