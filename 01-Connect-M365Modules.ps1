@@ -112,7 +112,6 @@ if ($isconnected) {
 # Connect-IPPSSession -ExchangeEnvironmentName O365USGovGCCHigh ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovGCCHigh
 # DOD
 # Connect-IPPSSession -ExchangeEnvironmentName O365USGovDoD ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovDoD
--ExchangeEnvironmentName
 
 
 Write-Output "`nPart 5 of 5. Azure AD (Deprecated)."

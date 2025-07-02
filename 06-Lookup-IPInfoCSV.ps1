@@ -89,6 +89,8 @@ if (!$IPcolumn) {
         $IPcolumn = "IPaddress"
     } elseif ($Headers.name -contains "ClientIP") {
         $IPcolumn = "ClientIP"
+    } elseif ($Headers.name -contains "IP address") {
+        $IPcolumn = "IP address"
     } elseif ($Headers.name -match "IP") {
         $ColumnNumber = [array]::indexof($Headers.Name,$($Headers.name -match "IP"))
         $IPcolumn = $Headers[$ColumnNumber[0]].name

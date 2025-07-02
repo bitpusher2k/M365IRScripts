@@ -147,7 +147,7 @@ foreach ($mailbox in $mailboxes) {
 
     Write-Output "Checking rules for $($mailbox.displayname) - $($mailbox.primarysmtpaddress) - $($mailbox.guid)"
     # $rules = get-inboxrule -Mailbox $mailbox.primarysmtpaddress # May not be unique - could be interpreted as Email Address, Display Name, Alias, or UPN and there could be a collision among these values
-    $rules = get-inboxrule -Mailbox $mailbox.GUID
+    $rules = get-inboxrule -Mailbox $mailbox.GUID -IncludeHidden
 
     $forwardRules = $rules | Where-Object { $_.forwardto -or $_.forwardasattachmentto } # ForwardTo or ForwardAttachmentTo
     $nameRules = $rules | Where-Object { $_.Name -eq '...' -or $_.Name -like '*..*' -or $_.Name -like '*,,*' -or $_.Name.Length -lt 3 } # Name = ., Name = ,, Name = .., Name = ..., Name = //, Name = 1, any other really short name
