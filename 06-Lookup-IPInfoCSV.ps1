@@ -9,17 +9,19 @@
 # https://github.com/bitpusher2k
 #
 # Lookup-IPInfoCSV.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.0 last updated 2025-07-07
 # Processes an exported CSV with a column of IP addresses, adding "IP_Country", "IP_Region",
 # "IP_City", "IP_ISP", "IP_Org", "IP_ProxyType", "IP_Score" columns and populating these
 # columns with available information from one of several online services.
 # The addition of this information supports identification of activity patterns
 # during manual review of logs.
+# Script identifies valid public IPv4/IPv6 addresses, and skips lookup of private/invalid
+# addresses to increase speed and reduce API calls.
 # Script uses a hash table for IP information to increase speed and reduce API calls.
-# Saves IP information to "IPAddressData.xml" in script directory to save on API
-# calls when processing multiple files in a row.
 #
-# It is recommended that "IPAddressData.xml" be periodically deleted to keep data current.
+# Script saves IP information to "IPAddressData.xml" in script directory to save on API
+# calls when processing multiple files in a row. It is recommended that this file be
+# deleted every few months so fresh IP information is retrieved.
 #
 # Currently includes syntax to lookup & add IP information from these services:
 # * scamalytics.com - 5,000 requests/month free - need to sign up for API key
@@ -45,7 +47,8 @@ param(
     [string]$outputFile = "UALexport_Processed.csv",
     [string]$IPcolumn,
     [string]$InfoSource = "scamalytics", # Currently supports: scamalytics, ipapico, ipapicom, ip2location, hostipinfo, iphubinfo
-    [string]$APIKey = (Get-Content "$PSScriptRoot\test\api.txt" -First 1), # Load API key required for scamalytics/ip2location/iphubinfo
+    [string]$APIKey = (Get-Content "$PSScriptRoot\test\api.txt" -First 1 -ErrorAction SilentlyContinue), # Load API key required for scamalytics/ip2location/iphubinfo
+    [string]$IPv6NetworkInfoOnly = 1, # Only lookup network-level information for IPv6 addresses - true by default to reduce API calls
     [string]$scriptName = "Lookup-IPInfoCSV",
     [string]$Priority = "Normal",
     [int]$RandMax = "500",
@@ -72,11 +75,16 @@ if (Test-Path "$PSScriptRoot\IPAddressData.xml") {
 $sw = [Diagnostics.StopWatch]::StartNew()
 
 Write-Output "$scriptName started"
+if ($APIKey -eq "") {
+    Write-Output "API key not set - can only use a subset of services."
+} else {
+    Write-Output "API key specified."
+}
 if (($InfoSource -eq "scamalytics" -or $InfoSource -eq "ip2location" -or $InfoSource -eq "iphubinfo") -and $APIKey -eq "") {
     $InfoSource = "ipapico"
+    Write-Output "Using fallback information source due to lack of API key."
 }
 Write-Output "`nIP information service specified: $InfoSource"
-Write-Output "API key specified: $APIKey"
 
 # Load spreadsheet
 $Spreadsheet = Import-Csv -Path "$inputFile"
@@ -117,10 +125,35 @@ $Spreadsheet | Add-Member -NotePropertyName "IP_Org" -NotePropertyValue $null # 
 $Spreadsheet | Add-Member -NotePropertyName "IP_ProxyType" -NotePropertyValue $null # Proxy type (Anon VPN - VPN, Tor exit node - TOR, Server - DCH, Pub Proxy, Web Proxy, Search Robot - SES) - scamalytics.com only, proxy True/False from ip2location
 $Spreadsheet | Add-Member -NotePropertyName "IP_Score" -NotePropertyValue $null # Risk value from 0(low) to 100 (high) - scamalytics.com only
 
+if ($IPv6NetworkInfoOnly) {
+    Write-Output "Only looking up network-level information for IPv6 addresses (saves API calls)"
+}
+
 # Loop through each row in spreadsheet data
 foreach ($Row in $Spreadsheet) {
 
     $IP = $Row.$IPcolumn
+
+    if ($IP.Length -gt 7 -and $IP -match '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$') {
+        if ($IP -notmatch "^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})$") {
+            Write-Output "IP appears to be a valid public IPv4 address..."
+        } else {
+            Write-Output "IP $IP is not a valid public address - skipping."
+            $IP = 0
+        }
+    } elseif ($IP.Length -gt 9 -and $IP -match '^[a-f\d\.\:\/]{10,49}$') {
+        if ($IP -match '^2[0-9a-fA-F]{3}:(([0-9a-fA-F]{1,4}[:]{1,2}){1,6}[0-9a-fA-F]{1,4})') {
+            Write-Output "IP appears to be a valid IPv6 GUA..."
+            if ($IPv6NetworkInfoOnly) {
+                Write-Output "Selecting network prefix of address for lookup..."
+                $regex = '^([0-9a-fA-F]{1,4}:){3}[0-9a-fA-F]{1,4}'
+                $IP = "$(($IP | Select-String -Pattern $regex).Matches.Value)::"
+            }
+        } else {
+            Write-Output "IP $IP is not a valid GUA - skipping."
+            $IP = 0
+        }
+    }
 
     # Check if valid IP, and lookup info if so
     if (($IP.Length -gt 7 -and $IP -match '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') -or ($IP.Length -gt 9 -and $IP -match '^[a-f\d\.\:\/]{10,49}$')) {
@@ -130,7 +163,7 @@ foreach ($Row in $Spreadsheet) {
         $IPContent = $Null
         $IPObject = $Null
         if (!($IPAddressHash[$IP])) {
-            Write-Output "Looking up IP info"
+            Write-Output "Querying online service."
             if ($InfoSource -eq "scamalytics") {
                 $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api11.scamalytics.com/vc3/?key=$APIKey&ip=$IP"
             } elseif ($InfoSource -eq "ipapico") {
@@ -155,7 +188,7 @@ foreach ($Row in $Spreadsheet) {
             $LookupCount++
         } else {
             # Get the IP information from the hash table if we've already looked it up
-            Write-Output "IP Already in hash table - using cached data"
+            Write-Output "IP Already in hash table - using cached data."
             $IPContent = $IpAddressHash[$IP]
         }
 
@@ -240,6 +273,8 @@ foreach ($Row in $Spreadsheet) {
             $Row.IP_Score = ""
         }
 
+        Write-Output "`n"
+    } elseif ($IP -eq 0) {
         Write-Output "`n"
     } else {
         Write-Output "INVALID IP address - skipping `"$IP`""

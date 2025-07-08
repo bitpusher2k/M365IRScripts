@@ -54,7 +54,7 @@ If ($headerText -eq '"Date (UTC)","Request ID","User agent","Correlation ID","Us
     $InputHeaders = ("DateUTC", "RequestID", "UserAgent", "CorrelationID", "UserID", "User", "Username", "UserType", "CrossTenantAccess", "TokenType", "AuthenticationProtocol", "UniqueToken", "TransferMethod", "ClientCredential", "TokenProtectionSession", "TokenProtectionStatusCode", "Application", "ApplicationID", "AppOwnerTenantID", "Resource", "ResourceID", "ResourceTenantID", "ResourceOwnerTenantID", "HomeTenantID", "HomeTenantName", "IPaddress", "Location", "Status", "SignInErrorCode", "FailureReason", "ClientApp", "DeviceID", "Browser", "OS", "Compliant", "Managed", "JoinType", "MFAResult", "MFAMethod", "MFADetail", "AuthRequirement", "SignInIdentifier","SessionID", "IPAddressSeen", "ThroughGlobalSecureAccess", "GSAIPAddress", "AutonomousSysNumber", "Flagged", "TokenIssuerType", "IncomingTokenType", "TokenIssuerName", "Latency", "ConditionalAccess", "ManagedIdentityType", "AssociatedResourceId", "FederatedTokenID", "FederatedTokenIssuer")
 } else {
     Write-Output "Header format has changed since script was updated - please update input header definition and try again"
-    end
+    exit
 }
 
 
