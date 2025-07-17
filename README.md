@@ -105,12 +105,85 @@ All scripts that output reports do so to a folder named "Investigation" on the c
 General playbook steps for investigating & remediating a BEC incident in M365. IR scripts can be iterated through to support the investigation as it progresses.
 
 1. Contain incident - block sign-in to known or suspected compromised accounts and initiate password resets. Check user roles and mailbox permissions, and expand scope of incident accordingly.
-2. Retrieve and review account logs - start with sign-in logs, audit logs, inbox rules, mailbox audit logs. Hydra-Collect.ps1 script can be used to collect some initial setting & log information.
-3. Check built-in protections - Entra ID risk detections and Microsoft Defender alerts/incidents/quarantine
-4. Review tenant Enterprise Applications, impacted account MFA methods, registered devices, changes to OneDrive files and junk mail configurations.
-5. Pivot through logs following events from known malicious/suspicious to find related events - Chronology is the first element of induction; topology is the second. Link events by proximity in time and proximity in source.
+2. Retrieve and review account logs - start with sign-in logs, audit logs, inbox rules, mailbox audit logs. See below "Investigation Tips" for specifics on retrieving and reviewing M365 settings/logs using these IR scripts.
+3. Check built-in protections - Entra ID risk detections and Microsoft Defender alerts/incidents/quarantine ()
+4. Review tenant Enterprise Applications, impacted account MFA methods and registered devices (https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Users), changes to OneDrive files and junk mail configurations.
+5. Pivot through logs following identified malicious/suspicious events to find related events - Chronology is the first element of induction; topology is the second. Correlate events by proximity in time and proximity in source.
 6. If impacted account scope is expanded by findings from logs & settings start back at step one and repeat.
-7. Once investigation is concluded and accounts secured clear messages from Microsoft Defender quarantine, unblock sending of any blocked accounts, use eDiscovory to find and remove identified spam/phishing messages from mailboxes. 
+7. Once investigation is concluded and account(s) are secured clear messages from Microsoft Defender quarantine, unblock sending of any blocked account(s), use eDiscovory to find and remove identified spam/phishing messages from mailboxes. 
+
+## Investigation tips utilizing these scripts:
+
+* Download/clone this repository.
+* Open PowerShell window & navigate to location of scripts.
+* Install/update needed PowerShell modules by running .\00-Update-M365Modules.ps1.
+* Connect to M365 tenant by running .\01-Connect-M365Modules.ps1.
+* Run .\09-Hydra-Collect.ps1 to automatically run in sequence:
+    * 10-Get-BasicTenantInformation.ps1
+    * 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1
+    * 12-Search-UnifiedAuditLogSignIn.ps1
+    * 13-Get-AllM365EmailAddresses.ps1
+    * 14-Get-AllUserPasswordReport.ps1
+    * 17-Search-MailboxSuspiciousRules.ps1
+    * 18-Search-InboxRuleChanges.ps1
+    * 19-Get-AllInboxRules.ps1
+    * 22-Get-EnterpriseApplications.ps1
+    * 23-Get-DefenderInformation.ps1
+    * 24-Get-EntraIDRisk.ps1
+    * 90-Get-MFAReport.ps1
+    * 91-Get-CAPReport-P1.ps1
+    * 93-Get-SecureScoreInformation.ps1
+* To review sign-in logs
+    * Export CSV versions of Interactive and Non-Interactive sign-ins going back one week (further if available and if incident scope warrants it) from https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/SignIns
+    * If sign-in log retention is not sufficient use .\12-Search-UnifiedAuditLogSignIn.ps1 to export sign-in information from the UAL (goes back up to 180 days).
+    * Parse exported sign-in log CSV using 02-ProcessEntraSignInLog.bat/02-ProcessEntraSignInLog.ps1 scripts.
+    * Add IP geolocation/ISP/company data to CSV using 06-Lookup-IPInfoCSV.bat/06-Lookup-IPInfoCSV.ps1 scripts.
+    * Use Excel filtering to review sign-ins of account(s) under investigation, observing baseline pattern and deviations from pattern (recommend using Excel macros - https://github.com/bitpusher2k/ExcelMacros)
+    * Evaluate suspicious sign-in activity by correlating as many suspect traits found as possible, including:
+        * Past sign-in history of account(s) (deviations from history are more suspect)
+        * Geolocation of sign-in IP (sign-in from countries with bad reputation or sign-ins from distant locations in a short space of time are more suspect)
+        * Reputation of sign-in IP/ISP/Company (sign-ins from an IP with a poor reputation, or from an IP associated with VPN/DCH are more suspect)
+        * Device used to sign-in (sign-ins from endpoints that are not registered/joined through Entra ID are more suspect)
+        * OS used to sign-in (sign-ins from less common operating systems such as "Mac OS" and "Linux" are more suspect)
+        * User Agent used to sign-in (sign-ins from less common and automated user agents such as "python-httpx" or "axios" are more suspect)
+        * Authentication factors used to sign-in (sign-ins that did not pass MFA, whether through single-factor only being needed or through MFA requirement being "satisfied by claim in token" are more suspect)
+    * Use any identified suspect traits (listed above) as basis for re-filtering table to give context to events and potentially identify additional compromise
+* To review audit logs
+    * Export CSV version going back one week (further if available and if incident scope warrants it) from https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Audit
+    * Parse exported audit log CSV using 03-ProcessEntraAuditLog.bat/03-ProcessEntraAuditLog.ps1 scripts.
+    * Look for recent activity in the audit log related to the account being investigated - permissions changes, password changes, addition of authentication methods.
+* To review inbox rules
+    * Export inbox rule reports using .\17-Search-MailboxSuspiciousRules.ps1, .\18-Search-InboxRuleChanges.ps1, .\19-Get-AllInboxRules.ps1 scripts.
+    * Review reports paying special attention to inbox rules related to the account(s) under investigation and rules listed report from 17-Search-MailboxSuspiciousRules.ps1 script.
+    * Refer to contents of 80-OneLinerReference.ps1 for commands related to remediation of any discovered malicious inbox rules.
+* To review mailbox audit logs
+    * Run message trace on account(s) under investigation using .\33-Get-UserMessageTrace.ps1 script.
+    * Run mailbox audit log export using .\34-Get-MailboxAuditLog.ps1 script.
+    * Parse exported logs using 05-ProcessUnifiedAuditLogFlatten.bat/05-ProcessUnifiedAuditLogFlatten.ps1 scripts.
+    * Review output of scripts focusing on activity from any identified suspect IP addresses and related to any know suspect message subject lines.
+* To review Enterprise Applications
+    * View in console at https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/EnterpriseApps and/or use .\22-Get-EnterpriseApplications.ps1 to export report.
+    * Look for any applications added within the scope of the incident, and any applications often used for malicious purposes (PerfectData, eM Client - https://cybercorner.tech/malicious-azure-application-perfectdata-software-and-office365-business-email-compromise/, https://cybercorner.tech/malicious-usage-of-em-client-in-business-email-compromise/)
+* To review Microsoft Defender alerts and Entra ID risk
+    * View Defender alerts in console at https://security.microsoft.com > Alerts and/or use .\23-Get-DefenderInformation.ps1 to export report.
+    * View Entra ID risk in console at https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers and https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns and/or use .\24-Get-EntraIDRisk.ps1.
+    * Review for recent relevant alerts.
+* To contain compromise
+    * Block sign-in and change password of compromised account in console at https://admin.exchange.microsoft.com/ > Users > Active users and/or use .\25-Lockdown-Account.ps1 script. 
+    * If account is synced from AD and tenant does not have password writeback enabled note that you will need to change password in AD and sync it up to Entra ID - if you do not the account with automatically have sign-in re-enabled and password reverted.
+* To review user account settings
+    * Review account MFA methods in console at https://portal.azure.com/#view/Microsoft_AAD_UsersAndTenants/UserManagementMenuBlade/~/AllUsers > SEARCH FOR USER > Authentication methods and/or use .\31-Get-UserMFAMethodsAndDevices.ps1 to export report.
+    * Review account devices in console at https://portal.azure.com/#view/Microsoft_AAD_UsersAndTenants/UserManagementMenuBlade/~/AllUsers > SEARCH FOR USER > Devices and/or use .\32-Get-UserJunkMailSettings.ps1 to export report.
+    * Look for unrecognized authentication methods and devices.
+* To further investigate the logged activity of known compromised accounts and from identified malicious IP addresses.
+    * Run .\36-Search-UALActivityByIPAddress.ps1 to export all UAL entries associated with a given set of IP addresses.
+    * Run .\37-Search-UALActivityByUser.ps1 to export all UAL entries associated with specific user account(s).
+    * Parse exported logs using 05-ProcessUnifiedAuditLogFlatten.bat/05-ProcessUnifiedAuditLogFlatten.ps1 scripts.
+    * Review reports looking for any activity not yet identified previously in logs.
+* To search for suspect phishing messages by sender/subject line and export for review and/or purge from tenant
+    * Run .\38-Get-ExchangeMessageContentSearch.ps1 and follow prompts.
+* Refer to the contents/output of .\80-OneLinerReference.ps1 for often used and useful commands related to M365 BEC investigation/remediation.
+* When investigation/remediation is complete run .\99-Disconnect-M365Modules.ps1 to disconnect all modules from M365 tenant.
 
 
 # Key Takeaways:
