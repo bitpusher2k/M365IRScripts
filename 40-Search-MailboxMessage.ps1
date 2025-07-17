@@ -467,7 +467,7 @@ foreach ($MessageID in $MessageIdList) {
         if (!([string]::IsNullOrEmpty($Content.value.internetMessageId))) {
             Write-Output "Message found. Parsing metadata & attempting to retrieving message content..." | Tee-Object -FilePath $logFilePath -Append
         
-            $OutputName = $MessageID -replace "[^a-zA-Z0-9_\.@-]"
+            $OutputName = $MessageID -replace "[^a-zA-Z0-9_\.,@ -]" # Make the output name as close to the original Message ID as possible given file name limitations
             if ($Content.value.createdDateTime -ne $null) { $CreatedDateTime = $Content.value.createdDateTime[0].ToString('yyyy-MM-dd HH:mm:ss') } else { $CreatedDateTime = "N/A" }
             if ($Content.value.sentDateTime -ne $null) { $SentDateTime = $Content.value.sentDateTime[0].ToString('yyyy-MM-dd HH:mm:ss') } else { $SentDateTime = "N/A" }
             if ($Content.value.receivedDateTime -ne $null) { $ReceivedDateTime = $Content.value.receivedDateTime[0].ToString('yyyy-MM-dd HH:mm:ss') } else { $ReceivedDateTime = "N/A" }

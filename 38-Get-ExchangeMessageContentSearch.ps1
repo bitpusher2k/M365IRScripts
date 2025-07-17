@@ -245,7 +245,7 @@ Write-Output "Starting preview export - `"$SearchName`""
 Write-Output "New-ComplianceSearchAction -SearchName `"$SearchName`" -Preview`n"
 New-ComplianceSearchAction -SearchName "$SearchName" -Preview
 Write-Output "If there is an error above about `"A parameter cannot be found that matches parameter name 'Preview'`" you need to add the eDiscovery manager or admin role to your account and sign out/sign in again."
-Write-Output "Go to https://purview.microsoft.com/ediscovery/contentsearchv2 / https://purview.microsoft.com/ediscovery/casespage (old link: https://compliance.microsoft.com/contentsearchv2) in Edge to manage through admin center."
+Write-Output "Go to https://purview.microsoft.com/settings/purviewpermissions / https://purview.microsoft.com/ediscovery/casespage/ / https://purview.microsoft.com/ediscovery/contentsearchv2 (old link: https://compliance.microsoft.com/contentsearchv2) in Edge to manage through admin center."
 $Continue = ""
 while ($Continue -ne "Y") {
     $OperationStatus = Get-ComplianceSearchAction -Identity "$($SearchName)_Preview"
