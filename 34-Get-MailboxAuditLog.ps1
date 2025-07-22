@@ -155,8 +155,8 @@ $date = Get-Date -Format "yyyyMMddHHmmss"
 
 Write-Output "Search-MailboxAuditLog is being deprecated by Microsoft in April 2024 (https://aka.ms/AuditCmdletBlog)"
 Write-Output "Microsoft has said to use the `"Search-UnifiedAuditLog -RecordType ExchangeItem`" instead."
-Write-Output "This script currently uses both queries."
-Write-Output "Running Search-MailboxAuditLog and Search-UnifiedAuditLog commands..."
+Write-Output "This script now only attempts to search UAL."
+Write-Output "Running Search-UnifiedAuditLog commands..."
 
 
 if (($null -eq $UserIds) -or ($UserIds -eq "")) {

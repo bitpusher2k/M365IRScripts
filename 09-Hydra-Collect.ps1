@@ -183,10 +183,10 @@ Write-Output "`nRunning 91-Get-CAPReport-P1.ps1..."
 Write-Output "`nRunning 93-Get-SecureScoreInformation.ps1..."
 & "$PSScriptRoot\93-Get-SecureScoreInformation.ps1" -OutputPath $OutputPath
 
-$UAL = Read-Host 'Retrieve all available UAL entries for past $DaysAgo days? (Y/N)'
+$UAL = Read-Host "Retrieve all available UAL entries for past $DaysAgo days? (Y/N)"
 if ($UAL -eq 'Y') {
     Write-Output "`nRunning Get-UnifiedAuditLogEntries.ps1..."
-    & "$PSScriptRoot\Get-UnifiedAuditLogEntries.ps1" -OutputPath $OutputPath -DaysAgo $DaysAgo
+    & "$PSScriptRoot\16-Get-UnifiedAuditLogEntries.ps1" -OutputPath $OutputPath -DaysAgo $DaysAgo
 }
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
