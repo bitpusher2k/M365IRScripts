@@ -10,7 +10,7 @@
 # Search-UnifiedAuditLogSignIn.ps1
 # Original script created by https://github.com/directorcia @directorcia
 # Modified and updated by Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to search the Unified Audit Logs (UAC) for
 # sign-ins made by a specified user or all users.
 #
@@ -265,46 +265,48 @@ foreach ($Entry in $convertedoutput) { # Loop through all result entries
     $return = "" | Select-Object Creationtime, Localtime, ClientIP, Operation, UserId, ResultStatusDetail, KeepMeSignedIn, UserAgent, UserAuthenticationMethod, RequestType, DisplayName, OS, BrowserType, TrustType, IsCompliant, IsCompliantAndManaged, SessionId
     $return.CreationTime = $Entry.CreationTime
     $return.localtime = [System.TimeZoneInfo]::ConvertTimeFromUtc($Entry.CreationTime, $TZ) # Convert entry to local time
-    $return.clientip = $Entry.clientip
-    $return.Operation = $Entry.Operation
-    $return.UserId = $Entry.UserId
-    $return.ResultStatusDetail = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "ResultStatusDetail"}).value
-    $return.KeepMeSignedIn = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "KeepMeSignedIn"}).value
-    $return.UserAgent = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "UserAgent"}).value
-    $return.UserAuthenticationMethod = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "UserAuthenticationMethod"}).value
-    $return.RequestType = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "RequestType"}).value
-    $return.DisplayName = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "DisplayName"}).value
-    $return.OS = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "OS"}).value
-    $return.BrowserType = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "BrowserType"}).value
-    $return.TrustType = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "TrustType"}).value
-    $return.IsCompliant = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "IsCompliant"}).value
-    $return.IsCompliantAndManaged = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "IsCompliantAndManaged"}).value
-    $return.SessionId = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "SessionId"}).value
+    if ($Entry.clientip -ne $null) { $return.clientip = $Entry.clientip } else { $return.clientip = "Unavailable" }
+    if ($Entry.Operation -ne $null) { $return.Operation = $Entry.Operation } else { $return.Operation = "Unavailable" }
+    if ($Entry.UserId -ne $null) { $return.UserId = $Entry.UserId } else { $return.UserId = "Unavailable" }
+    if ($Entry.ExtendedProperties -and $($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "ResultStatusDetail"}).value -ne $null) { $return.ResultStatusDetail = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "ResultStatusDetail"}).value } else { $return.ResultStatusDetail = "Unavailable" }
+    if ($Entry.ExtendedProperties -and $($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "KeepMeSignedIn"}).value -ne $null) { $return.KeepMeSignedIn = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "KeepMeSignedIn"}).value } else { $return.KeepMeSignedIn = "Unavailable" }
+    if ($Entry.ExtendedProperties -and $($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "UserAgent"}).value -ne $null) { $return.UserAgent = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "UserAgent"}).value } else { $return.UserAgent = "Unavailable" }
+    if ($Entry.ExtendedProperties -and $($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "UserAuthenticationMethod"}).value -ne $null) { $return.UserAuthenticationMethod = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "UserAuthenticationMethod"}).value } else { $return.UserAuthenticationMethod = "Unavailable" }
+    if ($Entry.ExtendedProperties -and $($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "RequestType"}).value -ne $null) { $return.RequestType = ($Entry.ExtendedProperties.GetEnumerator() | Where-Object {$_.Name -eq "RequestType"}).value } else { $return.RequestType = "Unavailable" }
+    if ($Entry.DeviceProperties -and $($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "DisplayName"}).value -ne $null) { $return.DisplayName = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "DisplayName"}).value } else { $return.DisplayName = "Unavailable" }
+    if ($Entry.DeviceProperties -and $($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "OS"}).value -ne $null) { $return.OS = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "OS"}).value } else { $return.OS = "Unavailable" }
+    if ($Entry.DeviceProperties -and $($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "BrowserType"}).value -ne $null) { $return.BrowserType = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "BrowserType"}).value } else { $return.BrowserType = "Unavailable" }
+    if ($Entry.DeviceProperties -and $($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "TrustType"}).value -ne $null) { $return.TrustType = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "TrustType"}).value } else { $return.TrustType = "Unavailable" }
+    if ($Entry.DeviceProperties -and $($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "IsCompliant"}).value -ne $null) { $return.IsCompliant = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "IsCompliant"}).value } else { $return.IsCompliant = "Unavailable" }
+    if ($Entry.DeviceProperties -and $($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "IsCompliantAndManaged"}).value -ne $null) { $return.IsCompliantAndManaged = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "IsCompliantAndManaged"}).value } else { $return.IsCompliantAndManaged = "Unavailable" }
+    if ($Entry.DeviceProperties -and $($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "SessionId"}).value -ne $null) { $return.SessionId = ($Entry.DeviceProperties.GetEnumerator() | Where-Object {$_.Name -eq "SessionId"}).value } else { $return.SessionId = "Unavailable" }
     $Results += $return # Build results array
 }
 
 $displays = $results | Sort-Object -Descending localtime # Sort result array in reverse chronological order
-Write-Output "$($displays.count) relevant sign-in records fount. Writing all output to file..."
 $displays | Select-Object CreationTime, LocalTime, ClientIP, Operation, UserId, ResultStatusDetail, KeepMeSignedIn, UserAgent, UserAuthenticationMethod, RequestType, DisplayName, OS, BrowserType, TrustType, IsCompliant, IsCompliantAndManaged, SessionId | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
-Write-Output ""
-Write-Output "Local Time`t`t Client IP`t`t Operation`t`t Login" # Merely an indication of the headings
-Write-Output "----------`t`t ---------`t`t ---------`t`t -----" # Not possible to align for every run option
-foreach ($display in $displays) {
-    if (($display.clientip).length -lt 14) {
-        # Determine total length of first field
-        $gap = "`t`t" # If a shorter field add two tabs in output
-    } else {
-        $gap = "`t"
-    }
-    if ($display.Operation -eq "userloginfailed") {
-        # Report failed logins
-        Write-Output "$($display.localtime) `t $($display.clientip) $gap $($display.Operation) `t $($display.UserId)"
-    } elseif (-not $fail) {
-        # Report successful logins in
-        Write-Output "$($display.localtime) `t $($display.clientip) $gap $($display.Operation) `t`t $($display.UserId)"
-    }
-}
 
+# Un-comment for console output of results
+# Write-Output ""
+# Write-Output "Local Time`t`t Client IP`t`t Operation`t`t Login" # Merely an indication of the headings
+# Write-Output "----------`t`t ---------`t`t ---------`t`t -----" # Not possible to align for every run option
+# foreach ($display in $displays) {
+#     if (($display.clientip).length -lt 14) {
+#         # Determine total length of first field
+#         $gap = "`t`t" # If a shorter field add two tabs in output
+#     } else {
+#         $gap = "`t"
+#     }
+#     if ($display.Operation -eq "userloginfailed") {
+#         # Report failed logins
+#         Write-Output "$($display.localtime) `t $($display.clientip) $gap $($display.Operation) `t $($display.UserId)"
+#     } elseif (-not $fail) {
+#         # Report successful logins in
+#         Write-Output "$($display.localtime) `t $($display.clientip) $gap $($display.Operation) `t`t $($display.UserId)"
+#     }
+# }
+
+Write-Output "$($displays.count) relevant sign-in records found."
 Write-Output "`nScript Completed`n"
 
 if ((Test-Path -Path $OutputCSV) -eq "True") {

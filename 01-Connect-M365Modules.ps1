@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Connect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to connect PowerShell session to all needed M365 modules before
 # running other investigation & remediation scripts.
 #
@@ -18,7 +18,7 @@
 # Run with admin privileges
 # (M$ Graph module seems to connects more reliably from elevated PowerShell prompt)
 #
-# Attempts to connect to MS Graph, MSOL, IPPS, Exchange Online, Azure AD
+# Attempts to connect to MS Graph, IPPS, Exchange Online (MSOL and Azure AD are now obsolete)
 #
 #comp #m365 #security #bec #script #connect #powershell #exchangeonline #IPPS #msol #graph #azuread
 
@@ -114,29 +114,29 @@ if ($isconnected) {
 # Connect-IPPSSession -ExchangeEnvironmentName O365USGovDoD ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovDoD
 
 
-Write-Output "`nPart 5 of 5. Azure AD (Deprecated)."
-if ($host.version.major -gt 5) { Import-Module AzureAD -UseWindowsPowerShell } # else { Import-Module AzureAD }
+Write-Output "`nPart 5 of 5. Azure AD (Deprecated - skipping)..."
+# if ($host.version.major -gt 5) { Import-Module AzureAD -UseWindowsPowerShell } # else { Import-Module AzureAD }
 # if ( $host.version.major -gt 5 ) { Import-Module AzureADPreview -UseWindowsPowerShell } # else { Import-Module AzureAD }
 # if ( $host.version.major -gt 5 ) {Import-Module AzureADPreview -SkipEditionCheck} else { Import-Module AzureAD }
 #AzureADPreview\Connect-AzureAD
 # Start-Sleep -Seconds 2
-try {
-    Connect-AzureAD
-} catch {
-    Write-Output "Error calling Connect-AzureAD."
-}
-
-try {
-    $Test = $Null
-    $Test = Get-AzureADTenantDetail -ErrorAction SilentlyContinue
-    if ($Test) {
-        Write-Output "`nAzureAD module connected."
-    } else {
-        Write-Output "`n*** AzureAD failed to connect - Try to connect again with: Connect-AzureAD"
-    }
-} catch {
-    Write-Output "`nAzureAD failed to connect - Try to connect again with: Connect-AzureAD"
-}
+# try {
+#     Connect-AzureAD
+# } catch {
+#     Write-Output "Error calling Connect-AzureAD."
+# }
+# 
+# try {
+#     $Test = $Null
+#     $Test = Get-AzureADTenantDetail -ErrorAction SilentlyContinue
+#     if ($Test) {
+#         Write-Output "`nAzureAD module connected."
+#     } else {
+#         Write-Output "`n*** AzureAD failed to connect - Try to connect again with: Connect-AzureAD"
+#     }
+# } catch {
+#     Write-Output "`nAzureAD failed to connect - Try to connect again with: Connect-AzureAD"
+# }
 
 
 # ---------------------------------------

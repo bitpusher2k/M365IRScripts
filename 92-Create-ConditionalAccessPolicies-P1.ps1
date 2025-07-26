@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Create-ConditionalAccessPolicies.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to backup current Named Locations/Conditional Access Policies and
 # to set up basic set of Named Locations and Conditional Access Policies in report-only mode.
 #

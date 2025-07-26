@@ -10,7 +10,7 @@
 # ProcessObjectFlatten.ps1 - By Bitpusher/The Digital Fox
 # Flatten-Object function created by iRon, ConvertTo-FlatObject function created by EvotecIT,
 # ConvertTo-FlatObject2 function created by RamblingCookieMonster, Convert-OutputForCSV function created by proxb
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Processes a Json file into PowerShell object and flattens it for ease of manual processing.
 #
 # Included are four functions for flattening complex objects found online.

@@ -8,22 +8,31 @@
 # https://github.com/bitpusher2k
 #
 # Search-UALMailItemsAccessedByUser.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
-# Script to export all "MailItemsAccessed" records from the Unified Audit Log for specified users.
+# v3.1 last updated 2025-07-26
+# Script to export all "MailItemsAccessed", "MessageBind", "FolderBind"
+# records from the Unified Audit Log for specified users.
+# Note: This item doesn't support shared mailboxes.
+#
+# MailItemsAccessed operations are now supposed to be more widely available in the UAL - test if you have any results with:
+# Search-UnifiedAuditLog -StartDate (Get-Date).AddDays(-7) -EndDate (Get-Date) -Operations "MailItemsAccessed","MessageBind" -ResultSize 5000
+#
+# Refer to the one-liner reference for information on how to check and set mailbox audit status.
 #
 # For more information see:
 # https://learn.microsoft.com/en-us/purview/audit-log-investigate-accounts
 # https://office365itpros.com/2019/01/07/using-exchange-session-identifiers-audit-log/
+# https://learn.microsoft.com/en-us/purview/audit-log-investigate-accounts
+# https://petri.com/interpreting-the-office-365-mailitemsaccessed-audit-event/
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Search-UALActivityByUser.ps1 -OutputPath "Default" -UserIds "compromisedaccount@contoso.com" -DaysAgo "10"
+# powershell -executionpolicy bypass -f .\Search-UALMailItemsAccessedByUser.ps1 -OutputPath "Default" -UserIds "compromisedaccount@contoso.com" -DaysAgo "10"
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
 # Uses ExchangePowerShell commands.
 #
-#comp #m365 #security #bec #script #irscript #powershell #unified #audit #log #search #user
+#comp #m365 #security #bec #script #irscript #powershell #unified #audit #log #search #user #mailitemsaccessed
 
 #Requires -Version 5.1
 
@@ -168,12 +177,14 @@ if ($syncResults) {
 }
 
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations `"MailItemsAccessed`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations (`"MailItemsAccessed`",`"MessageBind`",`"FolderBind`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+$currentoutput = ""
+$AuditOutput = @()
 $count = 1
 do {
     Write-Output "Getting unified audit logs page $count - Please wait"
     try {
-        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations "MailItemsAccessed" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations ("MailItemsAccessed","MessageBind","FolderBind") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
         Write-Output "Exception message:", $_.Exception.Message, "`n"
@@ -182,11 +193,83 @@ do {
     $AuditOutput += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
-
 if (!$AuditOutput) {
-    Write-Output "`nThere are no activities in the audit log for the time period specified`n"
+    Write-Output "`nNo matching activities found in the audit log for the time period specified`n"
 } else {
+    Write-Output "`nMatching activities found in the audit log - Saving to file...`n"
     $AuditOutput | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
+
+    # Add information columns to object
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataCreationTime" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataOperation" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataOrganizationId" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataRecordType" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataResultStatus" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataWorkload" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataUserId" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataAADSessionId" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataClientIPAddress" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataClientInfoString" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataExternalAccess" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataLogonType" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataLogonUserSid" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataMailboxGuid" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataMailboxOwnerSid" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataMailboxOwnerUPN" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataOperationProperties" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataOrganizationName" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataOriginatingServer" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataImmutableId" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataInternetMessageId" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataSizeInBytes" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataId" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataPath" -NotePropertyValue $null
+    $AuditOutput | Add-Member -NotePropertyName "AuditDataOperationCount" -NotePropertyValue $null
+
+    Write-Output "Processing AuditData block of each row...`n"
+
+    # Loop through each row in spreadsheet data
+    foreach ($Row in $AuditOutput) {
+
+        $AuditData = ConvertFrom-Json $Row.Auditdata
+
+        Write-Output "Parsing row $RowCount"
+
+        if ($AuditData.CreationTime -ne $Null) { $Row.AuditDataCreationTime = $AuditData.CreationTime } else { $Row.AuditDataCreationTime = "Unavailable" }
+        if ($AuditData.Operation -ne $Null) { $Row.AuditDataOperation = $AuditData.Operation } else { $Row.AuditDataOperation = "Unavailable" }
+        if ($AuditData.OrganizationId -ne $Null) { $Row.AuditDataOrganizationId = $AuditData.OrganizationId } else { $Row.AuditDataOrganizationId = "Unavailable" }
+        if ($AuditData.RecordType -ne $Null) { $Row.AuditDataRecordType = $AuditData.RecordType } else { $Row.AuditDataRecordType = "Unavailable" }
+        if ($AuditData.ResultStatus -ne $Null) { $Row.AuditDataResultStatus = $AuditData.ResultStatus } else { $Row.AuditDataResultStatus = "Unavailable" }
+        if ($AuditData.Workload -ne $Null) { $Row.AuditDataWorkload = $AuditData.Workload } else { $Row.AuditDataWorkload = "Unavailable" }
+        if ($AuditData.UserId -ne $Null) { $Row.AuditDataUserId = $AuditData.UserId } else { $Row.AuditDataUserId = "Unavailable" }
+        if ($AuditData.AppAccessContext.AADSessionId -ne $Null) { $Row.AuditDataAADSessionId = $AuditData.AppAccessContext.AADSessionId } else { $Row.AuditDataAADSessionId = "Unavailable" }
+        if ($AuditData.ClientIPAddress -ne $Null) { $Row.AuditDataClientIPAddress = $AuditData.ClientIPAddress } else { $Row.AuditDataClientIPAddress = "Unavailable" }
+        if ($AuditData.ClientInfoString -ne $Null) { $Row.AuditDataClientInfoString = $AuditData.ClientInfoString } else { $Row.AuditDataClientInfoString = "Unavailable" }
+        if ($AuditData.ExternalAccess -ne $Null) { $Row.AuditDataExternalAccess = $AuditData.ExternalAccess } else { $Row.AuditDataExternalAccess = "Unavailable" }
+        if ($AuditData.LogonType -ne $Null) { $Row.AuditDataLogonType = $AuditData.LogonType } else { $Row.AuditDataLogonType = "Unavailable" }
+        if ($AuditData.LogonUserSid -ne $Null) { $Row.AuditDataLogonUserSid = $AuditData.LogonUserSid } else { $Row.AuditDataLogonUserSid = "Unavailable" }
+        if ($AuditData.MailboxGuid -ne $Null) { $Row.AuditDataMailboxGuid = $AuditData.MailboxGuid } else { $Row.AuditDataMailboxGuid = "Unavailable" }
+        if ($AuditData.MailboxOwnerSid -ne $Null) { $Row.AuditDataMailboxOwnerSid = $AuditData.MailboxOwnerSid } else { $Row.AuditDataMailboxOwnerSid = "Unavailable" }
+        if ($AuditData.MailboxOwnerUPN -ne $Null) { $Row.AuditDataMailboxOwnerUPN = $AuditData.MailboxOwnerUPN } else { $Row.AuditDataMailboxOwnerUPN = "Unavailable" }
+        if ($AuditData.OperationProperties -ne $Null) { $Row.AuditDataOperationProperties =  $($AuditData.OperationProperties | foreach-object {$_}) -join "|" } else { $Row.AuditDataOperationProperties = "Unavailable" }
+        if ($AuditData.OrganizationName -ne $Null) { $Row.AuditDataOrganizationName = $AuditData.OrganizationName } else { $Row.AuditDataOrganizationName = "Unavailable" }
+        if ($AuditData.OriginatingServer -ne $Null) { $Row.AuditDataOriginatingServer = $AuditData.OriginatingServer } else { $Row.AuditDataOriginatingServer = "Unavailable" }
+        if ($AuditData.Folders.FolderItems -ne $Null) { $Row.AuditDataImmutableId = $($AuditData.Folders.FolderItems | foreach-object {$_.Id}) -join "|" } else { $Row.AuditDataImmutableId = "Unavailable" }
+        if ($AuditData.Folders.FolderItems -ne $Null) { $Row.AuditDataInternetMessageId = $($AuditData.Folders.FolderItems | foreach-object {$_.InternetMessageId}) -join "|" } else { $Row.AuditDataInternetMessageId = "Unavailable" }
+        if ($AuditData.Folders.FolderItems -ne $Null) { $Row.AuditDataSizeInBytes = $($AuditData.Folders.FolderItems | foreach-object {$_.SizeInBytes}) -join "|" } else { $Row.AuditDataSizeInBytes = "Unavailable" }
+        if ($AuditData.Folders.FolderItems -ne $Null) { $Row.AuditDataId = $($AuditData.Folders.FolderItems | foreach-object {$_.Id}) -join "|" } else { $Row.AuditDataId = "Unavailable" }
+        if ($AuditData.Folders -ne $Null) { $Row.AuditDataPath = $($AuditData.Folders | foreach-object {$_.Path}) -join "|" } else { $Row.AuditDataPath = "Unavailable" }
+        if ($AuditData.OperationCount -ne $Null) { $Row.AuditDataOperationCount = $AuditData.OperationCount } else { $Row.AuditDataOperationCount = "Unavailable" }
+
+        $RowCount++
+    }
+
+    # Export updated spreadsheet data to CSV file
+    $OutputCSV = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date)_Processed.csv"
+    $AuditOutput | Export-Csv -Path "$OutputCSV" -NoTypeInformation -Encoding $Encoding
+
+    Write-Output "Processed a total of $RowCount rows."
+
     Write-Output "`nSee user activities report in the output path.`n"
     Write-Output "Pivot through MailItemsAccessed logs searching by date/time of suspect events, by suspect IP ('ClientIPAddress'), and by associated suspect Session ID ('SessionId')."
 }

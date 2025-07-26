@@ -14,7 +14,7 @@
 
 ## By Bitpusher/The Digital Fox
 
-## v3.0 last updated 2025-05-31 - Reviewed all scripts, updated functions, homogenized structure and started removing MSOL versions of commands
+## v3.1 last updated 2025-07-26 - Reviewed all scripts, updated functions, homogenized structure and started removing MSOL versions of commands
 
 #comp #m365 #security #bec #script #irscript #powershell #collection #playbook #readme #lotlir #lolir #incident #response #investigation
 
@@ -57,7 +57,9 @@ Functions and scripts modified from other sources are attributed in each script 
 * 06-Lookup-IPInfoCSV.ps1 - Process CSV of exported logs from the Unified Audit Log or other source which includes a column of IP addresses - Enrich the CSV with information on each IP address.
 * 07-ProcessObjectFlatten.bat - Shim to enable drag-and-drop of downloaded log to PS script of the same name.
 * 07-ProcessObjectFlatten.ps1 - Process JSON file into flattened CSV more usable during manual review.
-* 09-Hydra-Collect.ps1 - Run oft used set of collection scripts sequentially with default settings at outset of an investigation. "Hydra" because each sub-script "head" is independent, and because it's memorable.
+* 08-SelectUniquePairsCSV.bat - Shim to enable drag-and-drop of downloaded log to PS script of the same name.
+* 08-SelectUniquePairsCSV.ps1 - Process CSV file taking two columns and returning a new CSV containing those two columns with only unique rows.
+* 09-Hydra-Collect.ps1 - Use to run often used set of collection scripts sequentially with default settings at outset of an investigation. "Hydra" because each sub-script "head" is independent, and because it's memorable.
 * 10-Get-BasicTenantInformation.ps1 - Retrieve basic tenant information & settings relevant to further log collection. Verify tenant name, licensing level, UAL enabled, etc..
 * 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1 - Retrieve Entra ID sign-in and audit logs using AzureAD and Graph modules. Requires at least Entra ID P1 - otherwise logs must be retrieved through admin console.
 * 12-Search-UnifiedAuditLogSignIn.ps1 - Retrieve sign-in log entries from the Unified Audit Log (less detailed but longer retention than Entra ID sign-in logs).
@@ -79,12 +81,12 @@ Functions and scripts modified from other sources are attributed in each script 
 * 32-Get-UserJunkMailSettings.ps1 - List the junk mail settings of a specified user.
 * 33-Get-UserMessageTrace.ps1 - Generate report of recent incoming & outgoing email for a specified user.
 * 34-Get-MailboxAuditLog.ps1 - Generate reports of mailbox audit log activity of specified user or all users. Uses both Search-MailboxAuditLog and Search-UnifiedAuditLog.
-* 35-Get-MailItemsAccessed-E5.ps1 - Generate report of the mail items accessed in an Exchange Online Mailbox. Requires E5 licensing (for now). Original script by PricewaterhouseCoopers Advisory N.V.
 * 36-Search-UALActivityByIPAddress.ps1 - Export all UAL entries associated with a given set of IP addresses.
 * 37-Search-UALActivityByUser.ps1 - Export all UAL entries associated with a given set of user accounts.
-* 38-Get-ExchangeMessageContentSearch.ps1 - Walk through frequently used content search steps for dealing with spam/phishing messages - Create Exchange search based on sender/date/message subject, export preview, export content, purge.
-* 39-Search-UALMailItemsAccessedByUser.ps1 - Export all "MailItemsAccessed" records from the Unified Audit Log for specified users - Such records should be more widely available now.
-* 40-Search-MessageByID.ps1 - Search Exchange Online mailbox using Graph API by Message IDs and save messages to folder along with a metadata index CSV.
+* 38-Search-UALFileAccessedByUser.ps1 - Export all "FileAccessed" & related records from the Unified Audit Log for specified users.
+* 39-Search-UALMailItemsAccessedByUser.ps1 - Export all "MailItemsAccessed" & related records from the Unified Audit Log for specified users - Such records should be more widely available now.
+* 44-Get-ExchangeMessageContentSearch.ps1 - Walk through frequently used content search steps for dealing with spam/phishing messages - Create Exchange search based on sender/date/message subject, export preview, export content, purge.
+* 45-Search-MailboxMessage.ps1 - Search Exchange Online mailbox using Graph API by Message IDs and save messages to folder along with a metadata index CSV.
 * 80-OneLinerReference.ps1 - Reference for various PowerShell one-line commands that are useful during BEC response & investigation.
 * 90-Get-MFAReport.ps1 - Export report of M365 MFA settings of each account through Microsoft Graph.
 * 91-Get-CAPReport-P1.ps1 - Generate report of current Conditional Access Policies and Named Locations. Requires at least Entra ID P1.
@@ -120,19 +122,25 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
 * Connect to M365 tenant by running .\01-Connect-M365Modules.ps1.
 * Run .\09-Hydra-Collect.ps1 to automatically run in sequence:
     * 10-Get-BasicTenantInformation.ps1
+    * 18-Search-InboxRuleChanges.ps1 (first pass)
     * 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1
     * 12-Search-UnifiedAuditLogSignIn.ps1
     * 13-Get-AllM365EmailAddresses.ps1
     * 14-Get-AllUserPasswordReport.ps1
     * 17-Search-MailboxSuspiciousRules.ps1
-    * 18-Search-InboxRuleChanges.ps1
     * 19-Get-AllInboxRules.ps1
     * 22-Get-EnterpriseApplications.ps1
+    * 20-Get-ForwardingSettings.ps1
+    * 21-Get-MailboxPermissions.ps1
     * 23-Get-DefenderInformation.ps1
     * 24-Get-EntraIDRisk.ps1
     * 90-Get-MFAReport.ps1
     * 91-Get-CAPReport-P1.ps1
     * 93-Get-SecureScoreInformation.ps1
+    * OPTIONALLY: 15-Search-UnifiedAuditLogIR.ps1
+    * OPTIONALLY: Get-UnifiedAuditLogEntries.ps1
+    * 18-Search-InboxRuleChanges.ps1 (second pass)
+    * OPTIONALLY: Get-CRTReport.ps1 (CrowdStrike Reporting Tool for Azure)
 * To review sign-in logs
     * Export CSV versions of Interactive and Non-Interactive sign-ins going back one week (further if available and if incident scope warrants it) from https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/SignIns
     * If sign-in log retention is not sufficient use .\12-Search-UnifiedAuditLogSignIn.ps1 to export sign-in information from the UAL (goes back up to 180 days).
@@ -168,6 +176,9 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
     * View Defender alerts in console at https://security.microsoft.com > Alerts and/or use .\23-Get-DefenderInformation.ps1 to export report.
     * View Entra ID risk in console at https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers and https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns and/or use .\24-Get-EntraIDRisk.ps1.
     * Review for recent relevant alerts.
+* To review additional permissions and settings related to:
+    * Federation Configuration, Federation Trust, Client Access Settings Configured on Mailboxes, Mail Forwarding Rules for Remote Domains, Mailbox SMTP Forwarding Rules, Mail Transport Rules, Delegates with "Full Access" and those with Any Permissions Granted, Delegates with "Send As" or "SendOnBehalf" Permissions, Exchange Online PowerShell Enabled Users, Users with "Audit Bypass" Enabled, Mailboxes Hidden from the Global Address List (GAL), and administrator audit logging configuration settings for review... Use the CrowdStrike Reporting Tool for Azure (CRT)
+    * Invoke-WebRequest "https://github.com/CrowdStrike/CRT/raw/refs/heads/main/Get-CRTReport.ps1" -OutFile .\Get-CRTReport.ps1 ; .\Get-CRTReport.ps1 -WorkingDirectory "$($env:userprofile)\Desktop\Investigation\CRTReport" -Interactive
 * To contain compromise
     * Block sign-in and change password of compromised account in console at https://admin.exchange.microsoft.com/ > Users > Active users and/or use .\25-Lockdown-Account.ps1 script. 
     * If account is synced from AD and tenant does not have password writeback enabled note that you will need to change password in AD and sync it up to Entra ID - if you do not the account with automatically have sign-in re-enabled and password reverted.
@@ -180,8 +191,11 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
     * Run .\37-Search-UALActivityByUser.ps1 to export all UAL entries associated with specific user account(s).
     * Parse exported logs using 05-ProcessUnifiedAuditLogFlatten.bat/05-ProcessUnifiedAuditLogFlatten.ps1 scripts.
     * Review reports looking for any activity not yet identified previously in logs.
+    * Use 08-SelectUniquePairsCSV.bat/08-SelectUniquePairsCSV.ps1 to filter a user's sign-in history to IP and SessionID combinations in order to identify all malicious sessions and discover/confirm malicious IP addresses.
+    * Run .\39-Search-UALMailItemsAccessedByUser.ps1 to export all MailItemsAccessed events on a users account, then filter on known malicious IP addresses and SessionIDs to identify known messages which were interacted with by the threat actor.
+    * Run .\45-Search-MailboxMessage.ps1 (STILL IN DEVELOPMENT - NOT YET FUNCTIONAL) to retrieve message information based on list of previously identified InternetMessageIDs.
 * To search for suspect phishing messages by sender/subject line and export for review and/or purge from tenant
-    * Run .\38-Get-ExchangeMessageContentSearch.ps1 and follow prompts.
+    * Run .\44-Get-ExchangeMessageContentSearch.ps1 and follow prompts.
 * Refer to the contents/output of .\80-OneLinerReference.ps1 for often used and useful commands related to M365 BEC investigation/remediation.
 * When investigation/remediation is complete run .\99-Disconnect-M365Modules.ps1 to disconnect all modules from M365 tenant.
 

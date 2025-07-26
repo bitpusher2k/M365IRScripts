@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-BasicUserInformation.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to get the rolls and permissions (send as, send on behalf, full access)
 # of specified user.
 #
@@ -134,13 +134,23 @@ $UserStatus = Get-MgUser -UserID $User -Property GivenName, Surname, DisplayName
 $UserStatus
 $UserStatus | Export-Csv -Path "$OutputPath\$DomainName\Account_info_$($User)_$($date).csv" -Encoding $Encoding -NoTypeInformation
 
-Write-Output "`nUser's roles:"
-$Roles = Get-MsolUserRole -UserPrincipalName $User
-if ($Roles) {
-    $Roles | Select-Object name, isenabled, issystem
-    $Roles | Export-Csv -Path "$OutputPath\$DomainName\Roles_Of_$($User)_$($date).csv" -Encoding $Encoding -NoTypeInformation
+Write-Output "`nUser authentication information:"
+ 
+$Details = Get-MgReportAuthenticationMethodUserRegistrationDetail -user (get-mguser -userid $User).id
+if ($Details) {
+    $Details | fl
+    $Details | Export-Csv -Path "$OutputPath\$DomainName\Authentication_Details_$($User)_$($date).csv" -Encoding $Encoding -NoTypeInformation
 } else {
-    "No special roles assigned to $user"
+    "No authentication information found for $user"
+}
+
+Write-Output "`nUser's app roles:"
+$Roles = Get-MgUserAppRoleAssignment -UserId $User -CountVariable CountVar  -ConsistencyLevel eventual 
+if ($Roles) {
+    $Roles | Select-Object PrincipalDisplayName, PrincipalType, ResourceDisplayName
+    $Roles | Export-Csv -Path "$OutputPath\$DomainName\App_Roles_$($User)_$($date).csv" -Encoding $Encoding -NoTypeInformation
+} else {
+    "No app roles assigned to $user"
 }
 
 # All permissions on a mailbox:

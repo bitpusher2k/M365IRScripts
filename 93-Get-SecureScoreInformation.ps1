@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-SecureScoreInformation.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to retrieve and list M365 Secure Score information for a tenant using Graph API.
 # Currently only exports JSON files.
 #

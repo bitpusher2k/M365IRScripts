@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-UserMessageTrace.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to get message trace report of recent incoming & outgoing email for a given user.
 #
 # Usage:

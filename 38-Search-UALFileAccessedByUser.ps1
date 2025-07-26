@@ -7,21 +7,24 @@
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
-# Get-DefenderInformation.ps1 - By Bitpusher/The Digital Fox
+# Search-UALFileAccessedByUser.ps1 - By Bitpusher/The Digital Fox
 # v3.1 last updated 2025-07-26
-# Script to export reports of MS Defender settings & status, including:
-# alert configuration, threat detections, blocked senders (restricted entities),
-# quarantine policy, and quarantined messages.
+# Script to export all "FileAccessed", "FileAccessedExtended", "FileDownloaded",
+# "FileSyncDownloadedFull" records from the Unified Audit Log for specified users.
+#
+# Exfiltration techniques designed to evade detection can leave these entries:
+# https://www.varonis.com/blog/sidestepping-detection-while-exfiltrating-sharepoint-data
+# https://heimdalsecurity.com/blog/sharepoint-flaws-could-help-threat-actors-evade-detection-easier/
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Get-DefenderInformation.ps1 -OutputPath "Default"
+# powershell -executionpolicy bypass -f .\Search-UALFileAccessedByUser.ps1 -OutputPath "Default" -UserIds "compromisedaccount@contoso.com" -DaysAgo "10"
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
 # Uses ExchangePowerShell commands.
 #
-#comp #m365 #security #bec #script #irscript #powershell
+#comp #m365 #security #bec #script #irscript #powershell #unified #audit #log #search #user #fileaccessed
 
 #Requires -Version 5.1
 
@@ -31,7 +34,7 @@ param(
     [int]$DaysAgo,
     [datetime]$StartDate,
     [datetime]$EndDate,
-    [string]$scriptName = "Get-DefenderInformation",
+    [string]$scriptName = "Search-UALFileAccessedByUser",
     [string]$Priority = "Normal",
     [string]$DebugPreference = "SilentlyContinue",
     [string]$VerbosePreference = "SilentlyContinue",
@@ -87,6 +90,11 @@ $process.PriorityClass = $Priority
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
+$CheckLog = (Get-AdminAuditLogConfig).UnifiedAuditLogIngestionEnabled
+if (!$CheckLog) {
+    Write-Output "The Unified Audit Log does not appear to be enabled on this tenant. Export of UAL activities may fail. Try running 'Set-AdminAuditLogConfig -UnifiedAuditLogIngestionEnabled $true' if export fails."
+}
+
 ## If OutputPath variable is not defined, prompt for it
 if (!$OutputPath) {
     Write-Output ""
@@ -125,46 +133,61 @@ if (!$CheckSubDir) {
 }
 Write-Output "Domain sub-directory will be `"$DomainName`"" | Tee-Object -FilePath $logFilePath -Append
 
-
-Write-Output "`nScript will export Defender alert configuration, threat detections, blocked senders (restricted entities), quarantine policy, and quarantined messages to csv files..."
-
-Write-Output "`nExporting alert configuration..."
-Get-ProtectionAlert | Export-Csv -Path "$OutputPath\$DomainName\DefenderAlertConfiguration_$($date).csv" -Encoding $Encoding -NoTypeInformation
-
-Write-Output "`nExporting threat detections..."
-Get-MpThreatDetection | Export-Csv -Path "$OutputPath\$DomainName\DefenderThreatDetections_$($date).csv" -Encoding $Encoding -NoTypeInformation
-
-Write-Output "`nExporting blocked senders..."
-$BlockedSenders = Get-BlockedSenderAddress
-if ($BlockedSenders) {
-    $BlockedSenders
-    Write-Output "When accounts are secured un-block with: Remove-BlockedSenderAddress -SenderAddress <emailaddress>"
-    Write-Output "Note that it can take 24 hours to fully un-block an account."
-    $BlockedSenders | Export-Csv -Path "$OutputPath\$DomainName\BlockedSenders_$($date).csv" -Encoding $Encoding -NoTypeInformation
-} else {
-    Write-Output "No entities currently restricted on tenant."
+## If UserIds variable is not defined, prompt for it
+if (!$UserIds) {
+    Write-Output ""
+    $UserIds = Read-Host "Enter the user's primary email address (UPN). Comma-separated to search for entries from multiple users"
 }
 
-Write-Output "`nExporting quarantine policy..."
-Get-QuarantinePolicy | Export-Csv -Path "$OutputPath\$DomainName\DefenderAlertConfiguration_$($date).csv" -Encoding $Encoding -NoTypeInformation
+## If DaysAgo variable is not defined, prompt for it
+if (!$DaysAgo) {
+    Write-Output ""
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve mailitemsaccessed UAL entries associated with these user(s) (default: 10, maximum: 180)'
+    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
+}
+if ($DaysAgo -gt 180) { $DaysAgo = "180" }
+Write-Output "`nWill search UAC $DaysAgo days back from today for relevant events."
 
-Write-Output "`nExporting quarantined message list..."
-$QuarantinedMessages = Get-QuarantineMessage
-if ($QuarantinedMessages) {
-    Write-Output "First 10 messages in quarantine:"
-    $QuarantinedMessages | Select-Object -First 10
-    Write-Output "`nUseful quarantined message operations: "
-    Write-Output "Get-QuarantineMessageHeader -Identity <QuarantineMessageIdentity>"
-    Write-Output "Preview-QuarantineMessage -Identity <QuarantineMessageIdentity>"
-    Write-Output "Delete-QuarantineMessage -Identity <QuarantineMessageIdentity>"
-    Write-Output "Release-QuarantineMessage -Identity <QuarantineMessageIdentity>"
-    Write-Output "And to export (if you have permissions):"
-    Write-Output "`$base64message = Export-QuarantineMessage -Identity <QuarantineMessageIdentity> "
-    Write-Output "`$bytesMessage = [Convert]::FromBase64String($base64message.eml)"
-    Write-Output "[IO.File]::WriteAllBytes(`"`$OutputPath\`$DomainName\Quarantined Message with Attachments.eml`", `$bytesMessage)"
-    $QuarantinedMessages | Export-Csv -Path "$OutputPath\$DomainName\QuarantinedMessages_$($date).csv" -Encoding $Encoding -NoTypeInformation
+$StartDate = (Get-Date).AddDays(- $DaysAgo)
+$EndDate = (Get-Date).AddDays(1)
+$resultSize = 5000 #Maximum number of records that can be retrieved per query
+
+$OutputCSV = "$OutputPath\$DomainName\FileAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date).csv"
+
+
+$sesid = Get-Random # Get random session number
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations (`"FileAccessed`",`"FileAccessedExtended`",`"FileDownloaded`",`"FileSyncDownloadedFull`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+$currentoutput = ""
+$AuditOutput = @()
+$count = 1
+do {
+    Write-Output "Getting unified audit logs page $count - Please wait"
+    try {
+        $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations ("FileAccessed","FileAccessedExtended","FileDownloaded","FileSyncDownloadedFull") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
+    } catch {
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
+        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        exit 2 # Terminate script
+    }
+    $AuditOutput += $currentoutput # Build total results array
+    ++ $count # Increment page count
+} until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
+if (!$AuditOutput) {
+    Write-Output "`nNo matching activities found in the audit log for the time period specified`n"
 } else {
-    Write-Output "No messages currently in quarantine on tenant."
+    $AuditOutput | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
+    Write-Output "`nSee user activities report in the output path.`n"
+    Write-Output "Pivot through FileAccessed logs searching by date/time of suspect events, by suspect IP ('ClientIPAddress'), and by associated suspect Session ID ('SessionId')."
+}
+
+if ((Test-Path -Path $OutputCSV) -eq "True") {
+    Write-Output `n" The Output file is available at:"
+    Write-Output $OutputCSV
+    # $Prompt = New-Object -ComObject wscript.shell
+    # $UserIdsInput = $Prompt.popup("Do you want to open output file?",0,"Open Output File",4)
+    # If ($UserIdsInput -eq 6) {
+    # 	Invoke-Item "$OutputCSV"
+    # }
 }
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append

@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-BasicTenantInformation.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to collect basic Tenant information at outset of investigation.
 #
 # Allows quickly verifying the tenant name, subscriptions, auditing status - and saving info to files.
@@ -19,7 +19,7 @@
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
-# Uses ExchangePowerShell, MSOnline, AzureAD, Microsoft Graph commands. ** NEED TO UPDATE TO REMOVE MSOL DEPENDANCY
+# Uses ExchangePowerShell, Microsoft Graph commands.
 #
 #comp #m365 #security #bec #script #info #tenant
 
@@ -121,31 +121,34 @@ if (!$CheckSubDir) {
 }
 
 $admins = Get-MgDirectoryRole | Select-Object DisplayName, Id | ForEach-Object {$role = $_.DisplayName; Get-MgDirectoryRoleMember -DirectoryRoleId $_.id | where-object {$_.AdditionalProperties."@odata.type" -eq "#microsoft.graph.user"} | ForEach-Object {Get-MgUser -userid $_.id } } | Select @{Name="Role"; Expression = {$role}}, DisplayName, UserPrincipalName, Mail, Id | Sort-Object -Property Mail -Unique
-$info = Get-MsolCompanyInformation
+$info = Get-MgOrganization # Old: Get-MsolCompanyInformation
 $orgconfig = Get-OrganizationConfig
 $orgconfigGraph = Get-MgOrganization
 $SecureityDefaultsInfo = Get-MgPolicyIdentitySecurityDefaultEnforcementPolicy
 $logconfig = Get-AdminAuditLogConfig
 $connectors = Get-InboundConnector
 $rules = Get-TransportRule
+
+$FormatEnumerationLimit = 100
+
 $admins | Out-File -FilePath "$OutputPath\$DomainName\TenantAdmins_$($date).txt" -Encoding $Encoding
-$info | Out-File -FilePath "$OutputPath\$DomainName\TenantCompanyInfo_$($date).txt" -Encoding $Encoding
-$orgconfig | Out-File -FilePath "$OutputPath\$DomainName\TenantOrgConfig_$($date).txt" -Encoding $Encoding
-$orgconfigGraph | FL | Out-File -FilePath "$OutputPath\$DomainName\TenantOrgConfig_Graph_$($date).txt" -Encoding $Encoding
-$logconfig | Out-File -FilePath "$OutputPath\$DomainName\TenantAuditLogConfig_$($date).txt" -Encoding $Encoding
-$connectors | Out-File -FilePath "$OutputPath\$DomainName\ConnectorConfig_$($date).txt" -Encoding $Encoding
+$info | Format-List | Out-File -FilePath "$OutputPath\$DomainName\TenantCompanyInfo_$($date).txt" -Encoding $Encoding
+$orgconfig | Format-List | Out-File -FilePath "$OutputPath\$DomainName\TenantOrgConfig_$($date).txt" -Encoding $Encoding
+$orgconfigGraph | Format-List | Out-File -FilePath "$OutputPath\$DomainName\TenantOrgConfig_Graph_$($date).txt" -Encoding $Encoding
+$logconfig | Format-List | Out-File -FilePath "$OutputPath\$DomainName\TenantAuditLogConfig_$($date).txt" -Encoding $Encoding
+$connectors | Format-List | Out-File -FilePath "$OutputPath\$DomainName\ConnectorConfig_$($date).txt" -Encoding $Encoding
 $rules | Format-Table -AutoSize -Wrap | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_$($date).txt" -Encoding $Encoding
-$rules | FL | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_Detailed_$($date).txt" -Encoding $Encoding
+$rules | Format-List | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_Detailed_$($date).txt" -Encoding $Encoding
 
 
 Write-Output "`nTenant details:"
-Get-AzureADTenantDetail
+Get-MgOrganization # Old: Get-AzureADTenantDetail
 
 Write-Output "`nEntra ID subscriptions (look for AAD premium):"
 (Get-MgSubscribedSku).ServicePlans | Where-Object serviceplanname -Like "*aad*"
 
 Write-Output "`nLast directory sync time:"
-Get-MsolCompanyInformation | Select-Object lastdirsynctime
+Get-MgOrganization | Select-Object OnPremisesLastSyncDateTime
 
 Write-Output "`nMailbox auditing should be enabled by default."
 Write-Output "Checking the value of 'AuditDisabled' (this should be `"False`"):"

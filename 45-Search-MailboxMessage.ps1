@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Search-MailboxMessage.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31 - STILL EXPERIMENTAL and commands need review/refinement
+# v3.1 last updated 2025-07-26 - STILL EXPERIMENTAL and commands need review/refinement
 # Script to search Exchange Online mailbox(s) using Graph API by Message IDs, subject, sender, date.
 # Faster than eDiscovery/content searches. Use on mailbox restored from backup for searches that
 # include messages which have been deleted by threat actor.
@@ -49,9 +49,9 @@
 # ----------------------
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Search-MessageByID.ps1 -InputFile ".\messageidlist.txt"
+# powershell -executionpolicy bypass -f .\Search-MailboxMessage.ps1 -InputFile ".\messageidlist.txt"
 #
-# powershell -executionpolicy bypass -f .\Search-MessageByID.ps1 -InputFile ".\messageidlist.txt" -OutputPath "C:\temp" "Default" -TenantID "XXX-XXX-XXX" -ClientID "XXX-XXX-XXX" -ClientSecret "XxXxXxX" -UserID "XXX@ZZZ.com"
+# powershell -executionpolicy bypass -f .\Search-MailboxMessage.ps1 -InputFile ".\messageidlist.txt" -OutputPath "C:\temp" "Default" -TenantID "XXX-XXX-XXX" -ClientID "XXX-XXX-XXX" -ClientSecret "XxXxXxX" -UserID "XXX@ZZZ.com"
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules, or already registered Enterprise Application.

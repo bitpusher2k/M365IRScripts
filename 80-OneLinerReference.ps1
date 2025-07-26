@@ -8,8 +8,8 @@
 # https://github.com/bitpusher2k
 #
 # OneLinerReference.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
-# Script to print list of PowerShell one-liners that are useful for M365 BEC investigation & response. 
+# v3.1 last updated 2025-07-26
+# Script to print list of simple PowerShell commands that are useful during M365 BEC investigation & response. 
 #
 # For use as reference to remember syntax & other details of short commands & sets of commands that don't have a full script in this set.
 #
@@ -34,6 +34,19 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and ($Encoding -eq "utf8bom" -or $Enc
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
 Write-Output `n '-----------------------------------------------'
+Write-Output 'Download and Run CrowdStrike Reporting Tool for Azure (CRT)'
+Write-Output '-----------------------------------------------'
+Write-Output `n 'Usefule script for collecting Federation Configuration, Federation Trust,'
+Write-Output 'Client Access Settings Configured on Mailboxes, Mail Forwarding Rules for Remote Domains,'
+Write-Output 'Mailbox SMTP Forwarding Rules, Mail Transport Rules,'
+Write-Output 'Delegates with "Full Access" and with Any Permissions Granted,'
+Write-Output 'Delegates with "Send As" or "SendOnBehalf" Permissions,'
+Write-Output 'Exchange Online PowerShell Enabled Users, Users with "Audit Bypass" Enabled,'
+Write-Output 'Mailboxes Hidden from the Global Address List (GAL),'
+Write-Output 'and administrator audit logging configuration settings for review.'
+Write-Output '   Invoke-WebRequest "https://github.com/CrowdStrike/CRT/raw/refs/heads/main/Get-CRTReport.ps1" -OutFile .\Get-CRTReport.ps1'
+Write-Output '   .\Get-CRTReport.ps1 -WorkingDirectory "$($env:userprofile)\Desktop\Investigation\CRTReport" -Interactive'
+Write-Output `n '-----------------------------------------------'
 Write-Output 'Inbox rule review & removal'
 Write-Output '-----------------------------------------------'
 Write-Output `n '   Connect-ExchangeOnline'
@@ -57,7 +70,7 @@ Write-Output `n '   Set-HostedConnectionFilterPolicy "Default" -IPAllowList 192.
 Write-Output '   Set-HostedConnectionFilterPolicy -Identity Default -IPAllowList @{Add="192.168.2.10","192.169.3.0/24","192.168.4.1-192.168.4.5";Remove="192.168.1.10"}'
 Write-Output 'https://learn.microsoft.com/en-us/defender-office-365/connection-filter-policies-configure'
 Write-Output `n '-----------------------------------------------'
-Write-Output 'Useful Mail Flow Rules'
+Write-Output 'Useful Mail Flow Rule Creation'
 Write-Output '-----------------------------------------------'
 Write-Output `n 'Block bulk email using common phrases:'
 Write-Output '   New-TransportRule -Name "Bulk email filtering - Common phrases" -SubjectOrBodyContainsWords "to change your preferences or unsubscribe","Modify email preferences or unsubscribe","This is a promotional email","You are receiving this email because you requested a subscription","click here to unsubscribe","You have received this email because you are subscribed","If you no longer wish to receive our email newsletter","to unsubscribe from this newsletter","If you have trouble viewing this email","This is an advertisement","you would like to unsubscribe or change your","view this email as a webpage","You are receiving this email because you are subscribed" -SetSCL 9'
@@ -103,13 +116,21 @@ Write-Output 'https://blog.hubspot.com/marketing/sample-letter-for-hacked-email'
 Write-Output 'Then removed the Distribution group'
 Write-Output '   Remove-DistributionGroup -Identity $GroupID'
 Write-Output `n '-----------------------------------------------'
-Write-Output 'Using MailItemsAccessed audit records for forensic investigations'
+Write-Output 'Verify mailbox auditing is turned on, and turn it on if it is not'
 Write-Output '-----------------------------------------------'
 Write-Output `n 'Not currently scripted as this log entry type is not yet generally available to M365 tenants'
-Write-Output '   Search-UnifiedAuditLog -StartDate 01/06/2020 -EndDate 01/20/2020 -UserIds <user1,user2> -Operations MailItemsAccessed -ResultSize 1000'
-Write-Output '   Search-MailboxAuditLog -Identity <user> -StartDate 01/06/2020 -EndDate 01/20/2020 -Operations MailItemsAccessed -ResultSize 1000 -ShowDetails'
-Write-Output 'https://learn.microsoft.com/en-us/purview/audit-log-investigate-accounts'
-Write-Output 'https://petri.com/interpreting-the-office-365-mailitemsaccessed-audit-event/'
+Write-Output '   Get-OrganizationConfig | Format-List AuditDisabled'
+Write-Output '   Get-Mailbox -Identity <MailboxIdentity> | Format-List DefaultAuditSet'
+Write-Output '   Get-Mailbox -Identity <MailboxIdentity> | Select-Object -ExpandProperty AuditOwner'
+Write-Output '   Get-Mailbox -Identity <MailboxIdentity> | Select-Object -ExpandProperty AuditDelegate'
+Write-Output '   Get-Mailbox -Identity <MailboxIdentity> | Select-Object -ExpandProperty AuditAdmin'
+Write-Output '   Set-OrganizationConfig -AuditDisabled $false'
+Write-Output '   Set-Mailbox -Identity <MailboxIdentity> -DefaultAuditSet <Admin | Delegate | Owner>'
+Write-Output '   Set-Mailbox -Identity <MailboxIdentity> -AuditAdmin @{Add="Create","FolderBind","HardDelete","MailItemsAccessed","MessageBind","Move","Send","SendAs","SendOnBehalf","SoftDelete","Update","UpdateInboxRules"}'
+Write-Output '   Set-Mailbox -Identity <MailboxIdentity> -AuditDelegate @{Add="Create","FolderBind","HardDelete","MailItemsAccessed","Move","SendAs","SendOnBehalf","SoftDelete","Update","UpdateInboxRules"}'
+Write-Output '   Set-Mailbox -Identity <MailboxIdentity> -AuditOwner @{Add="Create","HardDelete","MailboxLogin","MailItemsAccessed","Move","SearchQueryInitiated","Send","SoftDelete","Update","UpdateInboxRules"}'
+Write-Output 'Loop over all mailboxes with: $Mailboxes = Get-Mailbox -ResultSize Unlimited -filter {RecipientTypeDetails -eq "UserMailbox"} ; foreach ($Mailbox in $Mailboxes) { <INSERT SET-MAILBOX LINE ABOVE WITH $Mailbox AS MAILBOXIDENTITY> }'
+Write-Output 'https://learn.microsoft.com/en-us/purview/audit-mailboxes'
 Write-Output `n '-----------------------------------------------'
 Write-Output 'Check & update spam filter policies'
 Write-Output '-----------------------------------------------'

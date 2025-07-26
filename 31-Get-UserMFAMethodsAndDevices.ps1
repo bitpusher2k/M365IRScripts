@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-UserMFAMethodsAndDevices.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to list the registered authentication methods and devices of the specified user.
 #
 # Usage:
@@ -142,7 +142,7 @@ $authMethod = Get-MgUserAuthenticationMethod -UserId $UserIds
 # $authMethod.additionalProperties
 # $authMethod.Id
 
-(Get-MsolUser -UserPrincipalName $UserIds).StrongAuthenticationMethods | Format-List * | Out-File -FilePath "$OutputPath\$DomainName\AllUserAuthenticationMethods_$($UserIds)_$($date).txt" -Append -Encoding $Encoding
+(Get-MgUserAuthenticationMethod -UserId $UserIds).AdditionalProperties | Format-List * | Out-File -FilePath "$OutputPath\$DomainName\AllUserAuthenticationMethods_KeyValue_$($UserIds)_$($date).txt" -Append -Encoding $Encoding
 $authMethod | Format-List * | Out-File -FilePath "$OutputPath\$DomainName\AllUserAuthenticationMethods_$($UserIds)_$($date).txt" -Append -Encoding $Encoding
 
 $AzUser = Get-AzureADUser -ObjectId "$UserIds"

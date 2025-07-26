@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Search-UALActivityByIPAddress.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to exports data from the Unified Audit Log for specified IP addresses.
 #
 # Usage:
@@ -166,7 +166,7 @@ do {
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 if (!$AuditOutput) {
-    Write-Output "`nThere are no activities in the audit log for the time period specified`n"
+    Write-Output "`nNo matching activities found in the audit log for the time period specified`n"
 } else {
     $AuditOutput | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
     Write-Output "`nSee IP address activities report in the output path.`n"

@@ -10,7 +10,7 @@
 # UpdateM365Modules.ps1
 # Created by https://github.com/directorcia @directorcia
 # Modified by Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to install/update MSOL PowerShell modules.
 #
 # Usage:
@@ -152,8 +152,8 @@ if ($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administ
     # test-package -packagename NuGet
     test-package -packagename PowerShellGet
     # Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-    Write-Output "(2 of 16) Update Azure AD module"
-    test-install -ModuleName AzureAD
+    Write-Output "(2 of 16) Update Azure AD module - Obsolete - Skipping"
+    # test-install -ModuleName AzureAD
     Write-Output "(3 of 16) Update Azure Information Protection module"
     $aadrmcheck = Get-Module -ListAvailable -Name aadrm
     if ($aadrmcheck) {
@@ -167,8 +167,8 @@ if ($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administ
     test-install -ModuleName MicrosoftTeams
     Write-Output "(5 of 16) Update SharePoint Online module"
     test-install -ModuleName Microsoft.Online.SharePoint.PowerShell
-    Write-Output "(6 of 16) Update Microsoft Online module"
-    test-install -ModuleName MSOnline
+    Write-Output "(6 of 16) Update Microsoft Online module - Obsolete - Skipping"
+    # test-install -ModuleName MSOnline
     Write-Output "(7 of 16) Update PowerShellGet module"
     test-install -ModuleName PowershellGet
     Write-Output "(8 of 16) Update Exchange Online module"

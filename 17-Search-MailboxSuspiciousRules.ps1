@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Search-MailboxSuspiciousRules.ps1 - By Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to check all mailbox rules on a domain for suspicious entries.
 # Entries are identified as suspicious based on several basic heuristic rules:
 # Forwarding, suspicious names, suspicious moving, suspicious keywords, deleting messages

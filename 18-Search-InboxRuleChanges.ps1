@@ -10,7 +10,7 @@
 # Search-InboxRuleChanges.ps1
 # Created by https://github.com/JeremyTBradshaw/
 # modified by Bitpusher/The Digital Fox
-# v3.0 last updated 2025-05-31
+# v3.1 last updated 2025-07-26
 # Script to search UAC for inbox rule changes on all accounts
 # made recently (max past 180 days).
 #
