@@ -45,9 +45,16 @@ param(
 
 $total = [Diagnostics.StopWatch]::StartNew()
 
+Write-Output "This script is now obsolete as mailbox audit log exports from the 'Search-MailboxAuditLog' command are no longer available. Use UAL log flattener for mailbox audit logs exported from UAL."
+
 foreach ($inputFile in $inputfiles) {
     $headerRow = Get-Content $inputFile | Select-Object -First 1 | ConvertFrom-String -Delimiter ","
     $headerRow
+
+    if ($headerRow -match "AuditData") {
+        Write-Output "`n$inputFile appears to be an export from UAL - ending."
+        exit
+    }
 
     $InputHeaders = ("Operation", "OperationResult", "LogonType", "ExternalAccess", "DestFolderId", "DestFolderPathName", "FolderId", "FolderPathName", "FolderName", "MemberRights", "MemberSid", "MemberUpn", "ClientInfoString", "ClientIPAddress", "ClientIP", "ClientMachineName", "ClientProcessName", "ClientVersion", "InternalLogonType", "MailboxOwnerUPN", "MailboxOwnerSid", "DestMailboxOwnerUPN", "DestMailboxOwnerSid", "DestMailboxGuid", "CrossMailboxOperation", "LogonUserDisplayName", "LogonUserSid", "SourceItems", "SourceFolders", "SourceItemIdsList", "SourceItemSubjectsList", "SourceItemAttachmentsList", "SourceItemFolderPathNamesList", "SourceFolderPathNamesList", "SourceItemInternetMessageIdsList", "ItemId", "ItemSubject", "ItemAttachments", "ItemInternetMessageId", "DirtyProperties", "OriginatingServer", "SessionId", "OperationProperties", "AuditOperationsCountInAggregatedRecord", "AggregatedRecordFoldersData", "AppId", "ClientAppId", "ItemIsRecord", "ItemComplianceLabel", "MailboxGuid", "MailboxResolvedOwnerName", "LastAccessed", "Identity", "IsValid", "ObjectState")
 
