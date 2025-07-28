@@ -161,6 +161,7 @@ $EndDate = (Get-Date).AddDays(1)
 $resultSize = 5000 #Maximum number of records that can be retrieved per query
 
 $OutputCSV = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date).csv"
+$OutputTxt = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date).txt"
 
 $amountResults = (Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations "MailItemsAccessed" -ResultSize 1 | Select-Object -First 1 -ExpandProperty ResultCount)
 $throttledResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations MailItemsAccessed -ResultSize 1000 | Where {$_.AuditData -like '*"IsThrottled","Value":"True"*'}
@@ -169,11 +170,11 @@ $syncResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -U
 Write-Output "`nNumber of MailItemsAccessed events logged for specified user(s) during time range: $amountResults.`n"
 
 if ($throttledResults) {
-    Write-Output "`nWARNING: MailItemsAccessed events THROTTLED for specified user(s) during search range - Not all events were logged.`n"
+    Write-Output "`nWARNING: MailItemsAccessed events THROTTLED for specified user(s) during search range - Not all events were logged.`n" | Tee-Object Tee-Object -FilePath $OutputTxt -Append
 }
 
 if ($syncResults) {
-    Write-Output "`nWARNING: MailItemsAccessed SYNC events for specified user(s) logged during search range - Desktop Outlook client used and only FOLDER level operations are logged - ALL items in synced folder must be assumed accessed.`n"
+    Write-Output "`nWARNING: MailItemsAccessed SYNC events for specified user(s) logged during search range - Desktop Outlook client used and only FOLDER level operations are logged - ALL items in synced folder must be assumed accessed.`n" | Tee-Object Tee-Object -FilePath $OutputTxt -Append
 }
 
 $sesid = Get-Random # Get random session number
