@@ -18,7 +18,9 @@
 # and/or on a busy tenant can take a long time.
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Get-UnifiedAuditLogEntries.ps1 -OutputPath "Default"
+# powershell -executionpolicy bypass -f .\Get-UnifiedAuditLogEntries.ps1 -OutputPath "Default" -DaysAgo "10"
+#
+# powershell -executionpolicy bypass -f .\Get-UnifiedAuditLogEntries.ps1 -OutputPath "Default" -StartDate "2025-07-12" -EndDate "2025-07-20"
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
@@ -129,44 +131,60 @@ if (!$CheckSubDir) {
 }
 Write-Output "Domain sub-directory will be `"$DomainName`"" | Tee-Object -FilePath $logFilePath -Append
 
-## If DaysAgo variable is not defined, prompt for it
-if (!$DaysAgo) {
+## Get valid starting end ending dates
+if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available Unified Audit Log entries for tenant (default: 10, maximum: 180)'
-    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt "180") { $DaysAgo = "180" }
-    Write-Output "Will attempt to retrieve all UAC entries going back $DaysAgo days from today."
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL UAL entries (default: 10, maximum: 180)'
+    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
 }
+
+if ($DaysAgo) {
+    if ($DaysAgo -gt 180) { $DaysAgo = "180" }
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
+    $EndDate = (Get-Date).touniversaltime()
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} elseif ($StartDate -and $EndDate) {
+    $StartDate = ($StartDate).touniversaltime()
+    $EndDate = ($EndDate).touniversaltime()
+    if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
+    if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} else {
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    exit
+}
+
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 $logFile = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_LOG_$($date).txt"
 $OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_$($date).csv"
 
-# $StartDate = (Get-Date).AddDays(-$DaysAgo)
-# $EndDate = (Get-Date).AddDays(1)
-[datetime]$start = [datetime]::UtcNow.AddDays(- $DaysAgo)
-[datetime]$end = [datetime]::UtcNow
 #$record = "AzureActiveDirectory" https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#auditlogrecordtype
 $record = "ALL"
 $resultSize = 5000 #Maximum number of records that can be retrieved per query
 $intervalMinutes = 30
 
 #Start script
-[datetime]$currentStart = $start
-[datetime]$currentEnd = $end
+[datetime]$currentStart = $StartDate
+[datetime]$currentEnd = $EndDate
 
 function Write-LogFile ([string]$Message) {
     $final = [datetime]::Now.ToUniversalTime().ToString("s") + ":" + $Message
     $final | Out-File $logFile -Append
 }
 
-Write-LogFile "BEGIN: Retrieving audit records between $($start) and $($end), RecordType=$record, PageSize=$resultSize."
-Write-Output "Retrieving audit records for the date range between $($start) and $($end), RecordType=$record, ResultsSize=$resultSize"
+Write-LogFile "BEGIN: Retrieving audit records between $($StartDate) and $($EndDate), RecordType=$record, PageSize=$resultSize."
+Write-Output "Retrieving audit records for the date range between $($StartDate) and $($EndDate), RecordType=$record, ResultsSize=$resultSize"
 
 $totalCount = 0
 while ($true) {
     $currentEnd = $currentStart.AddMinutes($intervalMinutes)
-    if ($currentEnd -gt $end) {
-        $currentEnd = $end
+    if ($currentEnd -gt $EndDate) {
+        $currentEnd = $EndDate
     }
 
     if ($currentStart -eq $currentEnd) {
@@ -207,8 +225,8 @@ while ($true) {
     $currentStart = $currentEnd
 }
 
-Write-LogFile "END: Retrieving audit records between $($start) and $($end), RecordType=$record, PageSize=$resultSize, total count: $totalCount."
-Write-Output "Script complete! Finished retrieving audit records for the date range between $($start) and $($end). Total count: $totalCount"
+Write-LogFile "END: Retrieving audit records between $($StartDate) and $($EndDate), RecordType=$record, PageSize=$resultSize, total count: $totalCount."
+Write-Output "Script complete! Finished retrieving audit records for the date range between $($StartDate) and $($EndDate). Total count: $totalCount"
 
 if ((Test-Path -Path $OutputCSV) -eq "True") {
     Write-Output `n" The Output file is available at:" | Tee-Object -FilePath $logFilePath -Append

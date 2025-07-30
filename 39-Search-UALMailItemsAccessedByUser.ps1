@@ -27,6 +27,8 @@
 # Usage:
 # powershell -executionpolicy bypass -f .\Search-UALMailItemsAccessedByUser.ps1 -OutputPath "Default" -UserIds "compromisedaccount@contoso.com" -DaysAgo "10"
 #
+# powershell -executionpolicy bypass -f .\Search-UALMailItemsAccessedByUser.ps1 -OutputPath "Default" -UserIds "compromisedaccount@contoso.com" -StartDate "2025-07-12" -EndDate "2025-07-20"
+#
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
@@ -147,17 +149,34 @@ if (!$UserIds) {
     $UserIds = Read-Host "Enter the user's primary email address (UPN). Comma-separated to search for entries from multiple users"
 }
 
-## If DaysAgo variable is not defined, prompt for it
-if (!$DaysAgo) {
+## Get valid starting end ending dates
+if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve mailitemsaccessed UAL entries associated with these user(s) (default: 10, maximum: 180)'
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve relevant UAL entries (default: 10, maximum: 180)'
     if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
 }
-if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-Write-Output "`nWill search UAC $DaysAgo days back from today for relevant events."
 
-$StartDate = (Get-Date).AddDays(- $DaysAgo)
-$EndDate = (Get-Date).AddDays(1)
+if ($DaysAgo) {
+    if ($DaysAgo -gt 180) { $DaysAgo = "180" }
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
+    $EndDate = (Get-Date).touniversaltime()
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} elseif ($StartDate -and $EndDate) {
+    $StartDate = ($StartDate).touniversaltime()
+    $EndDate = ($EndDate).touniversaltime()
+    if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
+    if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} else {
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    exit
+}
+
+
 $resultSize = 5000 #Maximum number of records that can be retrieved per query
 
 $OutputCSV = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date).csv"

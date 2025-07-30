@@ -15,7 +15,9 @@
 # made recently (max past 180 days).
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Search-InboxRuleChanges.ps1 -OutputPath "Default"
+# powershell -executionpolicy bypass -f .\Search-InboxRuleChanges.ps1 -OutputPath "Default" -DaysAgo "10"
+#
+# powershell -executionpolicy bypass -f .\Search-InboxRuleChanges.ps1 -OutputPath "Default" -StartDate "2025-07-12" -EndDate "2025-07-20"
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
@@ -31,7 +33,7 @@
     Search the Office 365 unified audit log for suspicious inbox rule activity.
 
     .Description
-    For OWA-based user acitvity and PowerShell-based admin activity, we can
+    For OWA-based user activity and PowerShell-based admin activity, we can
     search for the New-/Set-InboxRule operations.
 
     For Outlook client based activity, we can search for the UpdateInboxRules
@@ -217,23 +219,38 @@ if ($UseClientIPExcludedRanges -eq $true) {
     foreach ($i in (80..90)) { $ClientIPExcludedIPRanges += "10.10.10.$i" }
 }
 
-## If DaysAgo variable is not defined, prompt for it
-if (!$DaysAgo) {
+## Get valid starting end ending dates
+if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available inbox rule change events (default: 30, maximum: 180)'
-    if ($DaysAgo -eq '') { $DaysAgo = "30" }
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve relevant UAL entries (default: 10, maximum: 180)'
+    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
 }
-if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-Write-Output "Will attempt to retrieve all UAC entries going back $DaysAgo days from today."
-Write-Output "NOTE: Recently it has taken multiple runs before all email rule change events are properly grabbed and parsed by this script. Reason unknown."
-Write-Output "NOTE: Run. Wait 10 minutes. Run again."
 
-$StartDate = (Get-Date).AddDays(- $DaysAgo)
-$EndDate = (Get-Date).AddDays(1)
+if ($DaysAgo) {
+    if ($DaysAgo -gt 180) { $DaysAgo = "180" }
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
+    $EndDate = (Get-Date).touniversaltime()
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} elseif ($StartDate -and $EndDate) {
+    $StartDate = ($StartDate).touniversaltime()
+    $EndDate = ($EndDate).touniversaltime()
+    if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
+    if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} else {
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    exit
+}
+
+
+Write-Output "NOTE: Recently it has taken multiple runs before all email rule change events are properly retrieved and parsed by this script. Reason unknown - initiating search may prompt consolidation of log entries.."
+Write-Output "NOTE: Run script, wait 10 minutes, then run again to ensure all entries are retrieved."
+
 $SearchResultsProcessed = @()
-
-$StartDate
-$EndDate
 
 $sesid = Get-Random # Get random session number
 Write-Output "Search-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize"

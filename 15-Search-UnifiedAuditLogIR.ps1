@@ -13,7 +13,9 @@
 # relevant to incident response across all users.
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Search-UnifiedAuditLogIR.ps1 -OutputPath "Default"
+# powershell -executionpolicy bypass -f .\Search-UnifiedAuditLogIR.ps1 -OutputPath "Default" -DaysAgo "10"
+#
+# powershell -executionpolicy bypass -f .\Search-UnifiedAuditLogIR.ps1 -OutputPath "Default" -StartDate "2025-07-12" -EndDate "2025-07-20"
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
@@ -152,15 +154,34 @@ Write-Output " * External User Events"
 Write-Output ""
 Write-Output "In the future this script may be split up into more targeted scripts which parse UAL output specific to the retrieved records."
 Write-Output ""
-if (!$DaysAgo) {
-    $DaysAgo = Read-Host "Enter number of days back to search in the Unified Audit Log (default: 30, max: 180)"
-}
-if ($DaysAgo -eq '') { $DaysAgo = "30" } elseif ($DaysAgo -gt "180") { $DaysAgo = "180" }
-Write-Output "Will search UAC $DaysAgo days back from today for relevant events."
 
-## Set Start and End Dates
-$StartDate = (Get-Date).AddDays(- $DaysAgo)
-$EndDate = Get-Date
+## Get valid starting end ending dates
+if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
+    Write-Output ""
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve relevant UAL entries (default: 10, maximum: 180)'
+    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
+}
+
+if ($DaysAgo) {
+    if ($DaysAgo -gt 180) { $DaysAgo = "180" }
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
+    $EndDate = (Get-Date).touniversaltime()
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} elseif ($StartDate -and $EndDate) {
+    $StartDate = ($StartDate).touniversaltime()
+    $EndDate = ($EndDate).touniversaltime()
+    if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
+    if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} else {
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    exit
+}
+
 
 ## Get changes to membership in Entra ID roles (new adds could indicate escalation of privilege)
 $sesid = Get-Random # Get random session number

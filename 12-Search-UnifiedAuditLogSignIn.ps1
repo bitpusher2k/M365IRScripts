@@ -24,7 +24,9 @@
 # of non-interactive sign-ins.
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Search-UnifiedAuditLogSignIn.ps1 -OutputPath "Default"
+# powershell -executionpolicy bypass -f .\Search-UnifiedAuditLogSignIn.ps1 -OutputPath "Default" -UserIds "All" -DaysAgo "10"
+#
+# powershell -executionpolicy bypass -f .\Search-UnifiedAuditLogSignIn.ps1 -OutputPath "Default" -UserIds "All" -StartDate "2025-07-12" -EndDate "2025-07-20"
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
@@ -172,37 +174,33 @@ if (!$CheckSubDir) {
 Write-Output "Script started. Version = $version`n"
 Write-Output "Script to display interactive user logins from Unified Audit log `n"
 
-if (!$DaysAgo -and (!$StartDate -and !$EndDate)) {
-    do {
-        $NumberDays = Read-Host -Prompt "`nEnter total number of days back from today to search log (maximum: 180)" # Prompt for number of days to check
-    } until ((-not [string]::IsNullOrEmpty($NumberDays)) -and ($NumberDays -match "^\d+$")) # Keep prompting until not blank and numeric
+## Get valid starting end ending dates
+if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
     Write-Output ""
-    $NumberDaysInt = [int]$NumberDays
-    $DaysAgo = $NumberDaysInt
-    if ($DaysAgo -gt 180) {
-        $DaysAgo = 180
-    }
-    $StartDateLocal = (Get-Date).adddays(-$DaysAgo)
-    $StartDate = $StartDateLocal.touniversaltime() # Convert local start time to UTC
-    $EndDate = (Get-Date).touniversaltime() # Ending date for audit log search UTC. Default = current time
-} elseif ($StartDate -and $EndDate) {
-    Write-Output "Starting and ending date specified - will search for sign-ins between $StartDate and $EndDate"
-    [datetime]$Start = [datetime]$StartDate
-    [datetime]$End = [datetime]$EndDate
-    $StartDate = $Start.touniversaltime() # Convert local start time to UTC
-    $EndDate = $End.touniversaltime() # Convert local end time to UTC
-    if ($StartDate -lt (Get-Date).adddays(-180)) {
-        Write-Output "Starting date is more than 180 days ago, and outside the range of UAL records. Please try again with a start date within 180 days ago. Ending."
-        exit
-    }
-    Write-Output "This is between $StartDate and $EndDate UTC..."
-} elseif ($DaysAgo) {
-    if ($DaysAgo -gt "180") { $DaysAgo = "180" }
-    $NumberDaysInt = [int]::Parse($DaysAgo) # Convert string to integer
-    $StartDateLocal = (Get-Date).adddays(- $NumberDaysInt)
-    $StartDate = $StartDateLocal.touniversaltime() # Convert local start time to UTC
-    $EndDate = (Get-Date).touniversaltime() # Ending date for audit log search UTC. Default = current time
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve sign-in UAL entries (default: 10, maximum: 180)'
+    if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
 }
+
+if ($DaysAgo) {
+    if ($DaysAgo -gt 180) { $DaysAgo = "180" }
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
+    $EndDate = (Get-Date).touniversaltime()
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} elseif ($StartDate -and $EndDate) {
+    $StartDate = ($StartDate).touniversaltime()
+    $EndDate = ($EndDate).touniversaltime()
+    if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
+    if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} else {
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    exit
+}
+
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 $diff = New-TimeSpan -Start $StartDate -End $EndDate # Determine the difference between start and finish dates
@@ -227,13 +225,12 @@ if ($UserIds) {
 } else {
     $OutputUser = "ALL"
 }
+$OutputCSVraw = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser.Replace(',','-'))_between_$($StartDate.ToString(`"yyyyMMddHHmm`"))_and_$($EndDate.ToString(`"yyyyMMddHHmm`"))_$($totalDays)_days.csv"
 $OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser.Replace(',','-'))_between_$($StartDate.ToString(`"yyyyMMddHHmm`"))_and_$($EndDate.ToString(`"yyyyMMddHHmm`"))_$($totalDays)_days_Processed.csv"
 Write-Output "`nWill search for records related to: $UserIds user(s)"
 
 # Search the defined date(s), SessionId + SessionCommand in combination with the loop will return and append 5000 object per iteration until all objects are returned (minimum limit is 50k objects)
 Write-Output "`nTotal range of days to check for sign-ins: $totalDays"
-Write-Output "Start date: $StartDate"
-Write-Output "End date: $EndDate"
 
 $count = 1
 do {
@@ -259,6 +256,7 @@ do {
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
 # Select and expand the nested object (AuditData) as it holds relevant reporting data. Convert output format from default JSON to enable export to CSV
+$AuditOutput | Export-Csv -Path $OutputCSVraw -NoTypeInformation -Encoding $Encoding
 $ConvertedOutput = $AuditOutput | Select-Object -ExpandProperty AuditData | Sort-Object creationtime | ConvertFrom-Json
 
 foreach ($Entry in $convertedoutput) { # Loop through all result entries
@@ -287,7 +285,6 @@ $displays = $results | Sort-Object -Descending localtime # Sort result array in 
 $displays | Select-Object CreationTime, LocalTime, ClientIP, Operation, UserId, ResultStatusDetail, KeepMeSignedIn, UserAgent, UserAuthenticationMethod, RequestType, DisplayName, OS, BrowserType, TrustType, IsCompliant, IsCompliantAndManaged, SessionId | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
 
 # Un-comment for console output of results
-# Write-Output ""
 # Write-Output "Local Time`t`t Client IP`t`t Operation`t`t Login" # Merely an indication of the headings
 # Write-Output "----------`t`t ---------`t`t ---------`t`t -----" # Not possible to align for every run option
 # foreach ($display in $displays) {

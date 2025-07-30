@@ -138,17 +138,34 @@ if (!$UserIds) {
     $UserIds = Read-Host 'Enter the user ID (email address)....'
 }
 
-## If DaysAgo variable is not defined, prompt for it
-if (!$DaysAgo) {
+## Get valid starting end ending dates
+if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back ...s (default: 10, maximum: 180)'
+    $DaysAgo = Read-Host 'Enter how many days back to ... (default: 10, maximum: 180)'
     if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 180) { $DaysAgo = "180" }
 }
-if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-Write-Output "Will attempt to ... going back $DaysAgo days from today." | Tee-Object -FilePath $logFilePath -Append
 
-$StartDate = (Get-Date).AddDays(- $DaysAgo)
-$EndDate = (Get-Date).AddDays(1)
+if ($DaysAgo) {
+    if ($DaysAgo -gt 180) { $DaysAgo = "180" }
+    Write-Output "`nScript will search ... $DaysAgo days back from today for relevant events."
+    $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
+    $EndDate = (Get-Date).touniversaltime()
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} elseif ($StartDate -and $EndDate) {
+    $StartDate = ($StartDate).touniversaltime()
+    $EndDate = ($EndDate).touniversaltime()
+    if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
+    if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
+    Write-Output "`nScript will search ... between StartDate and EndDate for relevant events."
+    Write-Output "StartDate: $StartDate (UTC)"
+    Write-Output "EndDate: $EndDate (UTC)"
+} else {
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    exit
+}
+
+
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
 $OutputCSV = "$OutputPath\$DomainName\XXXX_$($date).csv"
