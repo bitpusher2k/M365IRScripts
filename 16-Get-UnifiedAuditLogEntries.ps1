@@ -140,21 +140,21 @@ if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
 
 if ($DaysAgo) {
     if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events." | Tee-Object -FilePath $logFilePath -Append
     $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
     $EndDate = (Get-Date).touniversaltime()
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } elseif ($StartDate -and $EndDate) {
     $StartDate = ($StartDate).touniversaltime()
     $EndDate = ($EndDate).touniversaltime()
     if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
     if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
-    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } else {
-    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending." | Tee-Object -FilePath $logFilePath -Append
     exit
 }
 
@@ -178,7 +178,7 @@ function Write-LogFile ([string]$Message) {
 }
 
 Write-LogFile "BEGIN: Retrieving audit records between $($StartDate) and $($EndDate), RecordType=$record, PageSize=$resultSize."
-Write-Output "Retrieving audit records for the date range between $($StartDate) and $($EndDate), RecordType=$record, ResultsSize=$resultSize"
+Write-Output "Retrieving audit records for the date range between $($StartDate) and $($EndDate), RecordType=$record, ResultsSize=$resultSize" | Tee-Object -FilePath $logFilePath -Append
 
 $totalCount = 0
 while ($true) {
@@ -193,8 +193,8 @@ while ($true) {
 
     $sessionID = [guid]::NewGuid().ToString() + "_" + "ExtractLogs" + (Get-Date).ToString("yyyyMMddHHmmssfff")
     Write-LogFile "INFO: Retrieving audit records for activities performed between $($currentStart) and $($currentEnd)"
-    Write-Output "Retrieving audit records for activities performed between $($currentStart) and $($currentEnd)"
-    Write-Output "Search-UnifiedAuditLog -StartDate $currentStart -EndDate $currentEnd -SessionId $sessionID -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+    Write-Output "Retrieving audit records for activities performed between $($currentStart) and $($currentEnd)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "Search-UnifiedAuditLog -StartDate $currentStart -EndDate $currentEnd -SessionId $sessionID -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
     $currentCount = 0
 
     $sw = [Diagnostics.StopWatch]::StartNew()
@@ -213,14 +213,14 @@ while ($true) {
             if ($currentTotal -eq $results[$results.Count - 1].ResultIndex) {
                 $message = "INFO: Successfully retrieved $($currentTotal) audit records for the current time range. Moving on!"
                 Write-LogFile $message
-                Write-Output "Successfully retrieved $($currentTotal) audit records for the current time range. Moving on to the next interval."
+                Write-Output "Successfully retrieved $($currentTotal) audit records for the current time range. Moving on to the next interval." | Tee-Object -FilePath $logFilePath -Append
                 ""
                 break
             }
         }
     } while (($results | Measure-Object).Count -ne 0)
     
-    Write-Output "Seconds elapsed for query: $($sw.elapsed.totalseconds)"
+    Write-Output "Seconds elapsed for query: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append
 
     $currentStart = $currentEnd
 }

@@ -158,21 +158,21 @@ if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
 
 if ($DaysAgo) {
     if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events." | Tee-Object -FilePath $logFilePath -Append
     $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
     $EndDate = (Get-Date).touniversaltime()
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } elseif ($StartDate -and $EndDate) {
     $StartDate = ($StartDate).touniversaltime()
     $EndDate = ($EndDate).touniversaltime()
     if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
     if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
-    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } else {
-    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending." | Tee-Object -FilePath $logFilePath -Append
     exit
 }
 
@@ -186,37 +186,37 @@ $amountResults = (Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate
 $throttledResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations MailItemsAccessed -ResultSize 1000 | Where {$_.AuditData -like '*"IsThrottled","Value":"True"*'}
 $syncResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations MailItemsAccessed -ResultSize 1000 | Where {$_.AuditData -like '*"MailAccessType","Value":"Sync"*'}
 
-Write-Output "`nNumber of MailItemsAccessed events logged for specified user(s) during time range: $amountResults.`n"
+Write-Output "`nNumber of MailItemsAccessed events logged for specified user(s) during time range: $amountResults.`n" | Tee-Object -FilePath $logFilePath -Append
 
 if ($throttledResults) {
-    Write-Output "`nWARNING: MailItemsAccessed events THROTTLED for specified user(s) during search range - Not all events were logged.`n" | Tee-Object Tee-Object -FilePath $OutputTxt -Append
+    Write-Output "`nWARNING: MailItemsAccessed events THROTTLED for specified user(s) during search range - Not all events were logged.`n" | Tee-Object Tee-Object -FilePath $OutputTxt -Append | Tee-Object -FilePath $logFilePath -Append
 }
 
 if ($syncResults) {
-    Write-Output "`nWARNING: MailItemsAccessed SYNC events for specified user(s) logged during search range - Desktop Outlook client used and only FOLDER level operations are logged - ALL items in synced folder must be assumed accessed.`n" | Tee-Object Tee-Object -FilePath $OutputTxt -Append
+    Write-Output "`nWARNING: MailItemsAccessed SYNC events for specified user(s) logged during search range - Desktop Outlook client used and only FOLDER level operations are logged - ALL items in synced folder must be assumed accessed.`n" | Tee-Object Tee-Object -FilePath $OutputTxt -Append | Tee-Object -FilePath $logFilePath -Append
 }
 
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations (`"MailItemsAccessed`",`"MessageBind`",`"FolderBind`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations (`"MailItemsAccessed`",`"MessageBind`",`"FolderBind`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentoutput = ""
 $AuditOutput = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations ("MailItemsAccessed","MessageBind","FolderBind") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $AuditOutput += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$AuditOutput) {
-    Write-Output "`nNo matching activities found in the audit log for the time period specified`n"
+    Write-Output "`nNo matching activities found in the audit log for the time period specified`n" | Tee-Object -FilePath $logFilePath -Append
 } else {
-    Write-Output "`nMatching activities found in the audit log - Saving to file...`n"
+    Write-Output "`nMatching activities found in the audit log - Saving to file...`n" | Tee-Object -FilePath $logFilePath -Append
     $AuditOutput | Export-Csv -Path $OutputCSV -NoTypeInformation -Encoding $Encoding
 
     # Add information columns to object
@@ -246,14 +246,14 @@ if (!$AuditOutput) {
     $AuditOutput | Add-Member -NotePropertyName "AuditDataPath" -NotePropertyValue $null
     $AuditOutput | Add-Member -NotePropertyName "AuditDataOperationCount" -NotePropertyValue $null
 
-    Write-Output "Processing AuditData block of each row...`n"
+    Write-Output "Processing AuditData block of each row...`n" | Tee-Object -FilePath $logFilePath -Append
 
     # Loop through each row in spreadsheet data
     foreach ($Row in $AuditOutput) {
 
         $AuditData = ConvertFrom-Json $Row.Auditdata
 
-        Write-Output "Parsing row $RowCount"
+        Write-Output "Parsing row $RowCount" | Tee-Object -FilePath $logFilePath -Append
 
         if ($AuditData.CreationTime -ne $Null) { $Row.AuditDataCreationTime = $AuditData.CreationTime } else { $Row.AuditDataCreationTime = "Unavailable" }
         if ($AuditData.Operation -ne $Null) { $Row.AuditDataOperation = $AuditData.Operation } else { $Row.AuditDataOperation = "Unavailable" }
@@ -288,9 +288,9 @@ if (!$AuditOutput) {
     $OutputCSV = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date)_Processed.csv"
     $AuditOutput | Export-Csv -Path "$OutputCSV" -NoTypeInformation -Encoding $Encoding
 
-    Write-Output "Processed a total of $RowCount rows."
+    Write-Output "Processed a total of $RowCount rows." | Tee-Object -FilePath $logFilePath -Append
 
-    Write-Output "`nSee user activities report in the output path.`n"
+    Write-Output "`nSee user activities report in the output path.`n" | Tee-Object -FilePath $logFilePath -Append
     Write-Output "Pivot through MailItemsAccessed logs searching by date/time of suspect events, by suspect IP ('ClientIPAddress'), and by associated suspect Session ID ('SessionId')."
 }
 

@@ -147,21 +147,21 @@ if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
 
 if ($DaysAgo) {
     if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-    Write-Output "`nScript will search ... $DaysAgo days back from today for relevant events."
+    Write-Output "`nScript will search ... $DaysAgo days back from today for relevant events." | Tee-Object -FilePath $logFilePath -Append
     $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
     $EndDate = (Get-Date).touniversaltime()
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } elseif ($StartDate -and $EndDate) {
     $StartDate = ($StartDate).touniversaltime()
     $EndDate = ($EndDate).touniversaltime()
     if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
     if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
-    Write-Output "`nScript will search ... between StartDate and EndDate for relevant events."
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "`nScript will search ... between StartDate and EndDate for relevant events." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } else {
-    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending." | Tee-Object -FilePath $logFilePath -Append
     exit
 }
 

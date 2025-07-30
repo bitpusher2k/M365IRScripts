@@ -150,21 +150,21 @@ if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
 
 if ($DaysAgo) {
     if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events." | Tee-Object -FilePath $logFilePath -Append
     $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
     $EndDate = (Get-Date).touniversaltime()
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } elseif ($StartDate -and $EndDate) {
     $StartDate = ($StartDate).touniversaltime()
     $EndDate = ($EndDate).touniversaltime()
     if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
     if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
-    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } else {
-    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending." | Tee-Object -FilePath $logFilePath -Append
     exit
 }
 
@@ -175,11 +175,11 @@ $date = Get-Date -Format "yyyyMMddHHmmss"
 Write-Output "Search-MailboxAuditLog is being deprecated by Microsoft in April 2024 (https://aka.ms/AuditCmdletBlog)"
 Write-Output "Microsoft has said to use the `"Search-UnifiedAuditLog -RecordType ExchangeItem`" instead."
 Write-Output "This script now only attempts to search UAL."
-Write-Output "Running Search-UnifiedAuditLog commands..."
+Write-Output "Running Search-UnifiedAuditLog commands..." | Tee-Object -FilePath $logFilePath -Append
 
 
 if (($null -eq $UserIds) -or ($UserIds -eq "")) {
-    Write-Output "No users specified. Getting the Mailbox Audit Log for all users..."
+    Write-Output "No users specified. Getting the Mailbox Audit Log for all users..." | Tee-Object -FilePath $logFilePath -Append
     Get-mailbox -resultsize unlimited |
         ForEach-Object {
             $date = Get-Date -Format "yyyyMMddHHmmss"
@@ -194,15 +194,15 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
             # $result | Export-Csv -NoTypeInformation -Path $outputFile -Encoding $Encoding -Append
 
             $sesid = Get-Random # Get random session number
-            Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $_.UserPrincipalName -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+            Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $_.UserPrincipalName -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
             $count = 1
             do {
-                Write-Output "Getting unified audit logs page $count - Please wait"
+                Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
                 try {
                     $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $_.UserPrincipalName -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
                 } catch {
-                    Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-                    Write-Output "Exception message:", $_.Exception.Message, "`n"
+                    Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+                    Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
                     exit 2 # Terminate script
                 }
                 $result += $currentoutput # Build total results array
@@ -211,7 +211,7 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
             
             $result | Export-Csv -NoTypeInformation -Path $outputFileUAL -Encoding $Encoding -Append
 
-            Write-Output "Results have been written to $outputFile & $outputFileUAL"
+            Write-Output "Results have been written to $outputFile & $outputFileUAL" | Tee-Object -FilePath $logFilePath -Append
         }
 } elseif ($UserIds -match ",") {
     $UserIds.Split(",") | ForEach-Object {
@@ -220,7 +220,7 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
         $outputFile = "$OutputPath\$DomainName\mailboxAuditLog_$($user)_going_back_$($DaysAgo)_days_from_$($date).csv"
         $outputFileUAL = "$OutputPath\$DomainName\mailboxAuditLogUAL_$($user)_going_back_$($DaysAgo)_days_from_$($date).csv"
 
-        Write-Output "Collecting the MailboxAuditLog for $user"
+        Write-Output "Collecting the MailboxAuditLog for $user" | Tee-Object -FilePath $logFilePath -Append
 
         # Obsolete "Search-MailboxAuditLog commands:
         # Write-Output "Search-MailboxAuditlog -Identity $user -LogonTypes Delegate,Admin,Owner -StartDate $StartDate -EndDate $EndDate -ShowDetails -ResultSize 250000"
@@ -228,15 +228,15 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
         # $result | Export-Csv -NoTypeInformation -Path $outputFile -Encoding $Encoding -Append
 
         $sesid = Get-Random # Get random session number
-        Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $user -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+        Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $user -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
         $count = 1
         do {
-            Write-Output "Getting unified audit logs page $count - Please wait"
+            Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
             try {
                 $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $user -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
             } catch {
-                Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-                Write-Output "Exception message:", $_.Exception.Message, "`n"
+                Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+                Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
                 exit 2 # Terminate script
             }
             $result += $currentoutput # Build total results array
@@ -245,13 +245,13 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
 
         $result | Export-Csv -NoTypeInformation -Path $outputFileUAL -Encoding $Encoding -Append
 
-        Write-Output "Results have been written to $outputFile & $outputFileUAL"
+        Write-Output "Results have been written to $outputFile & $outputFileUAL" | Tee-Object -FilePath $logFilePath -Append
     }
 } else {
     $outputFile = "$OutputPath\$DomainName\mailboxAuditLog_$($UserIds)_going_back_$($DaysAgo)_days_from_$($date).csv"
     $outputFileUAL = "$OutputPath\$DomainName\mailboxAuditLogUAL_$($UserIds)_going_back_$($DaysAgo)_days_from_$($date).csv"
 
-    Write-Output "Collecting the MailboxAuditLog for $UserIds"
+    Write-Output "Collecting the MailboxAuditLog for $UserIds" | Tee-Object -FilePath $logFilePath -Append
 
     # Obsolete "Search-MailboxAuditLog commands:
     # Write-Output "Search-MailboxAuditlog -Identity $UserIds -LogonTypes Delegate,Admin,Owner -StartDate $StartDate -EndDate $EndDate -ShowDetails -ResultSize 250000"
@@ -259,15 +259,15 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
     # $result | Export-Csv -NoTypeInformation -Path $outputFile -Encoding $Encoding -Append
 
     $sesid = Get-Random # Get random session number
-    Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $UserIds -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+    Write-Output "Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $UserIds -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
     $count = 1
     do {
-        Write-Output "Getting unified audit logs page $count - Please wait"
+        Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
         try {
             $currentOutput = Search-UnifiedAuditLog -RecordType ExchangeItem -UserIds $UserIds -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
         } catch {
-            Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-            Write-Output "Exception message:", $_.Exception.Message, "`n"
+            Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+            Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
             exit 2 # Terminate script
         }
         $result += $currentoutput # Build total results array
@@ -276,7 +276,7 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
     
     $result | Export-Csv -NoTypeInformation -Path $outputFileUAL -Encoding $Encoding -Append
 
-    Write-Output "Results have been written to $outputFile & $outputFileUAL"
+    Write-Output "Results have been written to $outputFile & $outputFileUAL" | Tee-Object -FilePath $logFilePath -Append
 }
 
 # * To Check mailbox audit settings:

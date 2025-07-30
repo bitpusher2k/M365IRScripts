@@ -183,21 +183,21 @@ if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
 
 if ($DaysAgo) {
     if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events." | Tee-Object -FilePath $logFilePath -Append
     $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
     $EndDate = (Get-Date).touniversaltime()
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } elseif ($StartDate -and $EndDate) {
     $StartDate = ($StartDate).touniversaltime()
     $EndDate = ($EndDate).touniversaltime()
     if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
     if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
-    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } else {
-    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending." | Tee-Object -FilePath $logFilePath -Append
     exit
 }
 
@@ -208,10 +208,10 @@ $totalDays = ([int]$diff.TotalDays)
 
 if ((Get-Module -ListAvailable -Name ExchangeOnlineManagement) -or (Get-Module -ListAvailable -Name msonline)) {
     # Has the Exchange Online PowerShell module been loaded?
-    Write-Output "`nExchange Online PowerShell found"
+    Write-Output "`nExchange Online PowerShell found" | Tee-Object -FilePath $logFilePath -Append
 } else {
     # If Exchange Online PowerShell module not found
-    Write-Output "`n[001] - Exchange Online PowerShell module not installed. Please install and re-run script`n"
+    Write-Output "`n[001] - Exchange Online PowerShell module not installed. Please install and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
     Write-Output "Exception message:", $_.Exception.Message, "`n"
     exit 1 # Terminate script
 }
@@ -227,28 +227,28 @@ if ($UserIds) {
 }
 $OutputCSVraw = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser.Replace(',','-'))_between_$($StartDate.ToString(`"yyyyMMddHHmm`"))_and_$($EndDate.ToString(`"yyyyMMddHHmm`"))_$($totalDays)_days.csv"
 $OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogSignIns_$($OutputUser.Replace(',','-'))_between_$($StartDate.ToString(`"yyyyMMddHHmm`"))_and_$($EndDate.ToString(`"yyyyMMddHHmm`"))_$($totalDays)_days_Processed.csv"
-Write-Output "`nWill search for records related to: $UserIds user(s)"
+Write-Output "`nWill search for records related to: $UserIds user(s)" | Tee-Object -FilePath $logFilePath -Append
 
 # Search the defined date(s), SessionId + SessionCommand in combination with the loop will return and append 5000 object per iteration until all objects are returned (minimum limit is 50k objects)
-Write-Output "`nTotal range of days to check for sign-ins: $totalDays"
+Write-Output "`nTotal range of days to check for sign-ins: $totalDays" | Tee-Object -FilePath $logFilePath -Append
 
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         if ($UserIds -eq "ALL") {
-            Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize"
+            Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize" | Tee-Object -FilePath $logFilePath -Append
             $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize
         } elseif ($UserIds) {
-            Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize"
+            Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize" | Tee-Object -FilePath $logFilePath -Append
             $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize
         } else {
-            Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize"
+            Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize" | Tee-Object -FilePath $logFilePath -Append
             $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -recordtype $recordtype -operations $operation -SessionId $sesid -SessionCommand ReturnLargeSet -resultsize $resultSize
         }
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $AuditOutput += $currentoutput # Build total results array

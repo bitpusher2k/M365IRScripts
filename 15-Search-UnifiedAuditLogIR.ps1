@@ -164,38 +164,38 @@ if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
 
 if ($DaysAgo) {
     if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events." | Tee-Object -FilePath $logFilePath -Append
     $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
     $EndDate = (Get-Date).touniversaltime()
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } elseif ($StartDate -and $EndDate) {
     $StartDate = ($StartDate).touniversaltime()
     $EndDate = ($EndDate).touniversaltime()
     if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
     if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
-    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } else {
-    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending." | Tee-Object -FilePath $logFilePath -Append
     exit
 }
 
 
 ## Get changes to membership in Entra ID roles (new adds could indicate escalation of privilege)
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add member to role.`",`"Remove member from role.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add member to role.`",`"Remove member from role.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add member to role.","Remove member from role.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
@@ -203,75 +203,75 @@ do {
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
     Write-Output ""
-    Write-Output "There are no events matching Entra ID role changes for the time period specified"
+    Write-Output "There are no events matching Entra ID role changes for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EntraIDRoleChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
     Write-Output ""
-    Write-Output "See Entra ID Roles Changes events in the output path"
+    Write-Output "See Entra ID Roles Changes events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get changes to applications, client app credentials, permissions, and new consents (could indicate app abuse)
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add application.`",`"Add service principal.`",`"Add service principal credentials.`",`"Update application – Certificates and secrets.`",`"Add app role assignment to service principal.`",`"Add app role assignment grant to user.`",`"Add delegated permission grant.`",`"Consent to application.`",`"ConsentModificationRequest`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add application.`",`"Add service principal.`",`"Add service principal credentials.`",`"Update application – Certificates and secrets.`",`"Add app role assignment to service principal.`",`"Add app role assignment grant to user.`",`"Add delegated permission grant.`",`"Consent to application.`",`"ConsentModificationRequest`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add application.","Add service principal.","Add service principal credentials.","Update application – Certificates and secrets.","Add app role assignment to service principal.","Add app role assignment grant to user.","Add delegated permission grant.","Consent to application.","ConsentModificationRequest") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no events matching Entra ID app changes for the time period specified"
+    Write-Output "There are no events matching Entra ID app changes for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EntraIDAppChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See Entra ID application events in the output path"
+    Write-Output "See Entra ID application events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get Conditional Access policy changes
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add policy.`",`"Update policy.`",`"Delete policy.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add policy.`",`"Update policy.`",`"Delete policy.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add policy.","Update policy.","Delete policy.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no Conditional Access events for the time period specified"
+    Write-Output "There are no Conditional Access events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_ConditionalAccessPolicyChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See Conditional Access Policy events in the output path"
+    Write-Output "See Conditional Access Policy events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get Domain changes
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add domain to company.`",`"Remove domain from company.`",`"Set domain authentication.`",`"Set federation settings on domain.`",`"Set DirSyncEnabled flag.`",`"Update domain.`",`"Verify domain.`",`"Verify email verified domain.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add domain to company.`",`"Remove domain from company.`",`"Set domain authentication.`",`"Set federation settings on domain.`",`"Set DirSyncEnabled flag.`",`"Update domain.`",`"Verify domain.`",`"Verify email verified domain.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
@@ -280,441 +280,441 @@ do {
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add domain to company.","Remove domain from company.","Set domain authentication.","Set federation settings on domain.","Set DirSyncEnabled flag.","Update domain.","Verify domain.","Verify email verified domain.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no Domain Management events for the time period specified"
+    Write-Output "There are no Domain Management events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EntraIDDomainChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See Domain Management events in the output path"
+    Write-Output "See Domain Management events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get Partner changes
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add partner to company.`",`"Remove partner from company.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add partner to company.`",`"Remove partner from company.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add partner to company.","Remove partner from company.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no Partner management events for the time period specified"
+    Write-Output "There are no Partner management events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_PartnerManagementChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See Partner Management events in the output path"
+    Write-Output "See Partner Management events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get user add and delete events
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add user.`",`"Delete user.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add user.`",`"Delete user.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add user.","Delete user.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no Users Added events for the time period specified"
+    Write-Output "There are no Users Added events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_UsersAddedOrDeleted_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See events matching 'Add user' and 'Delete user' in the output path"
+    Write-Output "See events matching 'Add user' and 'Delete user' in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get password changes
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Change user password.`",`"Reset user password.`",`"Set force change user password.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Change user password.`",`"Reset user password.`",`"Set force change user password.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Change user password.","Reset user password.","Set force change user password.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no Password events for the time period specified"
+    Write-Output "There are no Password events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_PasswordResetsAndChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See password events in the output path"
+    Write-Output "See password events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get user update events (this includes MFA registration / security info changes)
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Update user.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Update user.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Update user.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no events matching 'Update user' for the time period specified"
+    Write-Output "There are no events matching 'Update user' for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv "$OutputPath\$DomainName\AuditLog_UpdateUser_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See events matching 'Update user' in the output path (this includes MFA method updates)"
+    Write-Output "See events matching 'Update user' in the output path (this includes MFA method updates)" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get Entra ID Device add and delete events
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add device.`",`"Delete device.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations (`"Add device.`",`"Delete device.`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType AzureActiveDirectory -Operations ("Add device.","Delete device.") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no events matching 'Add device' or 'Delete device' for the time period specified"
+    Write-Output "There are no events matching 'Add device' or 'Delete device' for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_DevicesAddedOrDeleted_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See events matching 'Add device' or 'Delete device' in the output path"
+    Write-Output "See events matching 'Add device' or 'Delete device' in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get Exchange admin log events (includes new inbox rules, mailbox forwarding, mailbox permissions, mailbox delegations, etc.)
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType ExchangeAdmin -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType ExchangeAdmin -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType ExchangeAdmin -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no Exchange admin events for the time period specified"
+    Write-Output "There are no Exchange admin events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_ExchangeAdminEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See Exchange Admin events in the output path"
+    Write-Output "See Exchange Admin events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get anonymous link events
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"AnonymousLinkRemoved`",`"AnonymousLinkcreated`",`"AnonymousLinkUpdated`",`"AnonymousLinkUsed`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"AnonymousLinkRemoved`",`"AnonymousLinkcreated`",`"AnonymousLinkUpdated`",`"AnonymousLinkUsed`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations ("AnonymousLinkRemoved","AnonymousLinkcreated","AnonymousLinkUpdated","AnonymousLinkUsed") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no anonymous link events for the time period specified"
+    Write-Output "There are no anonymous link events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_AnonymousLinkEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See anonymous link events in the output path"
+    Write-Output "See anonymous link events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get Mailbox permission change events
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"Add-RecipientPermission`",`"Remove-RecipientPermission`",`"Set-mailbox`",`"Add-MailboxPermission`",`"Remove-MailboxPermission`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"Add-RecipientPermission`",`"Remove-RecipientPermission`",`"Set-mailbox`",`"Add-MailboxPermission`",`"Remove-MailboxPermission`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations ("Add-RecipientPermission","Remove-RecipientPermission","Set-mailbox","Add-MailboxPermission","Remove-MailboxPermission") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no mailbox permission events for the time period specified"
+    Write-Output "There are no mailbox permission events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_MailboxPermissionEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See mailbox permission events in the output path"
+    Write-Output "See mailbox permission events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get email deletion events
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"SoftDelete`",`"HardDelete`",`"MoveToDeletedItems`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"SoftDelete`",`"HardDelete`",`"MoveToDeletedItems`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations ("SoftDelete","HardDelete","MoveToDeletedItems") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no email deletion events for the time period specified"
+    Write-Output "There are no email deletion events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EmailDeletionEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See email deletion events in the output path"
+    Write-Output "See email deletion events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get file creation & modification events
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"Created`",`"FileModified`",`"FileModifiedExtended`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"Created`",`"FileModified`",`"FileModifiedExtended`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations ("Created","FileModified","FileModifiedExtended") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no File Creation/Modification events for the time period specified"
+    Write-Output "There are no File Creation/Modification events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_FileModifiedEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See file creation events in the output path"
+    Write-Output "See file creation events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get file deletion events
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"FileDeleted`",`"FileDeletedFirstStageRecycleBin`",`"FileDeletedSecondStageRecycleBin`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"FileDeleted`",`"FileDeletedFirstStageRecycleBin`",`"FileDeletedSecondStageRecycleBin`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations ("FileDeleted","FileDeletedFirstStageRecycleBin","FileDeletedSecondStageRecycleBin") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no file deletion events for the time period specified"
+    Write-Output "There are no file deletion events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_FileDeletedEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See file deletion events in the output path"
+    Write-Output "See file deletion events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 ## Get all external user activity events
 # For just file access events: $SearchResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations FileAccessed -UserIds "*#EXT*" -SessionCommand ReturnLargeSet -ResultSize $resultSize
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds `"*#EXT#*`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds `"*#EXT#*`" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $currentOutput = ""
 $SearchResults = @()
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds "*#EXT#*" -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-       Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+       Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
        exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 if (!$SearchResults) {
-    Write-Output "There are no external user events for the time period specified"
+    Write-Output "There are no external user events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 } else {
     ## Output the events to CSV
     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_ExternalUserEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Write-Output "See external user events in the output path"
+    Write-Output "See external user events in the output path" | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
 #  ## Get all mail access events - if the event exists this will be a large collection
 #  $sesid = Get-Random # Get random session number
-#  Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"MailItemsAccessed`",`"MessageBind`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+#  Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"MailItemsAccessed`",`"MessageBind`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 #  $currentOutput = ""
 #  $SearchResults = @()
 #  $count = 1
 #  do {
-#      Write-Output "Getting unified audit logs page $count - Please wait"
+#      Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
 #      try {
 #          $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations ("MailItemsAccessed","MessageBind","FolderBind") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
 #      } catch {
-#          Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-#          Write-Output "Exception message:", $_.Exception.Message, "`n"
+#          Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+#          Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
 #          exit 2 # Terminate script
 #      }
 #      $SearchResults += $currentoutput # Build total results array
 #      ++ $count # Increment page count
 #  } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 #  if (!$SearchResults) {
-#      Write-Output "There are no ... events for the time period specified"
+#      Write-Output "There are no mail access events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
 #      Write-Output ""
 #  } else {
 #      ## Output the events to CSV
 #      $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_...Events_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-#      Write-Output "See ... events in the output path"
+#      Write-Output "See mail access events in the output path" | Tee-Object -FilePath $logFilePath -Append
 #      Write-Output ""
 #  }
 #  
 #  ## Get all file access events - could be a large collection
 #  $sesid = Get-Random # Get random session number
-#  Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"FileAccessed`",`"FileAccessedExtended`",`"FileDownloaded`",`"FileSyncDownloadedFull`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize"
+#  Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations (`"FileAccessed`",`"FileAccessedExtended`",`"FileDownloaded`",`"FileSyncDownloadedFull`") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 #  $currentOutput = ""
 #  $SearchResults = @()
 #  $count = 1
 #  do {
-#      Write-Output "Getting unified audit logs page $count - Please wait"
+#      Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
 #      try {
 #          $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -Operations ("FileAccessed","FileAccessedExtended","FileDownloaded","FileSyncDownloadedFull") -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
 #      } catch {
-#          Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-#          Write-Output "Exception message:", $_.Exception.Message, "`n"
+#          Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+#          Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
 #          exit 2 # Terminate script
 #      }
 #      $SearchResults += $currentoutput # Build total results array
 #      ++ $count # Increment page count
 #  } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 #  if (!$SearchResults) {
-#      Write-Output "There are no ... events for the time period specified"
+#      Write-Output "There are no file access events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
 #      Write-Output ""
 #  } else {
 #      ## Output the events to CSV
 #      $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_...Events_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-#      Write-Output "See ... events in the output path"
+#      Write-Output "See file access events in the output path" | Tee-Object -FilePath $logFilePath -Append
 #      Write-Output ""
 #  }
 
 # ## Get XXXXXX events template
 # $sesid = Get-Random # Get random session number
-# Write-Output "Search-UnifiedAuditLog..."
+# Write-Output "Search-UnifiedAuditLog..." | Tee-Object -FilePath $logFilePath -Append
 # $currentOutput = ""
 # $SearchResults = @()
 # $count = 1
 # do {
-#     Write-Output "Getting unified audit logs page $count - Please wait"
+#     Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
 #     try {
 #         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -RecordType XXXXXX -Operations XXXXXX -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
 #     } catch {
-#         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-#         Write-Output "Exception message:", $_.Exception.Message, "`n"
+#         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+#         Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
 #         exit 2 # Terminate script
 #     }
 #     $SearchResults += $currentoutput # Build total results array
 #     ++ $count # Increment page count
 # } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 # if (!$SearchResults) {
-#     Write-Output "There are no ... events for the time period specified"
+#     Write-Output "There are no ... events for the time period specified" | Tee-Object -FilePath $logFilePath -Append
 #     Write-Output ""
 # } else {
 #     ## Output the events to CSV
 #     $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_...Events_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
-#     Write-Output "See ... events in the output path"
+#     Write-Output "See ... events in the output path" | Tee-Object -FilePath $logFilePath -Append
 #     Write-Output ""
 # }
 

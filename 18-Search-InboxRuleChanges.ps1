@@ -228,21 +228,21 @@ if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
 
 if ($DaysAgo) {
     if ($DaysAgo -gt 180) { $DaysAgo = "180" }
-    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events."
+    Write-Output "`nScript will search UAC $DaysAgo days back from today for relevant events." | Tee-Object -FilePath $logFilePath -Append
     $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
     $EndDate = (Get-Date).touniversaltime()
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } elseif ($StartDate -and $EndDate) {
     $StartDate = ($StartDate).touniversaltime()
     $EndDate = ($EndDate).touniversaltime()
     if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-180)) { $StartDate = (Get-Date).touniversaltime().AddDays(-180) }
     if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
-    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events."
-    Write-Output "StartDate: $StartDate (UTC)"
-    Write-Output "EndDate: $EndDate (UTC)"
+    Write-Output "`nScript will search UAC between StartDate and EndDate for relevant events." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
 } else {
-    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending."
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending." | Tee-Object -FilePath $logFilePath -Append
     exit
 }
 
@@ -253,43 +253,43 @@ Write-Output "NOTE: Run script, wait 10 minutes, then run again to ensure all en
 $SearchResultsProcessed = @()
 
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize"
+Write-Output "Search-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize" | Tee-Object -FilePath $logFilePath -Append
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResults += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
-Write-Output "$($SearchResults.Count) New-InboxRule/Set-InboxRule/UpdateInboxRules/Remove-InboxRule/Disable-InboxRule records found in logs..."
+Write-Output "$($SearchResults.Count) New-InboxRule/Set-InboxRule/UpdateInboxRules/Remove-InboxRule/Disable-InboxRule records found in logs..." | Tee-Object -FilePath $logFilePath -Append
 
 $sesid = Get-Random # Get random session number
-Write-Output "Search-UnifiedAuditLog -Operations Set-Mailbox -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize"
+Write-Output "Search-UnifiedAuditLog -Operations Set-Mailbox -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize" | Tee-Object -FilePath $logFilePath -Append
 $count = 1
 do {
-    Write-Output "Getting unified audit logs page $count - Please wait"
+    Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
         $currentOutput = Search-UnifiedAuditLog -Operations Set-Mailbox -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize
     } catch {
-        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n"
-        Write-Output "Exception message:", $_.Exception.Message, "`n"
+        Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "Exception message:", $_.Exception.Message, "`n" | Tee-Object -FilePath $logFilePath -Append
         exit 2 # Terminate script
     }
     $SearchResultsSetMailbox += $currentoutput # Build total results array
     ++ $count # Increment page count
 } until ($currentoutput.count -eq 0) # Until there are no more logs in range to get
 
-Write-Output "$($SearchResultsSetMailbox.Count) Set-Mailbox records found in logs..."
+Write-Output "$($SearchResultsSetMailbox.Count) Set-Mailbox records found in logs..." | Tee-Object -FilePath $logFilePath -Append
 
 if ($SearchResultsSetMailbox.Count -ge 1) {
-    Write-Output "Writing Set-Mailbox UAL log output..."
+    Write-Output "Writing Set-Mailbox UAL log output..." | Tee-Object -FilePath $logFilePath -Append
     $SearchResultsSetMailbox | Export-Csv "$OutputPath\$DomainName\InboxRuleChangesSetMailbox_going_back_$($DaysAgo)_days_from_$($date).csv" -NoTypeInformation -Encoding $Encoding
 }
 
@@ -300,7 +300,7 @@ if ($SearchResultsSetMailbox.Count -ge 1) {
 
 foreach ($sr in $SearchResults) {
 
-    Write-Verbose -Message "Processing log entry $($sr.ResultIndex) of $($sr.ResultCount)"
+    Write-Output -Message "Processing log entry $($sr.ResultIndex) of $($sr.ResultCount)" | Tee-Object -FilePath $logFilePath -Append
 
     $AuditData = $null
     $AuditData = $sr.AuditData | ConvertFrom-Json
@@ -372,7 +372,6 @@ foreach ($sr in $SearchResults) {
 
             foreach ($ppn in $ParametersProperties.Name) {
 
-                Write-Debug "Inspect `$ppn, `$ParametersProperties(.name)"
                 $ProcessedLogEntry |
                     Add-Member -NotePropertyName CmdletParameter_$ppn -NotePropertyValue $ParametersProperties.Value[$ParametersProperties.Name.IndexOf($ppn)]
             }
@@ -399,15 +398,13 @@ foreach ($sr in $SearchResults) {
     } # end: if ($ContinueProcessing -eq $true) {}
 } # end: foreach ($sr in $SearchResults) {}
 
-Write-Debug "`$SearchResultsProcessed <--: Results"
-
 if ($SearchResults.Count -ge 1) {
-    Write-Output "Writing New-InboxRule/Set-InboxRule/UpdateInboxRules/Remove-InboxRule/Disable-InboxRule UAL RAW output..."
+    Write-Output "Writing New-InboxRule/Set-InboxRule/UpdateInboxRules/Remove-InboxRule/Disable-InboxRule UAL RAW output..." | Tee-Object -FilePath $logFilePath -Append
     $SearchResultsSetMailbox | Export-Csv "$OutputPath\$DomainName\InboxRuleChanges_going_back_$($DaysAgo)_days_from_$($date).csv" -NoTypeInformation -Encoding $Encoding
 }
 
 if ($SearchResultsProcessed.Count -ge 1) {
-    Write-Output "Writing New-InboxRule/Set-InboxRule/UpdateInboxRules/Remove-InboxRule/Disable-InboxRule UAL processed output..."
+    Write-Output "Writing New-InboxRule/Set-InboxRule/UpdateInboxRules/Remove-InboxRule/Disable-InboxRule UAL processed output..." | Tee-Object -FilePath $logFilePath -Append
     $FinalOutputProperties = @()
     $FinalOutputProperties += $SearchResultsProcessed[0] | Get-Member -MemberType NoteProperty
 
