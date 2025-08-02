@@ -24,8 +24,26 @@
 
 #Requires -Version 5.1
 
+$modules = @("Microsoft.Graph", "Microsoft.Graph.Beta", "ExchangeOnlineManagement", "Microsoft-Extractor-Suite")
 
-Write-Output "Script will initiate connections to several M365 modules - Graph, IPPS, Exchange, & AzureAD."
+foreach ($module in $modules) {
+    if (Get-Module -ListAvailable -Name $module) {
+        Write-Verbose "$(Get-TimeStamp) $module already installed"
+    } else {
+        Write-Information "$(Get-TimeStamp) Installing $module"
+        Install-Module $module -Force -SkipPublisherCheck -Scope CurrentUser -ErrorAction Stop | Out-Null
+    }
+}
+
+foreach ($module in $modules) {
+    if (Get-Module -Name $module) {
+        Write-Verbose "$(Get-TimeStamp) $module already loaded"
+    } else {
+        Import-Module $module -Force -Scope Local | Out-Null
+    }
+}
+
+Write-Output "Script will initiate connections to several M365 modules - Graph, IPPS, Exchange"
 Write-Output "You will need to enter Global Admin credentials to the desired tenant a few times."
 if ($host.version.major -gt 5) {
     Write-Output "`nNot running in Windows PowerShell (5)."
@@ -35,7 +53,7 @@ Write-Output "`nStarting..."
 Write-Output "Press F5 if sign-in window opens but does not load..."
 
 
-Write-Output "`nPart 1 of 5. MS Graph (connecting to Graph first works better)..."
+Write-Output "`n ** MS Graph (connecting to Graph first works better)..."
 # Import-Module Microsoft.Graph
 # Install-Module Microsoft.Graph.Beta
 # Import-Module Microsoft.Graph.Beta
@@ -66,7 +84,7 @@ if ($Test) {
 # List available environments -  Get-MgEnvironment
 
 
-Write-Output "`nPart 2 of 5. MSOL Service (Deprecated - skipping)..."
+# Write-Output "`n ** MSOL Service (Deprecated - skipping)..."
 # if ($host.version.major -gt 5) { Import-Module MSonline -UseWindowsPowerShell } # else {Import-Module MSonline}
 # # if ( $host.version.major -gt 5 ) {Import-Module MSonline -SkipEditionCheck}
 # try {
@@ -89,7 +107,7 @@ Write-Output "`nPart 2 of 5. MSOL Service (Deprecated - skipping)..."
 # }
 
 
-Write-Output "`nPart 3 of 5. IPPS (Security & Compliance)..."
+Write-Output "`n ** IPPS (Security & Compliance)..."
 # Import-Module ExchangeOnlineManagement
 Connect-IPPSSession
 Write-Output "`nPart 4 of 5. Exchange Online (after IPPS so UAC logging check works)..."
@@ -114,7 +132,7 @@ if ($isconnected) {
 # Connect-IPPSSession -ExchangeEnvironmentName O365USGovDoD ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovDoD
 
 
-Write-Output "`nPart 5 of 5. Azure AD (Deprecated - skipping)..."
+# Write-Output "`n ** Azure AD (Deprecated - skipping)..."
 # if ($host.version.major -gt 5) { Import-Module AzureAD -UseWindowsPowerShell } # else { Import-Module AzureAD }
 # if ( $host.version.major -gt 5 ) { Import-Module AzureADPreview -UseWindowsPowerShell } # else { Import-Module AzureAD }
 # if ( $host.version.major -gt 5 ) {Import-Module AzureADPreview -SkipEditionCheck} else { Import-Module AzureAD }
@@ -153,14 +171,31 @@ Write-Output "`nPart 5 of 5. Azure AD (Deprecated - skipping)..."
 
 
 Write-Output "`nDone!"
-$ConnectedUser = (Get-ConnectionInformation).UserPrincipalName
-if (!$ConnectedUser) {
-    Write-Output "Connection attempt seems to have failed."
+
+$EXOInfo = Get-ConnectionInformation
+$GraphInfo = Get-MgContext
+
+if ($EXOInfo) {
+    Write-Output "Exchange Online connection status:"
+    $EXOInfo.State
+    $EXOInfo.TenantID
+    $EXOInfo.UserPrincipalName
 } else {
-    Write-Output "Connected as:"
-    $ConnectedUser
+    Write-Output "Exchange Online Management module not connected."
+    Write-Output "Run .\01-Connect-M365Modules.ps1 or Connect-ExchangeOnline to connect."
 }
-Get-MgContext
-(Get-MgContext).Scopes
+
+if ($GraphInfo) {
+    Write-Output "Graph connection status:"
+    $GraphInfo.AuthType | Tee-Object
+    $GraphInfo.TenantID | Tee-Object
+    $GraphInfo.Account | Tee-Object
+    $GraphInfo.Scopes | Tee-Object
+} else {
+    Write-Output "Exchange Online Management module not connected."
+    Write-Output "Run .\01-Connect-M365Modules.ps1 or Connect-MgGraph with proper scopes to connect."
+}
+
+
 Write-Output "`nAddress any connection failures or errors above and"
 Write-Output "proceed with investigation scripts."

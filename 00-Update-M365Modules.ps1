@@ -59,12 +59,12 @@ function test-package ($packagename) {
         #get version of the module (selects the first if there are more versions installed)
         $version = (Get-PackageProvider -Name $packagename) | Sort-Object Version -Descending | Select-Object Version -First 1
         #get version of the module in psgallery
-        $psgalleryversion = Find-PackageProvider -Name $packagename | Sort-Object Version -Descending | Select-Object Version -First 1
+        $providerversion = Find-PackageProvider -Name $packagename | Sort-Object Version -Descending | Select-Object Version -First 1
         #convert to string for comparison
         $stringver = $version | Select-Object @{ n = 'Version'; e = { $_.Version -as [string] } }
         $a = $stringver | Select-Object version -ExpandProperty version
         #convert to string for comparison
-        $onlinever = $psgalleryversion | Select-Object @{ n = 'Version'; e = { $_.Version -as [string] } }
+        $onlinever = $providerversion | Select-Object @{ n = 'Version'; e = { $_.Version -as [string] } }
         $b = $onlinever | Select-Object Version -ExpandProperty Version
         #version compare
         if ([version]"$a" -ge [version]"$b") {
@@ -106,22 +106,24 @@ function test-install ($modulename) {
         #get version of the module (selects the first if there are more versions installed)
         $version = (Get-InstalledModule -Name $modulename) | Sort-Object Version -Descending | Select-Object Version -First 1
         #get version of the module in psgallery
-        $psgalleryversion = Find-Module -Name $modulename | Sort-Object Version -Descending | Select-Object Version -First 1
+        $providerversion = Find-Module -Name $modulename | Sort-Object Version -Descending | Select-Object Version -First 1
         #convert to string for comparison
         $stringver = $version | Select-Object @{ n = 'ModuleVersion'; e = { $_.Version -as [string] } }
         $a = $stringver | Select-Object Moduleversion -ExpandProperty Moduleversion
         #convert to string for comparison
-        $onlinever = $psgalleryversion | Select-Object @{ n = 'OnlineVersion'; e = { $_.Version -as [string] } }
+        $onlinever = $providerversion | Select-Object @{ n = 'OnlineVersion'; e = { $_.Version -as [string] } }
         $b = $onlinever | Select-Object OnlineVersion -ExpandProperty OnlineVersion
         #version compare
         if ([version]"$a" -ge [version]"$b") {
-            Write-Output "    Local module $a greater or equal to Gallery module $b"
+            Write-Output "    Local module $a greater or equal to provider module $b"
             Write-Output "    No update required`n"
         } else {
-            Write-Output "    Local module $a lower version than Gallery module $b"
-            Write-Output "    Will be updated"
+            Write-Output "    Local module $a lower version than provider module $b"
+            Write-Output "    Will be updated..."
             Update-Module -Name $modulename -Force -Confirm:$false
             Write-Output ""
+            Write-Output "    Uninstalling old versions..."
+            Get-InstalledModule -Name $modulename -AllVersions | Where-Object {$_.Version -ne $b} | Uninstall-Module -Force -Confirm:$false
         }
     } else {
         ## If module doesn't exist then prompt to update
@@ -141,64 +143,70 @@ function test-install ($modulename) {
     }
 }
 
-## If you have running scripts that don't have a certificate, run this command once to disable that level of security
+## If you are blocked from running scripts that don't have a certificate run this command once to disable that level of security:
 ## set-executionpolicy -executionpolicy bypass -scope currentuser -force
 
 Write-Output "Prompt to install missing modules =", $prompt"`n"
 
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal ([Security.Principal.WindowsIdentity]::GetCurrent())
 if ($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Output "(1 of 16) Update package provider"
-    # test-package -packagename NuGet
-    test-package -packagename PowerShellGet
     # Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-    Write-Output "(2 of 16) Update Azure AD module - Obsolete - Skipping"
-    # test-install -ModuleName AzureAD
-    Write-Output "(3 of 16) Update Azure Information Protection module"
-    $aadrmcheck = Get-Module -ListAvailable -Name aadrm
-    if ($aadrmcheck) {
-        Write-Output "    [Warning] Older module Azure AD Rights management module (AADRM) is still installed"
-        Write-Output "    Uninstalling AADRM module as support ended July 15, 2020 "
-        Uninstall-Module aadrm -AllVersions -Force -Confirm:$false
-        Write-Output "    Now Azure Information Protection module will now be installed"
-    }
-    test-install -ModuleName AIPService
-    Write-Output "(4 of 16) Update Teams Module"
-    test-install -ModuleName MicrosoftTeams
-    Write-Output "(5 of 16) Update SharePoint Online module"
-    test-install -ModuleName Microsoft.Online.SharePoint.PowerShell
-    Write-Output "(6 of 16) Update Microsoft Online module - Obsolete - Skipping"
-    # test-install -ModuleName MSOnline
-    Write-Output "(7 of 16) Update PowerShellGet module"
-    test-install -ModuleName PowershellGet
-    Write-Output "(8 of 16) Update Exchange Online module"
+    Write-Output " ** Update package providers"
+    test-package -packagename NuGet
+    test-package -packagename PowerShellGet
+    Write-Output " ** Update Exchange Online module"
     test-install -ModuleName ExchangeOnlineManagement
-    Write-Output "(9 of 16) Update Azure module"
-    test-install -ModuleName Az
-    Write-Output "(10 of 16) Update SharePoint PnP module"
-    $pnpcheck = Get-Module -ListAvailable -Name SharePointPnPPowerShellOnline
-    if ($pnpcheck) {
-        Write-Output "    [Warning] Older SharePoint PnP module is still installed"
-        Write-Output "    Uninstalling older SharePoint PnP module"
-        Uninstall-Module SharePointPnPPowerShellOnline -AllVersions -Force -Confirm:$false
-        Write-Output "    New SharePoint PnP module will now be installed"
-    }
-    test-install -ModuleName PnP.PowerShell
-    Write-Output "(11 of 16) Update Microsoft Graph module"
+    Write-Output " ** Update Microsoft Graph module"
     test-install -ModuleName Microsoft.Graph # Update-Module Microsoft.Graph
-    Write-Output "(11.5 of 16) Update Microsoft Graph Beta module"
+    Write-Output " ** Update Microsoft Graph Beta module"
     test-install -ModuleName Microsoft.Graph.Beta # Update-Module Microsoft.Graph.Beta
-    Write-Output "(12 of 16) Update Windows Autopilot Module"
-    ## will also update dependent AzureAD and Microsoft.Graph.Intune modules
-    test-install -ModuleName WindowsAutoPilotIntune
-    Write-Output "(13 of 16) Centralised Add-in Deployment"
-    test-install -ModuleName O365CentralizedAddInDeployment
-    Write-Output "(14 of 16) PowerApps"
-    test-install -ModuleName Microsoft.PowerApps.PowerShell
-    Write-Output "(15 of 16) PowerApps Administration module"
-    test-install -ModuleName Microsoft.PowerApps.Administration.PowerShell
-    Write-Output "(16 of 16) Microsoft 365 Commerce module"
-    test-install -ModuleName MSCommerce
+    Write-Output " ** Update Azure module"
+    test-install -ModuleName Az
+    Write-Output " ** Update Invictus IR Microsoft Extractor module"
+    test-install -ModuleName Microsoft-Extractor-Suite
+
+    ## Other useful modules, but not essential for script collection
+    # Write-Output " ** Update Azure Information Protection module"
+    # $aadrmcheck = Get-Module -ListAvailable -Name aadrm
+    # if ($aadrmcheck) {
+    #     Write-Output "    [Warning] Older module Azure AD Rights management module (AADRM) is still installed"
+    #     Write-Output "    Uninstalling AADRM module as support ended July 15, 2020 "
+    #     Uninstall-Module aadrm -AllVersions -Force -Confirm:$false
+    #     Write-Output "    Now Azure Information Protection module will now be installed"
+    # }
+    # test-install -ModuleName AIPService
+    # Write-Output " ** Update Teams Module"
+    # test-install -ModuleName MicrosoftTeams
+    # Write-Output " ** Update SharePoint Online module"
+    # test-install -ModuleName Microsoft.Online.SharePoint.PowerShell
+    # Write-Output " ** Update PowerShellGet module"
+    # test-install -ModuleName PowershellGet
+    # Write-Output " ** Update SharePoint PnP module"
+    # $pnpcheck = Get-Module -ListAvailable -Name SharePointPnPPowerShellOnline
+    # if ($pnpcheck) {
+    #     Write-Output "    [Warning] Older SharePoint PnP module is still installed"
+    #     Write-Output "    Uninstalling older SharePoint PnP module"
+    #     Uninstall-Module SharePointPnPPowerShellOnline -AllVersions -Force -Confirm:$false
+    #     Write-Output "    New SharePoint PnP module will now be installed"
+    # }
+    # test-install -ModuleName PnP.PowerShell
+    # Write-Output " ** Update Windows Autopilot Module"
+    # ## will also update dependent AzureAD and Microsoft.Graph.Intune modules
+    # test-install -ModuleName WindowsAutoPilotIntune
+    # Write-Output " ** Centralized Add-in Deployment"
+    # test-install -ModuleName O365CentralizedAddInDeployment
+    # Write-Output " ** PowerApps"
+    # test-install -ModuleName Microsoft.PowerApps.PowerShell
+    # Write-Output " ** PowerApps Administration module"
+    # test-install -ModuleName Microsoft.PowerApps.Administration.PowerShell
+    # Write-Output " ** Microsoft 365 Commerce module"
+    # test-install -ModuleName MSCommerce
+
+    ## Obsolete modules
+    # Write-Output " ** Update Azure AD module - Obsolete - Skipping"
+    # test-install -ModuleName AzureAD
+    # Write-Output " ** Update Microsoft Online module - Obsolete - Skipping"
+    # test-install -ModuleName MSOnline
 } else {
     Write-Output "*** ERROR *** - Please re-run PowerShell environment as Administrator`n"
     Write-Output "Start-Process PowerShell -Verb RunAs"

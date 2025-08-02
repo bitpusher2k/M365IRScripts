@@ -12,6 +12,8 @@
 # Script to collect basic Tenant information at outset of investigation.
 #
 # Allows quickly verifying the tenant name, subscriptions, auditing status - and saving info to files.
+# Also sets global variable "$IRoutput" to %UserProfile\Desktop\Investigation\<Tenant Domain Name>
+# For use as output parameter in other investigative modules and scripts.
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\Get-BasicTenantInformation.ps1 -OutputPath "Default"
@@ -120,6 +122,11 @@ if (!$CheckSubDir) {
     mkdir $OutputPath\$DomainName
 }
 
+$global:IRoutput = "$OutputPath\$DomainName"
+Write-Output "`nGlobal Variable '`$IRoutput' has been set to '$IRoutput'."
+Write-Output "Use with the output directory parameter of other investigative modules for this session."
+Write-Output "(e.g., for Invictus IR Microsoft Extractor Suite commands: Get-TransportRules -OutputDir `$IRoutput)"
+
 $admins = Get-MgDirectoryRole | Select-Object DisplayName, Id | ForEach-Object {$role = $_.DisplayName; Get-MgDirectoryRoleMember -DirectoryRoleId $_.id | where-object {$_.AdditionalProperties."@odata.type" -eq "#microsoft.graph.user"} | ForEach-Object {Get-MgUser -userid $_.id } } | Select @{Name="Role"; Expression = {$role}}, DisplayName, UserPrincipalName, Mail, Id | Sort-Object -Property Mail -Unique
 $info = Get-MgOrganization # Old: Get-MsolCompanyInformation
 $orgconfig = Get-OrganizationConfig
@@ -157,10 +164,10 @@ $OrgConfig.AuditDisabled | Format-List
 Write-Output "Security Defaults enabled: $($SecureityDefaultsInfo.IsEnabled)"
 
 Write-Output "`nInbound connectors:"
-$connectors | Format-List
+$connectors | Format-Table
 
 Write-Output "`nTransport rules:"
-$rules | Format-List
+$rules | Format-Table
 
 # If mailbox auditing is disabled it can be enabled with these commands:
 # Get-Mailbox -Identity "UserName" | Format-List

@@ -32,6 +32,8 @@
 param(
     [string]$OutputPath = "Default",
     [int]$DaysAgo,
+    [datetime]$StartDate,
+    [datetime]$EndDate,
     [string]$scriptName = "Get-EntraIDAudieAndSignInLogs30-P1",
     [string]$Priority = "Normal",
     [string]$DebugPreference = "SilentlyContinue",
@@ -289,12 +291,32 @@ if (!$CheckSubDir) {
 }
 Write-Output "Domain sub-directory will be `"$DomainName`"" | Tee-Object -FilePath $logFilePath -Append
 
-if (!$DaysAgo) {
-    $DaysAgo = Read-Host "Enter number of days back to retrieve Sign-in and Audit log entries (default: 7, max: 30)"
+## Get valid starting end ending dates
+if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
+    Write-Output ""
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve relevant UAL entries (default: 7, maximum: 30)'
+    if ($DaysAgo -eq '') { $DaysAgo = "7" } elseif ($DaysAgo -gt 30) { $DaysAgo = "30" }
 }
-if ($DaysAgo -eq '') { $DaysAgo = "7" } elseif ($DaysAgo -gt "30") { $DaysAgo = "30" }
 
-$StartDate = $(Get-Date).AddDays(- $DaysAgo).ToString("yyyy-MM-dd")
+if ($DaysAgo) {
+    if ($DaysAgo -gt 30) { $DaysAgo = "30" }
+    Write-Output "`nScript will search Sign-in and Audit logs $DaysAgo days back from today." | Tee-Object -FilePath $logFilePath -Append
+    $StartDate = (Get-Date).touniversaltime().AddDays(-$DaysAgo)
+    $EndDate = (Get-Date).touniversaltime()
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+} elseif ($StartDate -and $EndDate) {
+    $StartDate = ($StartDate).touniversaltime()
+    $EndDate = ($EndDate).touniversaltime()
+    if ($StartDate -lt (Get-Date).touniversaltime().AddDays(-30)) { $StartDate = (Get-Date).touniversaltime().AddDays(-30) }
+    if ($StartDate -ge $EndDate) { $EndDate = ($StartDate).AddDays(1) }
+    Write-Output "`nScript will search Sign-in and Audit logs between StartDate and EndDate." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "StartDate: $StartDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "EndDate: $EndDate (UTC)" | Tee-Object -FilePath $logFilePath -Append
+} else {
+    Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending." | Tee-Object -FilePath $logFilePath -Append
+    exit
+}
 
 # Get-MsolAccountSku
 # Get-MgSubscribedSku | Select -Property Sku*, ConsumedUnits -ExpandProperty PrepaidUnits | Select-Object SkuPartNumber | Format-List
@@ -324,7 +346,7 @@ Write-Output "`nAttempting to retrieve Entra ID Audit logs (past $DaysAgo days).
 
 Write-Output "`nAttempting to retrieve Entra ID Audit logs (past $DaysAgo days) via beta graph cmdlet..."
 
-$EntraAuditLogs = Get-MgBetaAuditLogDirectoryAudit -All -Filter "activityDateTime gt $StartDate"
+$EntraAuditLogs = Get-MgBetaAuditLogDirectoryAudit -All -Filter "activityDateTime gt $StartDate and activityDateTime le $EndDate"
 $EntraAuditLogsJSON = $EntraAuditLogs | ConvertTo-Json -Depth 100
 $EntraAuditLogsJSON | Out-File -FilePath "$OutputPath\$DomainName\EntraIDAuditLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).json" -Encoding $Encoding
 $EntraAuditLogs | ConvertTo-FlatObject -Base 1 -Depth 20 | Export-Csv -Path "$OutputPath\$DomainName\EntraIDAuditLogsGraphBeta_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
@@ -359,7 +381,7 @@ if (!$LicenseBool) {
     Write-Output "`nAttempting to retrieve Entra ID Sign-in logs (past $DaysAgo days) via beta graph cmdlet..."
 
     # $EntraSignInLogs = Get-MgBetaAuditLogSignIn -Filter "createdDateTime gt $StartDate" # Limited to 1000 records
-    $EntraSignInLogs = Get-MgBetaAuditLogSignIn -All -Filter "createdDateTime gt $StartDate"
+    $EntraSignInLogs = Get-MgBetaAuditLogSignIn -All -Filter "createdDateTime gt $StartDate and createdDateTime le $EndDate"
     
     # Rough outline of potential code to retrieve pagenated sign-in logs through Invoke-MgGraphRequests (to including non-interactive sign-ins).
     #

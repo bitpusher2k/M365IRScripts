@@ -50,9 +50,9 @@
 
 param(
     [string]$OutputPath = "Default",
+    [int]$DaysAgo,
     [datetime]$StartDate,
     [datetime]$EndDate,
-    [int]$DaysAgo,
     [string]$UserIds,
     [switch]$fail = $false, # if -fail parameter only show failed logins
     [string]$scriptName = "Search-UnifiedAuditLogSignIn",

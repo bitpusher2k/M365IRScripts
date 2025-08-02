@@ -120,7 +120,7 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
 * Open PowerShell window & navigate to location of scripts.
 * Install/update needed PowerShell modules by running .\00-Update-M365Modules.ps1.
 * Connect to M365 tenant by running .\01-Connect-M365Modules.ps1.
-* Run .\09-Hydra-Collect.ps1 to automatically run in sequence:
+* Run .\09-Hydra-Collect.ps1 script to automatically run in sequence:
     * 10-Get-BasicTenantInformation.ps1
     * 18-Search-InboxRuleChanges.ps1 (first pass)
     * 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1
@@ -140,7 +140,9 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
     * OPTIONALLY: 15-Search-UnifiedAuditLogIR.ps1
     * OPTIONALLY: Get-UnifiedAuditLogEntries.ps1
     * 18-Search-InboxRuleChanges.ps1 (second pass)
-    * OPTIONALLY: Get-CRTReport.ps1 (CrowdStrike Reporting Tool for Azure)
+    * OPTIONALLY: a set of Invictus IR cmdlets (details below)
+    * OPTIONALLY: CrowdStrike Reporting Tool for Azure (details below)
+
 * To review sign-in logs
     * Export CSV versions of Interactive and Non-Interactive sign-ins going back one week (further if available and if incident scope warrants it) from https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/SignIns
     * If sign-in log retention is not sufficient use .\12-Search-UnifiedAuditLogSignIn.ps1 to export sign-in information from the UAL (goes back up to 180 days).
@@ -156,36 +158,60 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
         * User Agent used to sign-in (sign-ins from less common and automated user agents such as "python-httpx" or "axios" are more suspect)
         * Authentication factors used to sign-in (sign-ins that did not pass MFA, whether through single-factor only being needed or through MFA requirement being "satisfied by claim in token" are more suspect)
     * Use any identified suspect traits (listed above) as basis for re-filtering table to give context to events and potentially identify additional compromise
+
 * To review audit logs
     * Export CSV version going back one week (further if available and if incident scope warrants it) from https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Audit
     * Parse exported audit log CSV using 03-ProcessEntraAuditLog.bat/03-ProcessEntraAuditLog.ps1 scripts.
     * Look for recent activity in the audit log related to the account being investigated - permissions changes, password changes, addition of authentication methods.
+
 * To review inbox rules
     * Export inbox rule reports using .\17-Search-MailboxSuspiciousRules.ps1, .\18-Search-InboxRuleChanges.ps1, .\19-Get-AllInboxRules.ps1 scripts.
     * Review reports paying special attention to inbox rules related to the account(s) under investigation and rules listed report from 17-Search-MailboxSuspiciousRules.ps1 script.
     * Refer to contents of 80-OneLinerReference.ps1 for commands related to remediation of any discovered malicious inbox rules.
+
 * To review mailbox audit logs
     * Run message trace on account(s) under investigation using .\33-Get-UserMessageTrace.ps1 script.
     * Run mailbox audit log export using .\34-Get-MailboxAuditLog.ps1 script.
     * Parse exported logs using 05-ProcessUnifiedAuditLogFlatten.bat/05-ProcessUnifiedAuditLogFlatten.ps1 scripts.
     * Review output of scripts focusing on activity from any identified suspect IP addresses and related to any know suspect message subject lines.
+
 * To review Enterprise Applications
     * View in console at https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/EnterpriseApps and/or use .\22-Get-EnterpriseApplications.ps1 to export report.
     * Look for any applications added within the scope of the incident, and any applications often used for malicious purposes (PerfectData, eM Client - https://cybercorner.tech/malicious-azure-application-perfectdata-software-and-office365-business-email-compromise/, https://cybercorner.tech/malicious-usage-of-em-client-in-business-email-compromise/)
+
 * To review Microsoft Defender alerts and Entra ID risk
     * View Defender alerts in console at https://security.microsoft.com > Alerts and/or use .\23-Get-DefenderInformation.ps1 to export report.
     * View Entra ID risk in console at https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers and https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns and/or use .\24-Get-EntraIDRisk.ps1.
     * Review for recent relevant alerts.
-* To review additional permissions and settings related to:
-    * Federation Configuration, Federation Trust, Client Access Settings Configured on Mailboxes, Mail Forwarding Rules for Remote Domains, Mailbox SMTP Forwarding Rules, Mail Transport Rules, Delegates with "Full Access" and those with Any Permissions Granted, Delegates with "Send As" or "SendOnBehalf" Permissions, Exchange Online PowerShell Enabled Users, Users with "Audit Bypass" Enabled, Mailboxes Hidden from the Global Address List (GAL), and administrator audit logging configuration settings for review... Use the CrowdStrike Reporting Tool for Azure (CRT)
+
+* To generate and review additional reports related to:
+    * Security Defaults, Transport Rules, Security Alerts, Administrative roles and users with those roles, Mailbox Audit settings of each mailbox, OAuth application permissions, and user MFA settings...
+    * Use Invictus IR Microsoft Extractor Suite module cmdlets:
+    * Get-EntraSecurityDefaults
+    * Get-TransportRules
+    * Get-SecurityAlerts
+    * Get-AdminUsers
+    * Get-MailboxAuditStatus
+    * Get-OAuthPermissionsGraph
+    * Get-MFA
+    * See full documentation at: https://microsoft-365-extractor-suite.readthedocs.io/en/latest/
+    * Included in a run of Hydra-Collect script
+
+* To generate and review additional reports related to:
+    * Federation Configuration, Federation Trust, Client Access Settings Configured on Mailboxes, Mail Forwarding Rules for Remote Domains, Mailbox SMTP Forwarding Rules, Mail Transport Rules, Delegates with "Full Access" and those with Any Permissions Granted, Delegates with "Send As" or "SendOnBehalf" Permissions, Exchange Online PowerShell Enabled Users, Users with "Audit Bypass" Enabled, Mailboxes Hidden from the Global Address List (GAL), and administrator audit logging configuration settings...
+    * Use the CrowdStrike Reporting Tool for Azure (CRT)
     * Invoke-WebRequest "https://github.com/CrowdStrike/CRT/raw/refs/heads/main/Get-CRTReport.ps1" -OutFile .\Get-CRTReport.ps1 ; .\Get-CRTReport.ps1 -WorkingDirectory "$($env:userprofile)\Desktop\Investigation\CRTReport" -Interactive
+    * Included in a run of Hydra-Collect script
+
 * To contain compromise
     * Block sign-in and change password of compromised account in console at https://admin.exchange.microsoft.com/ > Users > Active users and/or use .\25-Lockdown-Account.ps1 script. 
     * If account is synced from AD and tenant does not have password writeback enabled note that you will need to change password in AD and sync it up to Entra ID - if you do not the account with automatically have sign-in re-enabled and password reverted.
+
 * To review user account settings
     * Review account MFA methods in console at https://portal.azure.com/#view/Microsoft_AAD_UsersAndTenants/UserManagementMenuBlade/~/AllUsers > SEARCH FOR USER > Authentication methods and/or use .\31-Get-UserMFAMethodsAndDevices.ps1 to export report.
     * Review account devices in console at https://portal.azure.com/#view/Microsoft_AAD_UsersAndTenants/UserManagementMenuBlade/~/AllUsers > SEARCH FOR USER > Devices and/or use .\32-Get-UserJunkMailSettings.ps1 to export report.
     * Look for unrecognized authentication methods and devices.
+
 * To further investigate the logged activity of known compromised accounts and from identified malicious IP addresses.
     * Run .\36-Search-UALActivityByIPAddress.ps1 to export all UAL entries associated with a given set of IP addresses.
     * Run .\37-Search-UALActivityByUser.ps1 to export all UAL entries associated with specific user account(s).
@@ -194,9 +220,12 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
     * Use 08-SelectUniquePairsCSV.bat/08-SelectUniquePairsCSV.ps1 to filter a user's sign-in history to IP and SessionID combinations in order to identify all malicious sessions and discover/confirm malicious IP addresses.
     * Run .\39-Search-UALMailItemsAccessedByUser.ps1 to export all MailItemsAccessed events on a users account, then filter on known malicious IP addresses and SessionIDs to identify known messages which were interacted with by the threat actor.
     * Run .\45-Search-MailboxMessage.ps1 (STILL IN DEVELOPMENT - NOT YET FUNCTIONAL) to retrieve message information based on list of previously identified InternetMessageIDs.
+
 * To search for suspect phishing messages by sender/subject line and export for review and/or purge from tenant
     * Run .\44-Get-ExchangeMessageContentSearch.ps1 and follow prompts.
+
 * Refer to the contents/output of .\80-OneLinerReference.ps1 for often used and useful commands related to M365 BEC investigation/remediation.
+
 * When investigation/remediation is complete run .\99-Disconnect-M365Modules.ps1 to disconnect all modules from M365 tenant.
 
 
