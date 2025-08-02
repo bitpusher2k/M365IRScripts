@@ -135,6 +135,7 @@ $SecureityDefaultsInfo = Get-MgPolicyIdentitySecurityDefaultEnforcementPolicy
 $logconfig = Get-AdminAuditLogConfig
 $connectors = Get-InboundConnector
 $rules = Get-TransportRule
+$licneses = Get-MgSubscribedSku
 
 $FormatEnumerationLimit = 100
 
@@ -146,6 +147,7 @@ $logconfig | Format-List | Out-File -FilePath "$OutputPath\$DomainName\TenantAud
 $connectors | Format-List | Out-File -FilePath "$OutputPath\$DomainName\ConnectorConfig_$($date).txt" -Encoding $Encoding
 $rules | Format-Table -AutoSize -Wrap | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_$($date).txt" -Encoding $Encoding
 $rules | Format-List | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_Detailed_$($date).txt" -Encoding $Encoding
+$licneses  | Format-List | Out-File -FilePath "$OutputPath\$DomainName\Licenses_$($date).txt" -Encoding $Encoding
 
 
 Write-Output "`nTenant details:"
