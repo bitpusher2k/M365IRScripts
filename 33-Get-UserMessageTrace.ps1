@@ -160,8 +160,8 @@ if ($StartDate -and $EndtDate) {
     $EndDate = (Get-Date).AddDays(1)
 
     Write-Output "Starting Get-MessageTrace..."
-    Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_going_back_10_days_from_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_going_back_10_days_from_$($date).csv" -NoTypeInformation -Encoding $Encoding
+    Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+    Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
 
     $StartDate = (Get-Date).AddDays(- $DaysAgo)
     $EndDate = (Get-Date).AddDays(1)
@@ -176,8 +176,8 @@ if ($StartDate -and $EndtDate) {
     $EndDate = (Get-Date).AddDays(1)
 
     Write-Output "Starting Get-MessageTrace..."
-    Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_going_back_$($DaysAgo)_days_from_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_going_back_$($DaysAgo)_days_from_$($date).csv" -NoTypeInformation -Encoding $Encoding
+    Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+    Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
 }
 
 ## Potential additions:

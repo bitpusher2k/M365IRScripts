@@ -1186,7 +1186,7 @@ function ConvertTo-FlatObject {
             $Object = $InputObjects[0]
             $Iterate = [ordered]@{}
             if ($null -eq $Object) {
-                #Write-Verbose -Message "ConvertTo-FlatObject - Object is null"
+                #Write-Output -Message "ConvertTo-FlatObject - Object is null"
             } elseif ($Object.GetType().Name -in 'String', 'DateTime', 'TimeSpan', 'Version', 'Enum') {
                 $Object = $Object.ToString()
             } elseif ($Depth) {
@@ -1473,10 +1473,10 @@ function ConvertTo-FlatObject2 {
                 try {
                     $DefaultTypeProps = @($obj.GetType().GetProperties() | Select-Object -ExpandProperty Name -ErrorAction Stop)
                     if ($DefaultTypeProps.Count -gt 0) {
-                        Write-Verbose "Excluding default properties for $($obj.gettype().Fullname):`n$($DefaultTypeProps | Out-String)"
+                        Write-Output "Excluding default properties for $($obj.gettype().Fullname):`n$($DefaultTypeProps | Out-String)"
                     }
                 } catch {
-                    Write-Verbose "Failed to extract properties from $($obj.gettype().Fullname): $_"
+                    Write-Output "Failed to extract properties from $($obj.gettype().Fullname): $_"
                     $DefaultTypeProps = @()
                 }
             }
@@ -1495,7 +1495,7 @@ function ConvertTo-FlatObject2 {
             )
 
             # Handle initial call
-            Write-Verbose "Working in path $Path at depth $depth"
+            Write-Output "Working in path $Path at depth $depth"
             Write-Debug "Recurse Object called with PSBoundParameters:`n$($PSBoundParameters | Out-String)"
             $Depth++
 
@@ -1523,12 +1523,12 @@ function ConvertTo-FlatObject2 {
                 if ((IsIn-Include $ChildName) -and (IsIn-Value $ChildValue) -and $Depth -le $MaxDepth) {
                     $ThisPath = @($Path + $FriendlyChildName) -join "."
                     $Output | Add-Member -MemberType NoteProperty -Name $ThisPath -Value $ChildValue
-                    Write-Verbose "Adding member '$ThisPath'"
+                    Write-Output "Adding member '$ThisPath'"
                 }
 
                 #Handle null...
                 if ($ChildValue -eq $null) {
-                    Write-Verbose "Skipping NULL $ChildName"
+                    Write-Output "Skipping NULL $ChildName"
                     continue
                 }
 
@@ -1543,7 +1543,7 @@ function ConvertTo-FlatObject2 {
                         -not $ChildValue
                     )
                 ) {
-                    Write-Verbose "Skipping $ChildName with type $($ChildValue.GetType().fullname)"
+                    Write-Output "Skipping $ChildName with type $($ChildValue.GetType().fullname)"
                     continue
                 }
 
@@ -1578,9 +1578,9 @@ function ConvertTo-FlatObject2 {
                 ) {
                     #This handles hashtables.  But it won't recurse...
                     if ($HashKeys) {
-                        Write-Verbose "Working on hashtable $CurrentPath"
+                        Write-Output "Working on hashtable $CurrentPath"
                         foreach ($key in $HashKeys) {
-                            Write-Verbose "Adding value from hashtable $CurrentPath['$key']"
+                            Write-Output "Adding value from hashtable $CurrentPath['$key']"
                             $Output | Add-Member -MemberType NoteProperty -Name "$CurrentPath['$key']" -Value $ChildValue["$key"]
                             $Output = Recurse-Object -Object $ChildValue["$key"] -Path "$CurrentPath['$key']" -Output $Output -Depth $depth
                         }
@@ -1589,12 +1589,12 @@ function ConvertTo-FlatObject2 {
                     else {
                         if ($IsArray) {
                             foreach ($item in @($ChildValue)) {
-                                Write-Verbose "Recursing through array node '$CurrentPath'"
+                                Write-Output "Recursing through array node '$CurrentPath'"
                                 $Output = Recurse-Object -Object $item -Path "$CurrentPath[$count]" -Output $Output -Depth $depth
                                 $Count++
                             }
                         } else {
-                            Write-Verbose "Recursing through node '$CurrentPath'"
+                            Write-Output "Recursing through node '$CurrentPath'"
                             $Output = Recurse-Object -Object $ChildValue -Path $CurrentPath -Output $Output -Depth $depth
                         }
                     }
@@ -1676,14 +1676,14 @@ function Convert-OutputForCSV {
     )
     begin {
         $PSBoundParameters.GetEnumerator() | ForEach-Object {
-            Write-Verbose "$($_)"
+            Write-Output "$($_)"
         }
         $FirstRun = $True
     }
     process {
         if ($FirstRun) {
             $OutputOrder = $InputObject.PSObject.Properties.Name
-            Write-Verbose "Output Order:`n $($OutputOrder -join ', ' )"
+            Write-Output "Output Order:`n $($OutputOrder -join ', ' )"
             $FirstRun = $False
             #Get properties to process
             $Properties = Get-Member -InputObject $InputObject -MemberType *Property
@@ -1695,8 +1695,8 @@ function Convert-OutputForCSV {
             $Properties_NoCollection = @(($Properties | Where-Object {
                         $_.Definition -notmatch "Collection|\[\]"
                     }).Name)
-            Write-Verbose "Properties Found that have collections:`n $(($Properties_Collection) -join ', ')"
-            Write-Verbose "Properties Found that have no collections:`n $(($Properties_NoCollection) -join ', ')"
+            Write-Output "Properties Found that have collections:`n $(($Properties_Collection) -join ', ')"
+            Write-Output "Properties Found that have no collections:`n $(($Properties_NoCollection) -join ', ')"
         }
 
         $InputObject | ForEach-Object {

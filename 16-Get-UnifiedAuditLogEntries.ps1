@@ -160,8 +160,8 @@ if ($DaysAgo) {
 
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
-$logFile = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_LOG_$($date).txt"
-$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLog_Past_$($DaysAgo)_days_$($date).csv"
+$logFile = "$OutputPath\$DomainName\UnifiedAuditLog_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_LOG_$($date).txt"
+$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLog_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv"
 
 #$record = "AzureActiveDirectory" https://learn.microsoft.com/en-us/office/office-365-management-api/office-365-management-activity-api-schema#auditlogrecordtype
 $record = "ALL"

@@ -166,7 +166,7 @@ if ($DaysAgo) {
 
 $resultSize = 5000 #Maximum number of records that can be retrieved per query
 
-$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date).csv"
+$OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogEntries_$($UserIds.Replace(',','-'))_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv"
 
 $sesid = Get-Random # Get random session number
 Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append

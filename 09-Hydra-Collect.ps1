@@ -114,17 +114,20 @@ $modules = @("Microsoft.Graph", "Microsoft.Graph.Beta", "ExchangeOnlineManagemen
 
 foreach ($module in $modules) {
     if (Get-Module -ListAvailable -Name $module) {
-        Write-Verbose "$(Get-TimeStamp) $module already installed"
+        Write-Output "$(Get-TimeStamp) $module already installed"
     } else {
-        Write-Information "$(Get-TimeStamp) Installing $module"
+        Write-Output "$(Get-TimeStamp) Installing $module"
         Install-Module $module -Force -SkipPublisherCheck -Scope CurrentUser -ErrorAction Stop | Out-Null
     }
 }
 
+$modules = @("Microsoft.Graph", "ExchangeOnlineManagement", "Microsoft-Extractor-Suite")
+
 foreach ($module in $modules) {
     if (Get-Module -Name $module) {
-        Write-Verbose "$(Get-TimeStamp) $module already loaded"
+        Write-Output "$(Get-TimeStamp) $module already loaded"
     } else {
+        Write-Output "$(Get-TimeStamp) Loading $module"
         Import-Module $module -Force -Scope Local | Out-Null
     }
 }

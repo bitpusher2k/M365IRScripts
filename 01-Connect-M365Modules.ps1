@@ -28,17 +28,20 @@ $modules = @("Microsoft.Graph", "Microsoft.Graph.Beta", "ExchangeOnlineManagemen
 
 foreach ($module in $modules) {
     if (Get-Module -ListAvailable -Name $module) {
-        Write-Verbose "$(Get-TimeStamp) $module already installed"
+        Write-Output "$module already installed"
     } else {
-        Write-Information "$(Get-TimeStamp) Installing $module"
+        Write-Output "Installing $module"
         Install-Module $module -Force -SkipPublisherCheck -Scope CurrentUser -ErrorAction Stop | Out-Null
     }
 }
 
+$modules = @("Microsoft.Graph", "ExchangeOnlineManagement", "Microsoft-Extractor-Suite")
+
 foreach ($module in $modules) {
     if (Get-Module -Name $module) {
-        Write-Verbose "$(Get-TimeStamp) $module already loaded"
+        Write-Output "$module already loaded"
     } else {
+        Write-Output "Loading $module"
         Import-Module $module -Force -Scope Local | Out-Null
     }
 }
@@ -187,10 +190,10 @@ if ($EXOInfo) {
 
 if ($GraphInfo) {
     Write-Output "Graph connection status:"
-    $GraphInfo.AuthType | Tee-Object
-    $GraphInfo.TenantID | Tee-Object
-    $GraphInfo.Account | Tee-Object
-    $GraphInfo.Scopes | Tee-Object
+    $GraphInfo.AuthType
+    $GraphInfo.TenantID
+    $GraphInfo.Account
+    $GraphInfo.Scopes
 } else {
     Write-Output "Exchange Online Management module not connected."
     Write-Output "Run .\01-Connect-M365Modules.ps1 or Connect-MgGraph with proper scopes to connect."

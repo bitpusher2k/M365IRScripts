@@ -179,8 +179,8 @@ if ($DaysAgo) {
 
 $resultSize = 5000 #Maximum number of records that can be retrieved per query
 
-$OutputCSV = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date).csv"
-$OutputTxt = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date).txt"
+$OutputCSV = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv"
+$OutputTxt = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.txt"
 
 $amountResults = (Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations "MailItemsAccessed" -ResultSize 1 | Select-Object -First 1 -ExpandProperty ResultCount)
 $throttledResults = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -Operations MailItemsAccessed -ResultSize 1000 | Where {$_.AuditData -like '*"IsThrottled","Value":"True"*'}
@@ -285,7 +285,7 @@ if (!$AuditOutput) {
     }
 
     # Export updated spreadsheet data to CSV file
-    $OutputCSV = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date)_Processed.csv"
+    $OutputCSV = "$OutputPath\$DomainName\MailItemsAccessedUALEntries_$($UserIds.Replace(',','-'))_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_Processed.csv"
     $AuditOutput | Export-Csv -Path "$OutputCSV" -NoTypeInformation -Encoding $Encoding
 
     Write-Output "Processed a total of $RowCount rows." | Tee-Object -FilePath $logFilePath -Append

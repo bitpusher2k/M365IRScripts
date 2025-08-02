@@ -162,7 +162,7 @@ $process.PriorityClass = $Priority
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
-# Write-Verbose -Message "Determining the connected Exchange environment."
+# Write-Output -Message "Determining the connected Exchange environment."
 
 # Could update to use Get-ConnectionInformation instead of Get-PSSession
 # and check Unified Audit Logging is enabled with Get-AdminAuditLogConfig
@@ -290,7 +290,7 @@ Write-Output "$($SearchResultsSetMailbox.Count) Set-Mailbox records found in log
 
 if ($SearchResultsSetMailbox.Count -ge 1) {
     Write-Output "Writing Set-Mailbox UAL log output..." | Tee-Object -FilePath $logFilePath -Append
-    $SearchResultsSetMailbox | Export-Csv "$OutputPath\$DomainName\InboxRuleChangesSetMailbox_going_back_$($DaysAgo)_days_from_$($date).csv" -NoTypeInformation -Encoding $Encoding
+    $SearchResultsSetMailbox | Export-Csv "$OutputPath\$DomainName\InboxRuleChangesSetMailbox_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
 }
 
 # The New-InboxRule, Set-InboxRule, Remove-InboxRule, or Disable-InboxRule Operations typically show up when someone is using the PowerShell cmdlet or Outlook on the Web.
@@ -400,7 +400,7 @@ foreach ($sr in $SearchResults) {
 
 if ($SearchResults.Count -ge 1) {
     Write-Output "Writing New-InboxRule/Set-InboxRule/UpdateInboxRules/Remove-InboxRule/Disable-InboxRule UAL RAW output..." | Tee-Object -FilePath $logFilePath -Append
-    $SearchResultsSetMailbox | Export-Csv "$OutputPath\$DomainName\InboxRuleChanges_going_back_$($DaysAgo)_days_from_$($date).csv" -NoTypeInformation -Encoding $Encoding
+    $SearchResults | Export-Csv "$OutputPath\$DomainName\InboxRuleChanges_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
 }
 
 if ($SearchResultsProcessed.Count -ge 1) {
@@ -413,7 +413,7 @@ if ($SearchResultsProcessed.Count -ge 1) {
             Get-Member -MemberType NoteProperty |
             Where-Object { $FinalOutputProperties.Name -notcontains $_.Name }
     }
-    $SearchResultsProcessed | Export-Csv "$OutputPath\$DomainName\InboxRuleChanges_going_back_$($DaysAgo)_days_from_$($date)_Processed.csv" -NoTypeInformation -Encoding $Encoding
+    $SearchResultsProcessed | Export-Csv "$OutputPath\$DomainName\InboxRuleChanges_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_Processed.csv" -NoTypeInformation -Encoding $Encoding
 }
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append

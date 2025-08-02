@@ -68,10 +68,10 @@ function test-package ($packagename) {
         $b = $onlinever | Select-Object Version -ExpandProperty Version
         #version compare
         if ([version]"$a" -ge [version]"$b") {
-            Write-Output "    Local package $a greater or equal to Gallery package $b"
+            Write-Output "    Local package $a greater or equal to provider package $b"
             Write-Output "    No update required`n"
         } else {
-            Write-Output "    Local package $a lower version than Gallery package $b"
+            Write-Output "    Local package $a lower version than provider package $b"
             Write-Output "    Will be updated"
             update-packageprovider -Name $packagename -Force -confirm:$false
             Write-Output ""
@@ -152,7 +152,7 @@ $currentPrincipal = New-Object Security.Principal.WindowsPrincipal ([Security.Pr
 if ($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     # Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
     Write-Output " ** Update package providers"
-    test-package -packagename NuGet
+    # test-package -packagename NuGet
     test-package -packagename PowerShellGet
     Write-Output " ** Update Exchange Online module"
     test-install -ModuleName ExchangeOnlineManagement

@@ -210,7 +210,7 @@ if ($Types -contains "Role" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EntraIDRoleChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EntraIDRoleChanges_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output ""
         Write-Output "See Entra ID Roles Changes events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
@@ -241,7 +241,7 @@ if ($Types -contains "App" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EntraIDAppChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EntraIDAppChanges_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See Entra ID application events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -271,7 +271,7 @@ if ($Types -contains "CAP" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_ConditionalAccessPolicyChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_ConditionalAccessPolicyChanges_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See Conditional Access Policy events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -301,7 +301,7 @@ if ($Types -contains "Domain" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EntraIDDomainChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EntraIDDomainChanges_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See Domain Management events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -331,7 +331,7 @@ if ($Types -contains "Partner" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_PartnerManagementChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_PartnerManagementChanges_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See Partner Management events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -361,7 +361,7 @@ if ($Types -contains "User" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_UsersAddedOrDeleted_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_UsersAddedOrDeleted_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See events matching 'Add user' and 'Delete user' in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -391,7 +391,7 @@ if ($Types -contains "Pass" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_PasswordResetsAndChanges_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_PasswordResetsAndChanges_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See password events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -421,7 +421,7 @@ if ($Types -contains "Update" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv "$OutputPath\$DomainName\AuditLog_UpdateUser_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv "$OutputPath\$DomainName\AuditLog_UpdateUser_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See events matching 'Update user' in the output path (this includes MFA method updates)" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -451,7 +451,7 @@ if ($Types -contains "Device" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_DevicesAddedOrDeleted_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_DevicesAddedOrDeleted_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See events matching 'Add device' or 'Delete device' in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -481,7 +481,7 @@ if ($Types -contains "ExAdmin" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_ExchangeAdminEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_ExchangeAdminEvents_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See Exchange Admin events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -511,7 +511,7 @@ if ($Types -contains "Anon" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_AnonymousLinkEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_AnonymousLinkEvents_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See anonymous link events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -541,7 +541,7 @@ if ($Types -contains "Perm" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_MailboxPermissionEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_MailboxPermissionEvents_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See mailbox permission events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -571,7 +571,7 @@ if ($Types -contains "EmDel" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EmailDeletionEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_EmailDeletionEvents_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See email deletion events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -601,7 +601,7 @@ if ($Types -contains "FileMod" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_FileModifiedEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_FileModifiedEvents_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See file creation events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -631,7 +631,7 @@ if ($Types -contains "FileDel" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_FileDeletedEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_FileDeletedEvents_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See file deletion events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -662,7 +662,7 @@ if ($Types -contains "Ext" -or $Types -contains "ALL") {
         Write-Output ""
     } else {
         ## Output the events to CSV
-        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_ExternalUserEvents_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_ExternalUserEvents_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
         Write-Output "See external user events in the output path" | Tee-Object -FilePath $logFilePath -Append
         Write-Output ""
     }
@@ -692,7 +692,7 @@ if ($Types -contains "Ext" -or $Types -contains "ALL") {
 #          Write-Output ""
 #      } else {
 #          ## Output the events to CSV
-#          $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_...Events_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+#          $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_...Events_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
 #          Write-Output "See mail access events in the output path" | Tee-Object -FilePath $logFilePath -Append
 #          Write-Output ""
 #      }
@@ -722,7 +722,7 @@ if ($Types -contains "Ext" -or $Types -contains "ALL") {
 #          Write-Output ""
 #      } else {
 #          ## Output the events to CSV
-#          $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_...Events_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+#          $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_...Events_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
 #          Write-Output "See file access events in the output path" | Tee-Object -FilePath $logFilePath -Append
 #          Write-Output ""
 #      }
@@ -752,7 +752,7 @@ if ($Types -contains "Ext" -or $Types -contains "ALL") {
 #         Write-Output ""
 #     } else {
 #         ## Output the events to CSV
-#         $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_...Events_Past_$($DaysAgo)_Days_From_$($date).csv" -NoTypeInformation -Encoding $Encoding
+#         $SearchResults | Export-Csv -Path "$OutputPath\$DomainName\AuditLog_...Events_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
 #         Write-Output "See ... events in the output path" | Tee-Object -FilePath $logFilePath -Append
 #         Write-Output ""
 #     }

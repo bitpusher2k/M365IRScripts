@@ -171,7 +171,7 @@ if ($DaysAgo) {
 
 $resultSize = 5000 #Maximum number of records that can be retrieved per query
 
-$OutputCSV = "$OutputPath\$DomainName\FileAccessedUALEntries_$($UserIds.Replace(',','-'))_going_back_$($DaysAgo)_days_from_$($date).csv"
+$OutputCSV = "$OutputPath\$DomainName\FileAccessedUALEntries_$($UserIds.Replace(',','-'))_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv"
 
 
 $sesid = Get-Random # Get random session number

@@ -183,8 +183,8 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
     Get-mailbox -resultsize unlimited |
         ForEach-Object {
             $date = Get-Date -Format "yyyyMMddHHmmss"
-            $outputFile = "$OutputPath\$DomainName\mailboxAuditLog_$($_.UserPrincipalName)_going_back_$($DaysAgo)_days_from_$($date).csv"
-            $outputFileUAL = "$OutputPath\$DomainName\mailboxAuditLogUAL_$($_.UserPrincipalName)_going_back_$($DaysAgo)_days_from_$($date).csv"
+            $outputFile = "$OutputPath\$DomainName\mailboxAuditLog_$($_.UserPrincipalName)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv"
+            $outputFileUAL = "$OutputPath\$DomainName\mailboxAuditLogUAL_$($_.UserPrincipalName)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv"
 
             Write-Output "Collecting the MailboxAuditLog for $($_.UserPrincipalName)"
 
@@ -217,8 +217,8 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
     $UserIds.Split(",") | ForEach-Object {
         $date = Get-Date -Format "yyyyMMddHHmmss"
         $user = $_
-        $outputFile = "$OutputPath\$DomainName\mailboxAuditLog_$($user)_going_back_$($DaysAgo)_days_from_$($date).csv"
-        $outputFileUAL = "$OutputPath\$DomainName\mailboxAuditLogUAL_$($user)_going_back_$($DaysAgo)_days_from_$($date).csv"
+        $outputFile = "$OutputPath\$DomainName\mailboxAuditLog_$($user)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv"
+        $outputFileUAL = "$OutputPath\$DomainName\mailboxAuditLogUAL_$($user)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv"
 
         Write-Output "Collecting the MailboxAuditLog for $user" | Tee-Object -FilePath $logFilePath -Append
 
@@ -248,8 +248,8 @@ if (($null -eq $UserIds) -or ($UserIds -eq "")) {
         Write-Output "Results have been written to $outputFile & $outputFileUAL" | Tee-Object -FilePath $logFilePath -Append
     }
 } else {
-    $outputFile = "$OutputPath\$DomainName\mailboxAuditLog_$($UserIds)_going_back_$($DaysAgo)_days_from_$($date).csv"
-    $outputFileUAL = "$OutputPath\$DomainName\mailboxAuditLogUAL_$($UserIds)_going_back_$($DaysAgo)_days_from_$($date).csv"
+    $outputFile = "$OutputPath\$DomainName\mailboxAuditLog_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv"
+    $outputFileUAL = "$OutputPath\$DomainName\mailboxAuditLogUAL_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv"
 
     Write-Output "Collecting the MailboxAuditLog for $UserIds" | Tee-Object -FilePath $logFilePath -Append
 
