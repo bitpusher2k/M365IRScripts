@@ -261,6 +261,8 @@ M365 requires that some operations, such as downloading data found through compl
 * Micorsoft's steps for responding to BEC - https://learn.microsoft.com/en-us/defender-office-365/responding-to-a-compromised-email-account
 * FBI site for BEC information - https://www.fbi.gov/how-we-can-help-you/scams-and-safety/common-scams-and-crimes/business-email-compromise
 * Awesome-BEC - https://randomaccess3.github.io/Awesome-BEC/
+* Invictus IR Microsoft Extractor Suite - https://github.com/invictus-ir/Microsoft-Extractor-Suite
+* CrowdStrike Reporting Tool for Azure - https://github.com/CrowdStrike/CRT
 * Sparrow - https://github.com/cisagov/Sparrow
 * Hawk - https://github.com/T0pCyber/hawk
 * AzureHunter - https://github.com/darkquasar/AzureHunter
@@ -269,5 +271,4 @@ M365 requires that some operations, such as downloading data found through compl
 * LazyAdmin - https://lazyadmin.nl/
 * Evotec - https://github.com/EvotecIT
 * PwC-IR - https://github.com/PwC-IR/MIA-MailItemsAccessed-
-* Invictus - https://www.invictus-ir.com/news/major-update-v-1-2-for-the-microsoft-extractor-suite
 * IP address bulk lookup tool - https://www.infobyip.com/ipbulklookup.php

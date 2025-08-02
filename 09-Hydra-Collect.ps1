@@ -42,6 +42,8 @@
 #
 # powershell -executionpolicy bypass -f .\Hydra-Collect.ps1 -OutputPath "Default" -DaysAgo 7
 #
+# powershell -executionpolicy bypass -f .\Hydra-Collect.ps1 -OutputPath "Default" -StartDate "2025-06-01" -EndDate "2025-06-10"
+#
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
