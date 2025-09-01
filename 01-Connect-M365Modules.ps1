@@ -38,7 +38,7 @@ foreach ($module in $modules) {
 $modules = @("Microsoft.Graph", "ExchangeOnlineManagement", "Microsoft-Extractor-Suite")
 
 foreach ($module in $modules) {
-    if (Get-Module -Name $module) {
+    if (Get-Module -Name $module -ListAvailable) {
         Write-Output "$module already loaded"
     } else {
         Write-Output "Loading $module"

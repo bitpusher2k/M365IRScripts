@@ -17,7 +17,7 @@
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
-# Uses ExchangePowerShell commands.
+# Uses Exchange Online PowerShell commands.
 #
 #comp #m365 #security #bec #script #irscript #powershell #mailbox #junk #mail
 
@@ -106,14 +106,8 @@ if (!$CheckOutputPath) {
 }
 
 ## Get Primary Domain Name for output subfolder
-# $PrimaryDomain = Get-AcceptedDomain | Where-Object Default -eq $true
-# $DomainName = $PrimaryDomain.DomainName
-$PrimaryDomain = Get-MgDomain | Where-Object { $_.isdefault -eq $True } | Select-Object -Property ID
-if ($PrimaryDomain) {
-    $DomainName = $PrimaryDomain.ID
-} else {
-    $DomainName = "DefaultOutput"
-}
+$PrimaryDomain = Get-AcceptedDomain | Where-Object Default -EQ $true
+$DomainName = $PrimaryDomain.DomainName
 
 $CheckSubDir = Get-Item $OutputPath\$DomainName -ErrorAction SilentlyContinue
 if (!$CheckSubDir) {

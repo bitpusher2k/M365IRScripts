@@ -346,7 +346,8 @@ Write-Output "`nAttempting to retrieve Entra ID Audit logs (past $DaysAgo days).
 
 Write-Output "`nAttempting to retrieve Entra ID Audit logs (after $StartDate) via beta graph cmdlet..."
 
-$EntraAuditLogs = Get-MgBetaAuditLogDirectoryAudit -All -Filter "activityDateTime gt $StartDate"
+Write-Output "Get-MgBetaAuditLogDirectoryAudit -All -Filter `"activityDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))`""
+$EntraAuditLogs = Get-MgBetaAuditLogDirectoryAudit -All -Filter "activityDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))"
 $EntraAuditLogsJSON = $EntraAuditLogs | ConvertTo-Json -Depth 100
 $EntraAuditLogsJSON | Out-File -FilePath "$OutputPath\$DomainName\EntraIDAuditLogsGraphBeta_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).json" -Encoding $Encoding
 $EntraAuditLogs | ConvertTo-FlatObject -Base 1 -Depth 20 | Export-Csv -Path "$OutputPath\$DomainName\EntraIDAuditLogsGraphBeta_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
@@ -380,8 +381,9 @@ if (!$LicenseBool) {
 
     Write-Output "`nAttempting to retrieve Entra ID Sign-in logs (after $StartDate) via beta graph cmdlet..."
 
+    Write-Output "Get-MgBetaAuditLogSignIn -All -Filter `"createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))`""
     # $EntraSignInLogs = Get-MgBetaAuditLogSignIn -Filter "createdDateTime gt $StartDate" # Limited to 1000 records
-    $EntraSignInLogs = Get-MgBetaAuditLogSignIn -All -Filter "createdDateTime gt $StartDate"
+    $EntraSignInLogs = Get-MgBetaAuditLogSignIn -All -Filter "createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))"
     
     # Rough outline of potential code to retrieve pagenated sign-in logs through Invoke-MgGraphRequests (to including non-interactive sign-ins).
     #

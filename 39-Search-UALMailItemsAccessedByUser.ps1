@@ -126,14 +126,8 @@ if (!$CheckOutputPath) {
 }
 
 ## Get Primary Domain Name for output subfolder
-# $PrimaryDomain = Get-AcceptedDomain | Where-Object Default -eq $true
-# $DomainName = $PrimaryDomain.DomainName
-$PrimaryDomain = Get-MgDomain | Where-Object { $_.isdefault -eq $True } | Select-Object -Property ID
-if ($PrimaryDomain) {
-    $DomainName = $PrimaryDomain.ID
-} else {
-    $DomainName = "DefaultOutput"
-}
+$PrimaryDomain = Get-AcceptedDomain | Where-Object Default -EQ $true
+$DomainName = $PrimaryDomain.DomainName
 
 $CheckSubDir = Get-Item $OutputPath\$DomainName -ErrorAction SilentlyContinue
 if (!$CheckSubDir) {
@@ -193,7 +187,7 @@ if ($throttledResults) {
 }
 
 if ($syncResults) {
-    Write-Output "`nWARNING: MailItemsAccessed SYNC events for specified user(s) logged during search range - Desktop Outlook client used and only FOLDER level operations are logged - ALL items in synced folder must be assumed accessed.`n" | Tee-Object Tee-Object -FilePath $OutputTxt -Append | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "`nWARNING: MailItemsAccessed SYNC events for specified user(s) logged during search range - Desktop Outlook client used and only FOLDER level operations are logged - ALL items in synced folder must be assumed accessed.`n" | Tee-Object -FilePath $OutputTxt -Append | Tee-Object -FilePath $logFilePath -Append
 }
 
 $sesid = Get-Random # Get random session number
