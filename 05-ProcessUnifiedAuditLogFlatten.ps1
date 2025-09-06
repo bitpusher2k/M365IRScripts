@@ -8,16 +8,13 @@
 # https://github.com/bitpusher2k
 #
 # ProcessUnifiedAuditLogFlatten.ps1 - By Bitpusher/The Digital Fox
-# Join-Object function created by iRon
-# Flatten-Object function created by iRon, ConvertTo-FlatObject function created by EvotecIT,
-# ConvertTo-FlatObject2 function created by RamblingCookieMonster, Convert-OutputForCSV function created by proxb,
-# Flatten-PsCustomObject function created by Kelly Jolly (not yet working).
-# v3.1 last updated 2025-07-26
+# Flatten-Object function created by iRon, ConvertTo-FlatObject function created by EvotecIT.
+# v3.1.1 last updated 2025-09-06
 # Processes an exported CSV of Unified Audit Log entries that contains cells with arrays/hash tables/objects and flattens it for ease of manual processing.
 #
 # Appends flattened set of columns to the original CSV log data in the export to ensure no information is absent in result.
 #
-# Includes several functions for flattening complex objects found online. The one from EvotecIT is currently the best for this application.
+# Includes multiple functions for flattening complex objects found online.
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\05-ProcessUnifiedAuditLogFlatten.ps1 -inputFile "Path\to\input\log.csv" -function "EvotecIT"
@@ -31,7 +28,7 @@
 param(
     [string[]]$inputFiles = @("UALexport.csv"),
     [string]$outputFile = "UALexport_Processed.csv",
-    [string]$function = "EvotecIT,simple", # Can be "iRon", "EvotecIT", "RamblingCookieMonster", "proxb", "simple", "solidstate888" (not yet working), "all" (to process using every function), or a comma-separated list
+    [string]$function = "simple, EvotecIT", # Can be "simple", "EvotecIT", "iRon", "all" (to process using every function), or a comma-separated list
     [string]$scriptName = "ProcessUnifiedAuditLogFlatten",
     [string]$Priority = "Normal",
     [int]$RandMax = "500",
@@ -52,6 +49,112 @@ if ($PSVersionTable.PSVersion.Major -eq 5 -and ($Encoding -eq "utf8bom" -or $Enc
 #endregion initialization
 
 #region functions
+
+Function Convert-ObjectJoinProperties {
+    <# https://github.com/proxb/PowerShell_Scripts/blob/master/Convert-OutputForCSV.ps1
+        .SYNOPSIS
+            Provides a way to expand collections in an object property prior
+            to being sent to Export-Csv.
+
+        .DESCRIPTION
+            Provides a way to expand collections in an object property prior
+            to being sent to Export-Csv. This helps to avoid the object type
+            from being shown such as system.object[] in a spreadsheet.
+
+        .PARAMETER InputObject
+            The object that will be sent to Export-Csv
+
+        .PARAMETER OutPropertyType
+            This determines whether the property that has the collection will be
+            shown in the CSV as a comma delimmited string or as a stacked string.
+
+            Possible values:
+            Stack
+            Comma
+
+            Default value is: Stack
+
+        .NOTES
+            Name: Convert-ObjectJoinProperties
+            Author: Boe Prox, tweaked by Bitpusher
+            Created: 24 Jan 2014
+            Version History:
+                1.2 - 30 Aug 2025
+                    -Added "Blank" join option to allow for removal of null values in an array of objects
+                1.1 - 02 Feb 2014
+                    -Removed OutputOrder parameter as it is no longer needed; inputobject order is now respected 
+                    in the output object
+                1.0 - 24 Jan 2014
+                    -Initial Creation
+
+        .EXAMPLE
+            $Output = 'PSComputername','IPAddress','DNSServerSearchOrder'
+
+            Get-WMIObject -Class Win32_NetworkAdapterConfiguration -Filter "IPEnabled='True'" |
+            Select-Object $Output | Convert-OutputForCSV | 
+            Export-Csv -NoTypeInformation -Path NIC.csv    
+            
+            Description
+            -----------
+            Using a predefined set of properties to display ($Output), data is collected from the 
+            Win32_NetworkAdapterConfiguration class and then passed to the Convert-OutputForCSV
+            funtion which expands any property with a collection so it can be read properly prior
+            to being sent to Export-Csv. Properties that had a collection will be viewed as a stack
+            in the spreadsheet.        
+            
+    #>
+    [cmdletbinding()]
+    Param (
+        [parameter(ValueFromPipeline)]
+        [psobject]$InputObject,
+        [parameter()]
+        [ValidateSet('Blank','Stack','Comma')]
+        [string]$OutputPropertyType = 'Blank'
+    )
+    Begin {
+        $PSBoundParameters.GetEnumerator() | ForEach {
+            Write-Verbose "$($_)"
+        }
+        $FirstRun = $True
+    }
+    Process {
+        If ($FirstRun) {
+            $OutputOrder = $InputObject.psobject.properties.name
+            Write-Verbose "Output Order:`n $($OutputOrder -join ', ' )"
+            $FirstRun = $False
+            #Get properties to process
+            $Properties = Get-Member -InputObject $InputObject -MemberType *Property
+            #Get properties that hold a collection
+            $Properties_Collection = @(($Properties | Where-Object {
+                $_.Definition -match "Collection|\[\]"
+            }).Name)
+            #Get properties that do not hold a collection
+            $Properties_NoCollection = @(($Properties | Where-Object {
+                $_.Definition -notmatch "Collection|\[\]"
+            }).Name)
+            Write-Verbose "Properties Found that have collections:`n $(($Properties_Collection) -join ', ')"
+            Write-Verbose "Properties Found that have no collections:`n $(($Properties_NoCollection) -join ', ')"
+        }
+        $InputObject | ForEach {
+            $Line = $_
+            $stringBuilder = New-Object Text.StringBuilder
+            $Null = $stringBuilder.AppendLine("[pscustomobject] @{")
+            $OutputOrder | ForEach {
+                If ($OutputPropertyType -eq 'Stack') {
+                    $Null = $stringBuilder.AppendLine("`"$($_)`" = `"$(($line.$($_) | Out-String).Trim())`"")
+                } ElseIf ($OutputPropertyType -eq "Comma") {
+                    $Null = $stringBuilder.AppendLine("`"$($_)`" = `"$($line.$($_) -join ', ')`"")                   
+                } ElseIf ($OutputPropertyType -eq "Blank") {
+                    $Null = $stringBuilder.AppendLine("`"$($_)`" = `"$($line.$($_) -join '')`"")                   
+                }
+            }
+            $Null = $stringBuilder.AppendLine("}")
+            Invoke-Expression $stringBuilder.ToString()
+        }
+    }
+    End {}
+}
+
 
 <#PSScriptInfo
 .VERSION 3.8.3
@@ -1249,591 +1352,6 @@ function ConvertTo-FlatObject {
         }
     }
 }
-
-
-function ConvertTo-FlatObject2 {
-    <# https://github.com/RamblingCookieMonster/PowerShell/blob/master/ConvertTo-FlatObject.ps1
-    .SYNOPSIS
-        Flatten an object to simplify discovery of data
-
-    .DESCRIPTION
-        Flatten an object.  This function will take an object, and flatten the properties using their full path into a single object with one layer of properties.
-
-        You can use this to flatten XML, JSON, and other arbitrary objects.
-
-        This can simplify initial exploration and discovery of data returned by APIs, interfaces, and other technologies.
-
-        NOTE:
-            Use tools like Get-Member, Select-Object, and Show-Object to further explore objects.
-            This function does not handle certain data types well.  It was original designed to expand XML and JSON.
-
-    .PARAMETER InputObject
-        Object to flatten
-
-    .PARAMETER Exclude
-        Exclude any nodes in this list.  Accepts wildcards.
-
-        Example:
-            -Exclude price, title
-
-    .PARAMETER ExcludeDefault
-        Exclude default properties for sub objects.  True by default.
-
-        This simplifies views of many objects (e.g. XML) but may exclude data for others (e.g. if flattening a process, ProcessThread properties will be excluded)
-
-    .PARAMETER Include
-        Include only leaves in this list.  Accepts wildcards.
-
-        Example:
-            -Include Author, Title
-
-    .PARAMETER Value
-        Include only leaves with values like these arguments.  Accepts wildcards.
-
-    .PARAMETER MaxDepth
-        Stop recursion at this depth.
-
-    .INPUTS
-        Any object
-
-    .OUTPUTS
-        System.Management.Automation.PSCustomObject
-
-    .EXAMPLE
-
-        #Pull unanswered PowerShell questions from StackExchange, Flatten the data to date a feel for the schema
-        Invoke-RestMethod "https://api.stackexchange.com/2.0/questions/unanswered?order=desc&sort=activity&tagged=powershell&pagesize=10&site=stackoverflow" |
-            ConvertTo-FlatObject -Include Title, Link, View_Count
-
-            $object.items[0].owner.link : http://stackoverflow.com/users/1946412/julealgon
-            $object.items[0].view_count : 7
-            $object.items[0].link       : http://stackoverflow.com/questions/26910789/is-it-possible-to-reuse-a-param-block-across-multiple-functions
-            $object.items[0].title      : Is it possible to reuse a &#39;param&#39; block across multiple functions?
-            $object.items[1].owner.link : http://stackoverflow.com/users/4248278/nitin-tyagi
-            $object.items[1].view_count : 8
-            $object.items[1].link       : http://stackoverflow.com/questions/26909879/use-powershell-to-retreive-activated-features-for-sharepoint-2010
-            $object.items[1].title      : Use powershell to retreive Activated features for sharepoint 2010
-            ...
-
-    .EXAMPLE
-
-        #Set up some XML to work with
-        $object = [xml]'
-            <catalog>
-               <book id="bk101">
-                  <author>Gambardella, Matthew</author>
-                  <title>XML Developers Guide</title>
-                  <genre>Computer</genre>
-                  <price>44.95</price>
-               </book>
-               <book id="bk102">
-                  <author>Ralls, Kim</author>
-                  <title>Midnight Rain</title>
-                  <genre>Fantasy</genre>
-                  <price>5.95</price>
-               </book>
-            </catalog>'
-
-        #Call the flatten command against this XML
-            ConvertTo-FlatObject $object -Include Author, Title, Price
-
-            #Result is a flattened object with the full path to the node, using $object as the root.
-            #Only leaf properties we specified are included (author,title,price)
-
-                $object.catalog.book[0].author : Gambardella, Matthew
-                $object.catalog.book[0].title  : XML Developers Guide
-                $object.catalog.book[0].price  : 44.95
-                $object.catalog.book[1].author : Ralls, Kim
-                $object.catalog.book[1].title  : Midnight Rain
-                $object.catalog.book[1].price  : 5.95
-
-        #Invoking the property names should return their data if the orginal object is in $object:
-            $object.catalog.book[1].price
-                5.95
-
-            $object.catalog.book[0].title
-                XML Developers Guide
-
-    .EXAMPLE
-
-        #Set up some XML to work with
-            [xml]'<catalog>
-               <book id="bk101">
-                  <author>Gambardella, Matthew</author>
-                  <title>XML Developers Guide</title>
-                  <genre>Computer</genre>
-                  <price>44.95</price>
-               </book>
-               <book id="bk102">
-                  <author>Ralls, Kim</author>
-                  <title>Midnight Rain</title>
-                  <genre>Fantasy</genre>
-                  <price>5.95</price>
-               </book>
-            </catalog>' |
-                ConvertTo-FlatObject -exclude price, title, id
-
-        Result is a flattened object with the full path to the node, using XML as the root.  Price and title are excluded.
-
-            $Object.catalog                : catalog
-            $Object.catalog.book           : {book, book}
-            $object.catalog.book[0].author : Gambardella, Matthew
-            $object.catalog.book[0].genre  : Computer
-            $object.catalog.book[1].author : Ralls, Kim
-            $object.catalog.book[1].genre  : Fantasy
-
-    .EXAMPLE
-        #Set up some XML to work with
-            [xml]'<catalog>
-               <book id="bk101">
-                  <author>Gambardella, Matthew</author>
-                  <title>XML Developers Guide</title>
-                  <genre>Computer</genre>
-                  <price>44.95</price>
-               </book>
-               <book id="bk102">
-                  <author>Ralls, Kim</author>
-                  <title>Midnight Rain</title>
-                  <genre>Fantasy</genre>
-                  <price>5.95</price>
-               </book>
-            </catalog>' |
-                ConvertTo-FlatObject -Value XML*, Fantasy
-
-        Result is a flattened object filtered by leaves that matched XML* or Fantasy
-
-            $Object.catalog.book[0].title : XML Developers Guide
-            $Object.catalog.book[1].genre : Fantasy
-
-    .EXAMPLE
-        #Get a single process with all props, flatten this object.  Don't exclude default properties
-        Get-Process | select -first 1 -skip 10 -Property * | ConvertTo-FlatObject -ExcludeDefault $false
-
-        #NOTE - There will likely be bugs for certain complex objects like this.
-                For example, $Object.StartInfo.Verbs.SyncRoot.SyncRoot... will loop until we hit MaxDepth. (Note: SyncRoot is now addressed individually)
-
-    .NOTES
-        I have trouble with algorithms.  If you have a better way to handle this, please let me know!
-
-    .FUNCTIONALITY
-        General Command
-    #>
-    [CmdletBinding()]
-    param(
-
-        [Parameter(Mandatory = $True,
-            ValueFromPipeLine = $True)]
-        [PSObject[]]$InputObject,
-
-        [string[]]$Exclude = "",
-
-        [bool]$ExcludeDefault = $True,
-
-        [string[]]$Include = $null,
-
-        [string[]]$Value = $null,
-
-        [int]$MaxDepth = 10
-    )
-    begin {
-        #region FUNCTIONS
-
-        #Before adding a property, verify that it matches a Like comparison to strings in $Include...
-        function IsIn-Include {
-            param($prop)
-            if (-not $Include) { $True }
-            else {
-                foreach ($Inc in $Include) {
-                    if ($Prop -like $Inc) {
-                        $True
-                    }
-                }
-            }
-        }
-
-        #Before adding a value, verify that it matches a Like comparison to strings in $Value...
-        function IsIn-Value {
-            param($val)
-            if (-not $Value) { $True }
-            else {
-                foreach ($string in $Value) {
-                    if ($val -like $string) {
-                        $True
-                    }
-                }
-            }
-        }
-
-        function Get-Exclude {
-            [CmdletBinding()]
-            param($obj)
-
-            #Exclude default props if specified, and anything the user specified.  Thanks to Jaykul for the hint on [type]!
-            if ($ExcludeDefault) {
-                try {
-                    $DefaultTypeProps = @($obj.GetType().GetProperties() | Select-Object -ExpandProperty Name -ErrorAction Stop)
-                    if ($DefaultTypeProps.Count -gt 0) {
-                        Write-Output "Excluding default properties for $($obj.gettype().Fullname):`n$($DefaultTypeProps | Out-String)"
-                    }
-                } catch {
-                    Write-Output "Failed to extract properties from $($obj.gettype().Fullname): $_"
-                    $DefaultTypeProps = @()
-                }
-            }
-
-            @($Exclude + $DefaultTypeProps) | Select-Object -Unique
-        }
-
-        #Function to recurse the Object, add properties to object
-        function Recurse-Object {
-            [CmdletBinding()]
-            param(
-                $Object,
-                [string[]]$path = '$Object',
-                [psobject]$Output,
-                $depth = 0
-            )
-
-            # Handle initial call
-            Write-Output "Working in path $Path at depth $depth"
-            Write-Debug "Recurse Object called with PSBoundParameters:`n$($PSBoundParameters | Out-String)"
-            $Depth++
-
-            #Exclude default props if specified, and anything the user specified.
-            $ExcludeProps = @(Get-Exclude $object)
-
-            #Get the children we care about, and their names
-            $Children = $object.PSObject.Properties | Where-Object { $ExcludeProps -notcontains $_.Name }
-            Write-Debug "Working on properties:`n$($Children | select -ExpandProperty Name | Out-String)"
-
-            #Loop through the children properties.
-            foreach ($Child in @($Children)) {
-                $ChildName = $Child.Name
-                $ChildValue = $Child.Value
-
-                Write-Debug "Working on property $ChildName with value $($ChildValue | Out-String)"
-                # Handle special characters...
-                if ($ChildName -match '[^a-zA-Z0-9_]') {
-                    $FriendlyChildName = "'$ChildName'"
-                } else {
-                    $FriendlyChildName = $ChildName
-                }
-
-                #Add the property.
-                if ((IsIn-Include $ChildName) -and (IsIn-Value $ChildValue) -and $Depth -le $MaxDepth) {
-                    $ThisPath = @($Path + $FriendlyChildName) -join "."
-                    $Output | Add-Member -MemberType NoteProperty -Name $ThisPath -Value $ChildValue
-                    Write-Output "Adding member '$ThisPath'"
-                }
-
-                #Handle null...
-                if ($ChildValue -eq $null) {
-                    Write-Output "Skipping NULL $ChildName"
-                    continue
-                }
-
-                #Handle evil looping.  Will likely need to expand this.  Any thoughts on a better approach?
-                if (
-                    (
-                        $ChildValue.GetType() -eq $Object.GetType() -and
-                        $ChildValue -is [datetime]
-                    ) -or
-                    (
-                        $ChildName -eq "SyncRoot" -and
-                        -not $ChildValue
-                    )
-                ) {
-                    Write-Output "Skipping $ChildName with type $($ChildValue.GetType().fullname)"
-                    continue
-                }
-
-                #Check for arrays by checking object type (this is a fix for arrays with 1 object) otherwise check the count of objects
-                if (($ChildValue.GetType()).BaseType.Name -eq "Array") {
-                    $IsArray = $true
-                } else {
-                    $IsArray = @($ChildValue).Count -gt 1
-                }
-
-                $count = 0
-
-                #Set up the path to this node and the data...
-                $CurrentPath = @($Path + $FriendlyChildName) -join "."
-
-                #Exclude default props if specified, and anything the user specified.
-                $ExcludeProps = @(Get-Exclude $ChildValue)
-
-                #Get the children's children we care about, and their names.  Also look for signs of a hashtable like type
-                $ChildrensChildren = $ChildValue.PSObject.Properties | Where-Object { $ExcludeProps -notcontains $_.Name }
-                $HashKeys = if ($ChildValue.Keys -notlike $null -and $ChildValue.Values) {
-                    $ChildValue.Keys
-                } else {
-                    $null
-                }
-                Write-Debug "Found children's children $($ChildrensChildren | select -ExpandProperty Name | Out-String)"
-
-                #If we aren't at max depth or a leaf...
-                if (
-                    (@($ChildrensChildren).Count -ne 0 -or $HashKeys) -and
-                    $Depth -lt $MaxDepth
-                ) {
-                    #This handles hashtables.  But it won't recurse...
-                    if ($HashKeys) {
-                        Write-Output "Working on hashtable $CurrentPath"
-                        foreach ($key in $HashKeys) {
-                            Write-Output "Adding value from hashtable $CurrentPath['$key']"
-                            $Output | Add-Member -MemberType NoteProperty -Name "$CurrentPath['$key']" -Value $ChildValue["$key"]
-                            $Output = Recurse-Object -Object $ChildValue["$key"] -Path "$CurrentPath['$key']" -Output $Output -Depth $depth
-                        }
-                    }
-                    #Sub children?  Recurse!
-                    else {
-                        if ($IsArray) {
-                            foreach ($item in @($ChildValue)) {
-                                Write-Output "Recursing through array node '$CurrentPath'"
-                                $Output = Recurse-Object -Object $item -Path "$CurrentPath[$count]" -Output $Output -Depth $depth
-                                $Count++
-                            }
-                        } else {
-                            Write-Output "Recursing through node '$CurrentPath'"
-                            $Output = Recurse-Object -Object $ChildValue -Path $CurrentPath -Output $Output -Depth $depth
-                        }
-                    }
-                }
-            }
-
-            $Output
-        }
-
-        #endregion FUNCTIONS
-    }
-    process {
-        foreach ($Object in $InputObject) {
-            #Flatten the XML and write it to the pipeline
-            Recurse-Object -Object $Object -Output $(New-Object -TypeName PSObject)
-        }
-    }
-}
-
-
-function Convert-OutputForCSV {
-    <# https://github.com/proxb/PowerShell_Scripts/blob/master/Convert-OutputForCSV.ps1
-        .SYNOPSIS
-            Provides a way to expand collections in an object property prior
-            to being sent to Export-Csv.
-
-        .DESCRIPTION
-            Provides a way to expand collections in an object property prior
-            to being sent to Export-Csv. This helps to avoid the object type
-            from being shown such as system.object[] in a spreadsheet.
-
-        .PARAMETER InputObject
-            The object that will be sent to Export-Csv
-
-        .PARAMETER OutputPropertyType
-            This determines whether the property that has the collection will be
-            shown in the CSV as a comma delimmited string or as a stacked string.
-
-            Possible values:
-            Stack
-            Comma
-
-            Default value is: Stack
-
-        .NOTES
-            Name: Convert-OutputForCSV
-            Author: Boe Prox
-            Created: 24 Jan 2014
-            Version History:
-                1.1 - 02 Feb 2014
-                    -Removed OutputOrder parameter as it is no longer needed; inputobject order is now respected
-                    in the output object
-                1.0 - 24 Jan 2014
-                    -Initial Creation
-
-        .EXAMPLE
-            $Output = 'PSComputername','IPAddress','DNSServerSearchOrder'
-
-            Get-WMIObject -Class Win32_NetworkAdapterConfiguration -Filter "IPEnabled='True'" |
-            Select-Object $Output | Convert-OutputForCSV |
-            Export-Csv -NoTypeInformation -Path NIC.csv
-
-            Description
-            -----------
-            Using a predefined set of properties to display ($Output), data is collected from the
-            Win32_NetworkAdapterConfiguration class and then passed to the Convert-OutputForCSV
-            function which expands any property with a collection so it can be read properly prior
-            to being sent to Export-Csv. Properties that had a collection will be viewed as a stack
-            in the spreadsheet.
-
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(ValueFromPipeLine)]
-        [psobject]$InputObject,
-        [Parameter()]
-        [ValidateSet('Stack', 'Comma')]
-        [string]$OutputPropertyType = 'Stack'
-    )
-    begin {
-        $PSBoundParameters.GetEnumerator() | ForEach-Object {
-            Write-Output "$($_)"
-        }
-        $FirstRun = $True
-    }
-    process {
-        if ($FirstRun) {
-            $OutputOrder = $InputObject.PSObject.Properties.Name
-            Write-Output "Output Order:`n $($OutputOrder -join ', ' )"
-            $FirstRun = $False
-            #Get properties to process
-            $Properties = Get-Member -InputObject $InputObject -MemberType *Property
-            #Get properties that hold a collection
-            $Properties_Collection = @(($Properties | Where-Object {
-                        $_.Definition -match "Collection|\[\]"
-                    }).Name)
-            #Get properties that do not hold a collection
-            $Properties_NoCollection = @(($Properties | Where-Object {
-                        $_.Definition -notmatch "Collection|\[\]"
-                    }).Name)
-            Write-Output "Properties Found that have collections:`n $(($Properties_Collection) -join ', ')"
-            Write-Output "Properties Found that have no collections:`n $(($Properties_NoCollection) -join ', ')"
-        }
-
-        $InputObject | ForEach-Object {
-            $Line = $_
-            $stringBuilder = New-Object Text.StringBuilder
-            $Null = $stringBuilder.AppendLine("[pscustomobject] @{")
-
-            $OutputOrder | ForEach-Object {
-                if ($OutputPropertyType -eq 'Stack') {
-                    $Null = $stringBuilder.AppendLine("`"$($_)`" = `"$(($line.$($_) | Out-String).Trim())`"")
-                } elseif ($OutputPropertyType -eq "Comma") {
-                    $Null = $stringBuilder.AppendLine("`"$($_)`" = `"$($line.$($_) -join ', ')`"")
-                }
-            }
-            $Null = $stringBuilder.AppendLine("}")
-
-            Invoke-Expression $stringBuilder.ToString()
-        }
-    }
-    end {}
-}
-
-
-
-<# https://github.com/solidstate888/JSON-ToCSV/blob/master/Convert-JsonToCsv.ps1
-.SYNOPSIS
-    "Flattens" a JSON file into a CSV formatted file.
- 
-.DESCRIPTION
-    Uses the built-in function "ConvertFrom-Json" to convert the source JSON file to a PSCustomObject.
-    Once the data is a PSCustomObject, calls the function "Flatten-PsCustomObject" to remove nesting.
-    After nesting is removed, the data is sent to the built-in function "Export-Csv" for output.
- 
-.PARAMETERS
-    (Function "Flatten-PsCustomObject": $parent, $sourceParam)
-    $parent is required to create the CSV headers, and $sourceParam it the PSCustomObject input.  
- 
-.INPUTS
-  $inputFile = "testA.json"
- 
-.OUTPUTS
-  $outputFile = "testA.csv"
- 
-.NOTES
-  Version:        1.0
-  Author:         Kelly Jolly 
-  Creation Date:  6/2/2017
-  Purpose/Change: Initial Commit
-#>
- 
-Function Flatten-PsCustomObject{
-    param (
-        [Parameter(ValueFromPipeLine)] #[Parameter(Mandatory=$true)]
-        $sourceParam,
-        [Parameter(Mandatory=$true)]
-        $parent       
-    )
- 
-    $parentFlat=$parent
-    $parentNested=$parent
-    $flat = [System.Collections.ArrayList]@()
-    $nested = [System.Collections.ArrayList]@()
-    $counter=$null
-    $output = New-Object -TypeName pscustomobject
- 
-    #### Get the items in the PSCustomObject source that contain user data. ####
-    if ($sourceParam){      
-         $objects = Get-Member -InputObject $sourceParam -MemberType NoteProperty
-    }
-    else{
-        $objects = $null
-    }
- 
-    #### Separate the user data, based on whether each item has additional nested data or not. ####
-    # "Nested" contains nested data. "Flat" contains flat data, ready for export.                 #
-    foreach ($object in $objects) {
-        if ($object.Definition -match "System.Object"){
-            $nested+=$object
-        }
-        else{
-             $flat+=$object
-        }
-    }
- 
-    #### Flat Data - Create CSV headers, and add the headers & flat data to the output variable. ####
-    foreach($keyFlat in $flat){
-        
-        # Build the CSV headers. #
-        $nameFlat = $parentFlat+"."+$keyFlat.Name
-       
-        # Using the object names, pull the values of those objects from the source, and save to a variable. #
-        if ($keyFlat) {
-            try{
-                $valueFlat = $sourceParam | Select -ExpandProperty $keyFlat.Name -ErrorAction Stop
-            }catch{
-                write-host "Flat Data - Unable to populate the variable $keyFlat"
-            }
-        }else{
-            $valueFlat = $null
-        }
- 
-        # Some nested data was sneaking through - checks for that, and sends nested data recursively back to function. #
-        # Otherwise, it adds the flat data to the output variable. #
-        if ($valueFlat -and $valueFlat -match "@{"){
-            Flatten-PsCustomObject $nameFlat $valueFlat
-#
-        }elseif (($valueFlat) -and $valueFlat -notmatch "@{"){
-            $output | Add-Member -MemberType NoteProperty -Name $nameFlat -Value $valueFlat
-        }else{
-            $output | Add-Member -MemberType NoteProperty -Name $nameFlat -Value ""
-        }
-    }
- 
-    #### Nested Data - Sends the nested data recursively back through the function. ####
-    foreach($keyNested in $Nested){
-        # Creates CSV headers, gets the values of the nested data. #
-        try{
-            $nameNested = $parentNested+"."+$keyNested.Name
-            $valueNested = $sourceParam | select -ExpandProperty $keyNested.Name -ErrorAction Stop
-        }catch{
-            write-host "Nested Data - Unable to populate the variable $keyNested"
-        }
-       
-        # Sends non-null values recursively back through the function. Sends null values to the output variable. #
-        If($valueNested) {
-            foreach ($value in $valueNested){             
-                Flatten-PsCustomObject "$nameNested$counter" $value
-                $counter++       
-            }
-            $counter=$null
-        }else{
-            $output | Add-Member -MemberType NoteProperty -Name $nameNested -Value ""
-        }
- 
-    }
-    return $output
-}
  
 #endregion functions
 
@@ -1853,102 +1371,127 @@ foreach ($inputFile in $inputfiles) {
     $headerRow
 
     if ($headerRow -match "AuditData") {
-        Write-Output "Starting recursive flattening of 'AuditData' field from UAL log. Recursive JSON flattening not recommended for log exports larger than around 10mb (5,000 records, 10,000,000 characters)..."
+        Write-Output "`nStarting recursive flattening of 'AuditData' field from UAL log. Recursive JSON flattening not recommended for log exports larger than around 10mb (5,000 records, 10,000,000 characters)..."
 
         $CsvData = Import-Csv -Path $inputFile
-        Write-Output "Imported CSV is $($CsvData.length) records long."
-        Write-Output "Parsing with $function function(s)..."
+        Write-Output "`nImported CSV is $($CsvData.length) records long."
+        $OperationList = $CsvData.Operations | Sort-Object | Get-Unique
+        Write-Output "Found $($OperationList.count) types of operations logged:"
+        $OperationList
+        Write-Output "`nBeginning parsing of CSV JSON data with $function function(s)..."
 
         # Simple not-recursive JSON to CSV export - very fast but only flattens JSON data by one level:
         if ($function -match "simple" -or $function -eq "all") {
+            Write-Output "`nParsing with simple single-level JSON function..."
             $sw = [Diagnostics.StopWatch]::StartNew()
-            $Audit = ""
+            $Audit = @()
             $Combined = ""
             [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-SingleLevel.csv"
-            $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json
+
+            ForEach ($Operation in $OperationList) {
+                $FlatRecord = $CsvData | Where-Object {$_.Operations -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json
+                Write-Output "Processed operation '$Operation'"
+                if ($Audit) {
+                    $Props = @()
+                    $NewProps = @()
+                    $Audit[0] | ForEach-Object{ $Props += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
+                    $FlatRecord[0] | ForEach-Object{ $NewProps += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
+                    $Diff = Compare-Object -ReferenceObject $Props -DifferenceObject $NewProps | Where-Object {$_.SideIndicator -eq "=>"} | Select-Object -ExpandProperty InputObject
+                    ForEach ($PropertyName in $Diff) { $Audit | Add-Member -MemberType NoteProperty -Name $PropertyName -Value $null -ErrorAction SilentlyContinue }
+                    $Audit = $Audit + $FlatRecord
+                } else {
+                    $Audit = $FlatRecord
+                }
+            }
+
+            # Overly recursive way of doing it:
+            # ForEach ($Operation in $OperationList) { $FlatRecord = $CsvData | Where-Object {$_.Operations -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json ; Write-Output "`nProcessed operation '$Operation'" ; $($FlatRecord | Get-Member -MemberType NoteProperty | Select Name | Out-String) ; $Audit = $Audit | FullJoin $FlatRecord -On Id -Equals Id | Convert-ObjectJoinProperties -OutputPropertyType Blank }
+            # $Combined = $Audit
+
+            # Simple way of doing it if all JSON has same structure:
+            # $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json
+
             if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
             $Combined = $Combined | Sort-Object * -Unique
-            $Combined = $Combined | Sort-Object "CreationTime"
+            $Combined = $Combined | Sort-Object "CreationTime" -Descending
+            $Combined = $Combined | Select-Object -Property @{Name = 'Recordtypes'; Expression = {$_.Recordtype -join ", "}}, * -ExcludeProperty Recordtype
             $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
             Write-Output "`n$outputPath written (simple)."
             Write-Output "Processed CSV is $($Combined.length) records long."
-            Write-Output "Seconds elapsed for CSV processing (non-recursive json conversion): $($sw.elapsed.totalseconds)`n"
+            Write-Output "Seconds elapsed for CSV processing (non-recursive json conversion): $($sw.elapsed.totalseconds)"
         }
 
-        if ($function -match "iRon" -or $function -eq "all") {
-            $sw = [Diagnostics.StopWatch]::StartNew()
-            $Audit = ""
-            $Combined = ""
-            [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-flatten.csv"
-            $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
-            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id }
-            $Combined = $Combined | Sort-Object * -Unique
-            $Combined = $Combined | Sort-Object "CreationTime"
-            $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-            Write-Output "`n$outputPath written (iRon)."
-            Write-Output "Processed CSV is $($Combined.length) records long."
-            Write-Output "Seconds elapsed for CSV processing (Flatten-Object - slow): $($sw.elapsed.totalseconds)`n"
-        }
         if ($function -match "EvotecIT" -or $function -eq "all") {
+            Write-Output "`nParsing with EvotecIT function..."
             $sw = [Diagnostics.StopWatch]::StartNew()
-            $Audit = ""
+            $Audit = @()
             $Combined = ""
             [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlatObject.csv"
-            $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
-            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id }
+
+            ForEach ($Operation in $OperationList) {
+                $FlatRecord = $CsvData | Where-Object {$_.Operations -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
+                Write-Output "Processed operation '$Operation'"
+                if ($Audit) {
+                    $Props = @()
+                    $NewProps = @()
+                    $Audit[0] | ForEach-Object{ $Props += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
+                    $FlatRecord[0] | ForEach-Object{ $NewProps += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
+                    $Diff = Compare-Object -ReferenceObject $Props -DifferenceObject $NewProps | Where-Object {$_.SideIndicator -eq "=>"} | Select-Object -ExpandProperty InputObject
+                    ForEach ($PropertyName in $Diff) { $Audit | Add-Member -MemberType NoteProperty -Name $PropertyName -Value $null -ErrorAction SilentlyContinue }
+                    $Audit = $Audit + $FlatRecord
+                } else {
+                    $Audit = $FlatRecord
+                }
+            }
+
+            # Simple way of doing it if all JSON has same structure:
+            # $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
+
+            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
             $Combined = $Combined | Sort-Object * -Unique
-            $Combined = $Combined | Sort-Object "CreationTime"
+            $Combined = $Combined | Sort-Object "CreationTime" -Descending
+            $Combined = $Combined | Select-Object -Property @{Name = 'Recordtypes'; Expression = {$_.Recordtype -join ", "}}, * -ExcludeProperty Recordtype
             $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
             [io.file]::readalltext("$outputPath").replace("System.Object[]","") | Out-File "$outputPath" -Encoding utf8 –Force
             Write-Output "`n$outputPath written (EvotecIT)."
             Write-Output "Processed CSV is $($Combined.length) records long."
-            Write-Output "Seconds elapsed for CSV processing (ConvertTo-FlatObject - fast): $($sw.elapsed.totalseconds)`n"
-        }
-        if ($function -match "RamblingCookieMonster" -or $function -eq "all") {
-            $sw = [Diagnostics.StopWatch]::StartNew()
-            $Audit = ""
-            $Combined = ""
-            [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlatObject2.csv"
-            $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject2 -MaxDepth 20
-            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals '$Object.Id' }
-            $Combined = $Combined | Sort-Object * -Unique
-            $Combined = $Combined | Sort-Object "CreationTime"
-            $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-            Write-Output "`n$outputPath written (RamblingCookieMonster)."
-            Write-Output "Processed CSV is $($Combined.length) records long."
-            Write-Output "Seconds elapsed for CSV processing (ConvertTo-FlatObject2 - slowest): $($sw.elapsed.totalseconds)`n"
-        }
-        if ($function -match "proxb" -or $function -eq "all") {
-            $sw = [Diagnostics.StopWatch]::StartNew()
-            $Audit = ""
-            $Combined = ""
-            $CsvDataReplace = ""
-            [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-OutputForCsv.csv"
-            $CsvDataReplace = $CsvData | ForEach-Object { $_.AuditData = $_.AuditData -replace '“', '' ; $_.AuditData = $_.AuditData -replace '”', '' ; $_ }
-            $Audit = $CsvDataReplace | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Convert-OutputForCSV -OutputPropertyType "Comma"
-            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id }
-            $Combined = $Combined | Sort-Object * -Unique
-            $Combined = $Combined | Sort-Object "CreationTime"
-            $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-            Write-Output "`n$outputPath written (proxb)."
-            Write-Output "Processed CSV is $($Combined.length) records long."
-            Write-Output "Seconds elapsed for CSV processing (Convert-OutputForCSV - fast): $($sw.elapsed.totalseconds)`n"
+            Write-Output "Seconds elapsed for CSV processing (ConvertTo-FlatObject - fast): $($sw.elapsed.totalseconds)"
         }
 
-        # Not yet working
-        if ($function -match "solidstate888" -or $function -eq "all") {
+        if ($function -match "iRon" -or $function -eq "all") {
+            Write-Output "`nParsing with iRon function..."
             $sw = [Diagnostics.StopWatch]::StartNew()
-            $Audit = ""
+            $Audit = @()
             $Combined = ""
-            [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlattenObject.csv"
-            ForEach ($Record in $CsvData) { $Audit += $Record.AuditData | ConvertFrom-Json | Flatten-PsCustomObject -Parent "AuditData" }
-            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals AuditData.Id } # function currently outputs flattened data another level lower and currently unable to join
+            [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-flatten.csv"
+
+            ForEach ($Operation in $OperationList) {
+                $FlatRecord = $CsvData | Where-Object {$_.Operations -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
+                Write-Output "Processed operation '$Operation'"
+                if ($Audit) {
+                    $Props = @()
+                    $NewProps = @()
+                    $Audit[0] | ForEach-Object{ $Props += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
+                    $FlatRecord[0] | ForEach-Object{ $NewProps += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
+                    $Diff = Compare-Object -ReferenceObject $Props -DifferenceObject $NewProps | Where-Object {$_.SideIndicator -eq "=>"} | Select-Object -ExpandProperty InputObject
+                    ForEach ($PropertyName in $Diff) { $Audit | Add-Member -MemberType NoteProperty -Name $PropertyName -Value $null -ErrorAction SilentlyContinue }
+                    $Audit = $Audit + $FlatRecord
+                } else {
+                    $Audit = $FlatRecord
+                }
+            }
+
+            # Simple way of doing it if all JSON has same structure:
+            # $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
+
+            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
             $Combined = $Combined | Sort-Object * -Unique
-            $Combined = $Combined | Sort-Object "CreationTime"
+            $Combined = $Combined | Sort-Object "CreationTime" -Descending
+            $Combined = $Combined | Select-Object -Property @{Name = 'Recordtypes'; Expression = {$_.Recordtype -join ", "}}, * -ExcludeProperty Recordtype
             $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-            Write-Output "`n$outputPath written (solidstate888)."
+            Write-Output "`n$outputPath written (iRon)."
             Write-Output "Processed CSV is $($Combined.length) records long."
-            Write-Output "Seconds elapsed for CSV processing (Flatten-PsCustomObject - fast): $($sw.elapsed.totalseconds)`n"
+            Write-Output "Seconds elapsed for CSV processing (Flatten-Object - slow): $($sw.elapsed.totalseconds)"
         }
 
         Write-Output "`n`nDone!"
