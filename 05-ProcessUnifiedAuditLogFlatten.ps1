@@ -9,7 +9,7 @@
 #
 # ProcessUnifiedAuditLogFlatten.ps1 - By Bitpusher/The Digital Fox
 # Flatten-Object function created by iRon, ConvertTo-FlatObject function created by EvotecIT.
-# v3.1.1 last updated 2025-09-06
+# v3.1.2 last updated 2025-09-11
 # Processes an exported CSV of Unified Audit Log entries that contains cells with arrays/hash tables/objects and flattens it for ease of manual processing.
 #
 # Appends flattened set of columns to the original CSV log data in the export to ensure no information is absent in result.
@@ -1373,9 +1373,18 @@ foreach ($inputFile in $inputfiles) {
     if ($headerRow -match "AuditData") {
         Write-Output "`nStarting recursive flattening of 'AuditData' field from UAL log. Recursive JSON flattening not recommended for log exports larger than around 10mb (5,000 records, 10,000,000 characters)..."
 
+        if ($headerRow -match "Operations") {
+            $OpsColum = "Operations"
+        } elseif ($headerRow -match "Operation") {
+            $OpsColum = "Operation"
+        } else {
+            $OpsColum = "NOTFOUND"
+        }
+
         $CsvData = Import-Csv -Path $inputFile
         Write-Output "`nImported CSV is $($CsvData.length) records long."
-        $OperationList = $CsvData.Operations | Sort-Object | Get-Unique
+        $OperationList = $CsvData.$OpsColum | Sort-Object | Get-Unique
+
         Write-Output "Found $($OperationList.count) types of operations logged:"
         $OperationList
         Write-Output "`nBeginning parsing of CSV JSON data with $function function(s)..."
@@ -1389,7 +1398,7 @@ foreach ($inputFile in $inputfiles) {
             [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-SingleLevel.csv"
 
             ForEach ($Operation in $OperationList) {
-                $FlatRecord = $CsvData | Where-Object {$_.Operations -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json
+                $FlatRecord = $CsvData | Where-Object {$_.$OpsColum -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json
                 Write-Output "Processed operation '$Operation'"
                 if ($Audit) {
                     $Props = @()
@@ -1405,7 +1414,7 @@ foreach ($inputFile in $inputfiles) {
             }
 
             # Overly recursive way of doing it:
-            # ForEach ($Operation in $OperationList) { $FlatRecord = $CsvData | Where-Object {$_.Operations -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json ; Write-Output "`nProcessed operation '$Operation'" ; $($FlatRecord | Get-Member -MemberType NoteProperty | Select Name | Out-String) ; $Audit = $Audit | FullJoin $FlatRecord -On Id -Equals Id | Convert-ObjectJoinProperties -OutputPropertyType Blank }
+            # ForEach ($Operation in $OperationList) { $FlatRecord = $CsvData | Where-Object {$_.$OpsColum -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json ; Write-Output "`nProcessed operation '$Operation'" ; $($FlatRecord | Get-Member -MemberType NoteProperty | Select Name | Out-String) ; $Audit = $Audit | FullJoin $FlatRecord -On Id -Equals Id | Convert-ObjectJoinProperties -OutputPropertyType Blank }
             # $Combined = $Audit
 
             # Simple way of doing it if all JSON has same structure:
@@ -1429,7 +1438,7 @@ foreach ($inputFile in $inputfiles) {
             [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlatObject.csv"
 
             ForEach ($Operation in $OperationList) {
-                $FlatRecord = $CsvData | Where-Object {$_.Operations -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
+                $FlatRecord = $CsvData | Where-Object {$_.$OpsColum -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
                 Write-Output "Processed operation '$Operation'"
                 if ($Audit) {
                     $Props = @()
@@ -1466,7 +1475,7 @@ foreach ($inputFile in $inputfiles) {
             [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-flatten.csv"
 
             ForEach ($Operation in $OperationList) {
-                $FlatRecord = $CsvData | Where-Object {$_.Operations -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
+                $FlatRecord = $CsvData | Where-Object {$_.$OpsColum -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
                 Write-Output "Processed operation '$Operation'"
                 if ($Audit) {
                     $Props = @()
