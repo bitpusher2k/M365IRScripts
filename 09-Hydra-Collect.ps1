@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Hydra-Collect.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v3.1.1 last updated 2025-09-17
 # Script to trigger set of oft-used investigation scripts with default options at the outset of an investigation.
 # "Hydra" because each sub-script "head" is independent (a failure of one will not impact others), and because it's memorable.
 #
@@ -228,6 +228,9 @@ if ($DaysAgo) {
     Write-Output "Neither DaysAgo nor StartDate/EndDate specified. Ending." | Tee-Object -FilePath $logFilePath -Append
     exit
 }
+
+Write-Output "Opening Edge browser window to sign-in logs (manually download for Entra ID Free tenants)..."
+Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/SignIns"
 
 Write-Output "`nRunning 10-Get-BasicTenantInformation.ps1..." | Tee-Object -FilePath $logFilePath -Append
 & "$PSScriptRoot\10-Get-BasicTenantInformation.ps1" -OutputPath $OutputPath

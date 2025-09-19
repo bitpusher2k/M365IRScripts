@@ -113,7 +113,7 @@ if ($Test) {
 Write-Output "`n ** IPPS (Security & Compliance)..."
 # Import-Module ExchangeOnlineManagement
 Connect-IPPSSession
-Write-Output "`nPart 4 of 5. Exchange Online (after IPPS so UAC logging check works)..."
+Write-Output "`n ** Exchange Online (after IPPS so UAC logging check works)..."
 Connect-ExchangeOnline
 
 $EOSessions = Get-PSSession | Select-Object -Property State, Name

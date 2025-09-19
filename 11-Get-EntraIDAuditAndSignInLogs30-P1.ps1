@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-EntraIDAudieAndSignInLogs30-P1.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v3.1.1 last updated 2025-09-17
 # Function ConvertTo-FlatObject by https://github.com/EvotecIT
 # Script to export Azure AD sign-in and audit logs for past 30 days
 # (if they exist that far back)
@@ -318,31 +318,12 @@ if ($DaysAgo) {
     exit
 }
 
-# Get-MsolAccountSku
 # Get-MgSubscribedSku | Select -Property Sku*, ConsumedUnits -ExpandProperty PrepaidUnits | Select-Object SkuPartNumber | Format-List
-# Get-AzureADSubscribedSku | Select -Property Sku*,ConsumedUnits -ExpandProperty PrepaidUnits
 # (Get-MgSubscribedSku).ServicePlans | ? { $_.ServicePlanName -Like 'AAD_PREMIUM*' }
 # https://portal.azure.com/#view/Microsoft_AAD_IAM/LicensesMenuBlade/~/Products
-# Get-AzureADDomain
 
 Write-Output "`nWARNING - Logs retrieved via AzureAD or Microsoft Graph do NOT contain the 'Authentication Protocol' field - https://www.invictus-ir.com/news/do-not-use-the-get-mgauditlogsignin-for-your-investigations"
 Write-Output "This script will attempt to use the beta cmdlet versions to retrieve more sign-in data."
-Write-Output "`nAttempting to retrieve Entra ID Audit logs (past $DaysAgo days)..."
-
-# Obsolete AzureAD commands commented out
-# if ($host.version.Major -eq 5) {
-#     Write-Output "Running in AzureAD module native Windows PowerShell 5."
-#     Write-Output "Will parse AzureADAuditDirectoryLogs as serialized object..."
-#     Get-AzureADAuditDirectoryLogs -Filter "activityDateTime gt $StartDate" | Select-Object ActivityDateTime, @{ Name = "ActivityDateTimeISO"; expression = { $_.ActivityDateTime.ToUniversalTime().ToString("o") } }, ActivityDisplayName, ResultReason, @{ Name = "InitiatedBy.User.UserPrincipalName"; expression = { $_.InitiatedBy.User.UserPrincipalName } }, @{ Name = "InitiatedBy.User.IpAddress"; expression = { $_.InitiatedBy.User.IpAddress } }, @{ Name = "TargetResources.UserPrincipalName"; expression = { $_.TargetResources.UserPrincipalName } }, @{ Name = "TargetResources.DisplayName"; expression = { $_.TargetResources.DisplayName } }, Category, Result, LoggedByService, Id, CorrelationId, OperationType, @{ Name = "InitiatedBy"; expression = { $_.InitiatedBy -join ";" } }, @{ Name = "TargetResources"; expression = { $_.TargetResources -join ";" } }, @{ Name = "TargetResources.Type"; expression = { $_.TargetResources.Type } }, @{ Name = "Additionaldetails"; expression = { $_.Additionaldetails -join ";" } } | Export-Csv -Path "$OutputPath\$DomainName\EntraIDAuditLogs_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
-# } elseif ($host.version.Major -gt 5) {
-#     Write-Output "Running in PowerShell Core."
-#     Write-Output "Will parse AzureADAuditDirectoryLogs as deserialized object (splitting some values on line-feed - may mangle some cell values)..."
-#     Get-AzureADAuditDirectoryLogs -Filter "activityDateTime gt $StartDate" | Select-Object ActivityDateTime, @{ Name = "ActivityDateTimeISO"; expression = { $_.ActivityDateTime.ToUniversalTime().ToString("o") } }, ActivityDisplayName, ResultReason, @{ Name = "InitiatedBy.User.UserPrincipalName"; expression = { $_.InitiatedBy.Split("`n")[5].Split(":")[1].Trim() } }, @{ Name = "InitiatedBy.User.IpAddress"; expression = { $_.InitiatedBy.Split("`n")[4].Split(":")[1].Trim() } }, @{ Name = "TargetResources.UserPrincipalName"; expression = { $_.TargetResources.Split("`n")[4].Split(":")[1].Trim() } }, @{ Name = "TargetResources.DisplayName"; expression = { $_.TargetResources.Split("`n")[2].Split(":")[1].Trim() } }, Category, Result, LoggedByService, Id, CorrelationId, OperationType, @{ Name = "InitiatedBy"; expression = { $_.InitiatedBy -join ";" } }, @{ Name = "TargetResources"; expression = { $_.TargetResources -join ";" } }, @{ Name = "TargetResources.Type"; expression = { $_.TargetResources.Split("`n")[3].Split(":")[1].Trim() } }, @{ Name = "Additionaldetails"; expression = { $_.Additionaldetails -join ";" } } | Export-Csv -Path "$OutputPath\$DomainName\EntraIDAuditLogs_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
-# } else {
-#     Write-Output "Running in unsupported PowerShell version. Please run in PowerShell 5+."
-# }
-# Write-Output "`nDone..."
-
 
 Write-Output "`nAttempting to retrieve Entra ID Audit logs (after $StartDate) via beta graph cmdlet..."
 
@@ -363,82 +344,36 @@ if (!$LicenseBool) {
     Write-Output "License does not appear to be present - you will have to retrieve logs manually from:"
     Write-Output "`nhttps://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/SignIns"
 } else {
-    Write-Output "`nAttempting to retrieve Entra ID Sign-in logs (after $StartDate)..."
-
-    # Obsolete AzureAD commands commented out
-    # if ($host.version.Major -eq 5) {
-    #     Write-Output "Running in AzureAD module native Windows PowerShell 5."
-    #     Write-Output "Will parse AzureADAuditSignInLogs as serialized object..."
-    #     Get-AzureADAuditSignInLogs -Filter "createdDateTime gt $StartDate" | Select-Object CreatedDateTime, UserPrincipalName, UserDisplayName, AppDisplayName, IpAddress, @{ Name = "Location.City"; expression = { $_.Location.City } }, @{ Name = "Location.State"; expression = { $_.Location.State } }, @{ Name = "Location.CountryOrRegion"; expression = { $_.Location.CountryOrRegion } }, @{ Name = "Status.ErrorCode"; expression = { $_.Status.ErrorCode } }, @{ Name = "Status.FailureReason"; expression = { $_.Status.FailureReason } }, ResourceDisplayName, @{ Name = "MfaDetail.AuthMethod"; expression = { $_.MfaDetail.AuthMethod } }, @{ Name = "MfaDetail.AuthDetail"; expression = { $_.MfaDetail.AuthDetail } }, Id, UserId, AppId, ClientAppUsed, CorrelationId, ConditionalAccessStatus, OriginalRequestId, IsInteractive, TokenIssuerName, TokenIssuerType, ProcessingTimeInMilliseconds, RiskDetail, RiskLevelAggregated, RiskLevelDuringSignIn, RiskState, RiskEventTypes, ResourceId, @{ Name = "AuthenticationMethodsUsed"; expression = { $_.AuthenticationMethodsUsed -join ";" } }, @{ Name = "Status"; expression = { $_.Status -join ";" } }, @{ Name = "Status.AdditionalDetails"; expression = { $_.Status.Additionaldetails } }, @{ Name = "DeviceDetail"; expression = { $_.DeviceDetail -join ";" } }, @{ Name = "DeviceDetail.DisplayName"; expression = { $_.DeviceDetail.DisplayName } }, @{ Name = "DeviceDetail.DeviceId"; expression = { $_.DeviceDetail.DeviceId } }, @{ Name = "DeviceDetail.OperatingSystem"; expression = { $_.DeviceDetail.OperatingSystem } }, @{ Name = "DeviceDetail.Browser"; expression = { $_.DeviceDetail.Browser } }, @{ Name = "DeviceDetail.IsCompliant"; expression = { $_.DeviceDetail.IsCompliant } }, @{ Name = "DeviceDetail.IsManaged"; expression = { $_.DeviceDetail.IsManaged } }, @{ Name = "DeviceDetail.TrustType"; expression = { $_.DeviceDetail.TrustType } }, @{ Name = "Location"; expression = { $_.Location -join ";" } }, @{ Name = "MfaDetail"; expression = { $_.MfaDetail -join ";" } }, @{ Name = "AppliedConditionalAccessPolicies"; expression = { $_.AppliedConditionalAccessPolicies -join ";" } }, @{ Name = "AuthenticationProcessingDetails"; expression = { $_.AuthenticationProcessingDetails -join ";" } }, @{ Name = "NetworkLocationDetails"; expression = { $_.NetworkLocationDetails -join ";" } } | Export-Csv -Path "$OutputPath\$DomainName\EntraIDSignInLogs_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    # } elseif ($host.version.Major -gt 5) {
-    #     Write-Output "Running in PowerShell Core."
-    #     Write-Output "Will parse AzureADAuditSignInLogs as deserialized object (splitting some values on line feed - may mangle some cell values)..."
-    #     Get-AzureADAuditSignInLogs -Filter "createdDateTime gt $StartDate" | Select-Object CreatedDateTime, UserPrincipalName, UserDisplayName, AppDisplayName, IpAddress, @{ Name = "Location.City"; expression = { $_.Location.Split("`n")[1].Split(":")[1].Trim() } }, @{ Name = "Location.State"; expression = { $_.Location.Split("`n")[2].Split(":")[1].Trim() } }, @{ Name = "Location.CountryOrRegion"; expression = { $_.Location.Split("`n")[3].Split(":")[1].Trim() } }, @{ Name = "Status.ErrorCode"; expression = { $_.Status.Split("`n")[1].Split(":")[1].Trim() } }, @{ Name = "Status.FailureReason"; expression = { $_.Status.Split("`n")[2].Split(":")[1].Trim() } }, ResourceDisplayName, @{ Name = "MfaDetail.AuthMethod"; expression = { $_.MfaDetail.Split("`n")[1].Split(":")[1].Trim() } }, @{ Name = "MfaDetail.AuthDetail"; expression = { $_.MfaDetail.Split("`n")[2].Split(":")[1].Trim() } }, Id, UserId, AppId, ClientAppUsed, CorrelationId, ConditionalAccessStatus, OriginalRequestId, IsInteractive, TokenIssuerName, TokenIssuerType, ProcessingTimeInMilliseconds, RiskDetail, RiskLevelAggregated, RiskLevelDuringSignIn, RiskState, RiskEventTypes, ResourceId, @{ Name = "AuthenticationMethodsUsed"; expression = { $_.AuthenticationMethodsUsed -join ";" } }, @{ Name = "Status"; expression = { $_.Status -join ";" } }, @{ Name = "Status.AdditionalDetails"; expression = { $_.Status.Split("`n")[3].Split(":")[1].Trim() } }, @{ Name = "DeviceDetail"; expression = { $_.DeviceDetail -join ";" } }, @{ Name = "DeviceDetail.DisplayName"; expression = { $_.DeviceDetail.Split("`n")[2].Split(":")[1].Trim() } }, @{ Name = "DeviceDetail.DeviceId"; expression = { $_.DeviceDetail.Split("`n")[1].Split(":")[1].Trim() } }, @{ Name = "DeviceDetail.OperatingSystem"; expression = { $_.DeviceDetail.Split("`n")[3].Split(":")[1].Trim() } }, @{ Name = "DeviceDetail.Browser"; expression = { $_.DeviceDetail.Split("`n")[4].Split(":")[1].Trim() } }, @{ Name = "DeviceDetail.IsCompliant"; expression = { $_.DeviceDetail.Split("`n")[5].Split(":")[1].Trim() } }, @{ Name = "DeviceDetail.IsManaged"; expression = { $_.DeviceDetail.Split("`n")[6].Split(":")[1].Trim() } }, @{ Name = "DeviceDetail.TrustType"; expression = { $_.DeviceDetail.Split("`n")[7].Split(":")[1].Trim() } }, @{ Name = "Location"; expression = { $_.Location -join ";" } }, @{ Name = "MfaDetail"; expression = { $_.MfaDetail -join ";" } }, @{ Name = "AppliedConditionalAccessPolicies"; expression = { $_.AppliedConditionalAccessPolicies -join ";" } }, @{ Name = "AuthenticationProcessingDetails"; expression = { $_.AuthenticationProcessingDetails -join ";" } }, @{ Name = "NetworkLocationDetails"; expression = { $_.NetworkLocationDetails -join ";" } } | Export-Csv -Path "$OutputPath\$DomainName\EntraIDSignInLogs_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    # } else {
-    #     Write-Output "Running in unsupported PowerShell version. Please run in PowerShell 5+."
-    # }
-    # Write-Output "`nDone..."
 
     Write-Output "`nAttempting to retrieve Entra ID Sign-in logs (after $StartDate) via beta graph cmdlet..."
 
     Write-Output "Get-MgBetaAuditLogSignIn -All -Filter `"createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))`""
-    # $EntraSignInLogs = Get-MgBetaAuditLogSignIn -Filter "createdDateTime gt $StartDate" # Limited to 1000 records
     $EntraSignInLogs = Get-MgBetaAuditLogSignIn -All -Filter "createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))"
-    
-    # Rough outline of potential code to retrieve pagenated sign-in logs through Invoke-MgGraphRequests (to including non-interactive sign-ins).
-    #
-    # $Url = "https://graph.microsoft.com/beta/auditLogs/signIns"
-    # $results = (Invoke-MgGraphRequest -Uri $Url -Method GET).value
-    # 
-    #  $AppId = <Get app-id from app registration>
-    #  $AppSecret = <Get app secret from app registration>
-    #  $TenantName = "<yourtenant>.onmicrosoft.com"
-    # 
-    # $Scope = "https://graph.microsoft.com/.default" $Url = "https://login.microsoftonline.com/$TenantName/oauth2/v2.0/token"
-    # Add System.Web for urlencode
-    # 
-    # Add-Type -AssemblyName System.Web
-    # 
-    # $Body = @{ client_id = $AppId client_secret = $AppSecret scope = $Scope grant_type = 'client_credentials' }
-    # Splat the parameters for Invoke-Restmethod for cleaner code
-    # 
-    # $PostSplat = @{ ContentType = 'application/x-www-form-urlencoded' Method = 'POST' # Create string by joining bodylist with '&' Body = $Body Uri = $Url }
-    # 
-    # $Request = Invoke-RestMethod @PostSplat
-    # 
-    # $Header = @{ Authorization = "$($Request.token_type) $($Request.access_token)" } $tokenttl = (Get-Date).AddSeconds(3599) $AADToken = @{ Header = $Header TTL = $tokenttl } 
-    # 
-    #  $filterQuery += " (signInEventTypes/any(t: t eq 'interactiveUser' or t eq 'nonInteractiveUser' or t eq 'servicePrincipal' or t eq 'managedIdentity'))"
-    #  $Uri = "https://graph.microsoft.com/beta/auditLogs/signIns?`$filter=$encodedFilterQuery"
-    #  Invoke-MgGraphRequest -Uri $Uri -Method Get -ContentType "application/json; odata.metadata=minimal; odata.streaming=true;" -OutputType Json
-    #
-    # $i = 1
-    # $uri = "https://graph.microsoft.com/beta/auditLogs/signIns?$filter=createdDateTime gt $($dates.filterstart) and createdDateTime lt $($dates.filterend)"
-    # try {$output = Invoke-RestMethod -Uri $Uri -Headers $AADToken.Header -Method Get -ContentType "application/json"} catch {$err = $_; break} 
-    # $Logs = $output.value 
-    # $count = $logs.Count 
-    # $currentprog = $output.value.createddatetime | Select-Object -Last 1 Write-Host "loop: $in $count items found `n Currently on $currentprog"
-    # while ($null -ne $output.'@odata.nextLink') { $currenttime = Get-Date $ttl = ($AADToken.TTL - $currenttime).TotalMinutes if ($ttl -lt 3){
-    #     $AADToken = GetToken
-    # } 
-    # try {$output = Invoke-RestMethod -Uri $output.'@odata.nextLink' -Headers $AADToken.Header -Method Get -ContentType "application/json"} catch {$err = $_; break} 
-    # $Logs += $output.value 
-    # $currentprog = $output.value.createddatetime | Select-Object -Last 1 
-    # $count = $logs.count 
-    # $i++ 
-    # Write-Host "loop: $i n $count items foundn Currently on $currentprog" } 
-    # $logs | ConvertTo-Json | Out-File -FilePath $dates.txt 
-    
+
+    Write-Output "Get-MgBetaAuditLogSignIn -All -Filter `"(createdDateTime gt $(createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd')))) and (signInEventTypes/any(t: t ne 'interactiveUser'))`""
+    $EntraSignInLogsNonInteractive = Get-MgBetaAuditLogSignIn -Filter "(createdDateTime gt $(createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd')))) and (signInEventTypes/any(t: t ne 'interactiveUser'))"
+
+    # TO get ALL sign-in types in single query: Get-MgBetaAuditLogSignIn -Filter "(createdDateTime gt $(createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd')))) and (signInEventTypes/any(t: t eq 'nonInteractiveUser' OR t eq 'interactiveUser' OR t eq 'servicePrincipal' OR t eq 'managedIdentity'))"
+
     
     $EntraSignInLogsJSON = $EntraSignInLogs | ConvertTo-Json -Depth 100
     $EntraSignInLogsJSON | Out-File -FilePath "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).json" -Encoding $Encoding
     $EntraSignInLogs | ConvertTo-FlatObject -Base 1 -Depth 20 | Export-Csv -Path "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
     [io.file]::readalltext("$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv").replace("System.Object[]","") | Out-File "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -Encoding utf8 –Force
-    
-    # Reload & sort CSV into preferred column order
+
+    $EntraSignInLogsJSONNonInteractive = $EntraSignInLogsNonInteractive | ConvertTo-Json -Depth 100
+    $EntraSignInLogsJSONNonInteractive | Out-File -FilePath "$OutputPath\$DomainName\EntraIDSignInLogsGraphBetaNonInteractive_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).json" -Encoding $Encoding
+    $EntraSignInLogsNonInteractive | ConvertTo-FlatObject -Base 1 -Depth 20 | Export-Csv -Path "$OutputPath\$DomainName\EntraIDSignInLogsGraphBetaNonInteractive_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+    [io.file]::readalltext("$OutputPath\$DomainName\EntraIDSignInLogsGraphBetaNonInteractive_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv").replace("System.Object[]","") | Out-File "$OutputPath\$DomainName\EntraIDSignInLogsGraphBetaNonInteractive_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -Encoding utf8 –Force
+
+    # Reload & sort CSVs into preferred column order
     $EntraLog = Import-Csv "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv"
     $EntraLog = $EntraLog | Select-Object *, @{ n = 'DateOnly'; e = { $_.CreatedDateTime.Split(' ')[0] } }, @{ n = 'TimeOnly'; e = { $_.CreatedDateTime.Split(' ')[1] } }
     $EntraLog | Select-Object "CreatedDateTime", "DateOnly", "TimeOnly", "UserDisplayName", "UserPrincipalName", "IPAddress", "Location.City", "Location.State", "Location.CountryOrRegion", "UserType", "Status.ErrorCode", "Status.FailureReason", "Status.AdditionalDetails", "Status.AdditionalProperties", "AuthenticationRequirement", "ConditionalAccessStatus", "IncomingTokenType", "ResourceDisplayName", "ResourceId", "ClientAppUsed", "DeviceDetail.Browser", "DeviceDetail.OperatingSystem", "UserAgent", "DeviceDetail.DisplayName", "DeviceDetail.IsCompliant", "DeviceDetail.IsManaged", "DeviceDetail.TrustType", "SessionId", * -ErrorAction SilentlyContinue | Export-Csv -Path "$OutputPath\$DomainName\EntraIDSignInLogsGraphBeta_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date)_Processed.csv" -NoTypeInformation -Encoding $Encoding
+
+    $EntraLogNonInteractive = Import-Csv "$OutputPath\$DomainName\EntraIDSignInLogsGraphBetaNonInteractive_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv"
+    $EntraLogNonInteractive = $EntraLogNonInteractive | Select-Object *, @{ n = 'DateOnly'; e = { $_.CreatedDateTime.Split(' ')[0] } }, @{ n = 'TimeOnly'; e = { $_.CreatedDateTime.Split(' ')[1] } }
+    $EntraLogNonInteractive | Select-Object "CreatedDateTime", "DateOnly", "TimeOnly", "UserDisplayName", "UserPrincipalName", "IPAddress", "Location.City", "Location.State", "Location.CountryOrRegion", "UserType", "Status.ErrorCode", "Status.FailureReason", "Status.AdditionalDetails", "Status.AdditionalProperties", "AuthenticationRequirement", "ConditionalAccessStatus", "IncomingTokenType", "ResourceDisplayName", "ResourceId", "ClientAppUsed", "DeviceDetail.Browser", "DeviceDetail.OperatingSystem", "UserAgent", "DeviceDetail.DisplayName", "DeviceDetail.IsCompliant", "DeviceDetail.IsManaged", "DeviceDetail.TrustType", "SessionId", * -ErrorAction SilentlyContinue | Export-Csv -Path "$OutputPath\$DomainName\EntraIDSignInLogsGraphBetaNonInteractive_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date)_Processed.csv" -NoTypeInformation -Encoding $Encoding
 
     Write-Output "`nDone..."
 }
