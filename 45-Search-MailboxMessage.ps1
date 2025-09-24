@@ -8,11 +8,11 @@
 # https://github.com/bitpusher2k
 #
 # Search-MailboxMessage.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26 - STILL EXPERIMENTAL and commands need review/refinement
+# v3.1.1 last updated 2025-09-22 - STILL EXPERIMENTAL and commands may need review during run
 # Script to search Exchange Online mailbox(s) using Graph API by Message IDs, subject, sender, date.
-# Faster than eDiscovery/content searches. Use on mailbox restored from backup for searches that
-# include messages which have been deleted by threat actor.
-# Saves found messages to folder along with an index CSV of message metadata.
+# Retrieval in this manner is faster than eDiscovery/content searches.
+# Use on a mailbox restored from backup for searches that include messages which have been deleted by threat actor.
+# Saves found messages to folder along with a CSV formatted index of message metadata.
 #
 # Script can create the needed Enterprise App Registration with Mail.Read scope, or 
 # pass -TenantID, -ClientID, and -ClientSecret parameters to use an already created app.
@@ -27,7 +27,7 @@
 # $UalJson = $Ual.auditdata
 # $UalJson = $UalJson | ConvertFrom-Json
 # $InternetMessageId = $UalJson.folders.folderitems.internetmessageid
-# $InternetMessageId | Out-File .\messageidlist.txt -Encoding Utf8NoBom
+# $InternetMessageId | Out-File .\QueryList.txt -Encoding Utf8NoBom
 #
 # Be sure to include the full Message ID string (which may include angle brackets) and enclose the value in quotation marks (for example, "d9683b4c-127b-413a-ae2e-fa7dfb32c69d@DM3NAM06BG401.Eop-nam06.prod.protection.outlook.com").
 #
@@ -49,9 +49,11 @@
 # ----------------------
 #
 # Usage:
-# powershell -executionpolicy bypass -f .\Search-MailboxMessage.ps1 -InputFile ".\messageidlist.txt"
+# powershell -executionpolicy bypass -f .\Search-MailboxMessage.ps1 -InputFile ".\QueryList.txt"
 #
-# powershell -executionpolicy bypass -f .\Search-MailboxMessage.ps1 -InputFile ".\messageidlist.txt" -OutputPath "C:\temp" "Default" -TenantID "XXX-XXX-XXX" -ClientID "XXX-XXX-XXX" -ClientSecret "XxXxXxX" -UserID "XXX@ZZZ.com"
+# powershell -executionpolicy bypass -f .\Search-MailboxMessage.ps1 -InputFile ".\QueryList.txt" -OutputPath "C:\temp" -TenantID "XXX-XXX-XXX" -ClientID "XXX-XXX-XXX" -ClientSecret "XxXxXxX" -UserID "XXX@ZZZ.com"
+#
+# powershell -executionpolicy bypass -f .\Search-MailboxMessage.ps1 -InputQuery "Phishing Message Subject" -OutputPath "C:\temp" -SearchParam "Subject" -TenantID "XXX-XXX-XXX" -ClientID "XXX-XXX-XXX" -ClientSecret "XxXxXxX" -UserID "XXX@ZZZ.com"
 #
 # Run with already existing connection to M365 tenant through
 # PowerShell modules, or already registered Enterprise Application.
@@ -63,8 +65,10 @@
 #Requires -Version 5.1
 
 Param (
+    [string]$InputQuery,
     [string]$InputFile,
     [string]$OutputPath = "Default",
+    [string]$SearchParam = "MessageID",
     [string]$TenantID,
     [string]$ClientID,
     [string]$ClinetSecret,
@@ -127,6 +131,8 @@ $process.PriorityClass = $Priority
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
+Get-MgContext
+
 $ScopeCheck = (Get-MgContext).Scopes -contains "Mail.Read"
 if (!$ScopeCheck) {
     Write-Output "Mail.Read scope not found in current context. Press enter to connect with broader scopes, or press Ctrl+c to exit." | Tee-Object -FilePath $logFilePath -Append
@@ -178,7 +184,7 @@ if (!$UserId) {
     $UserId = Read-Host 'Enter the UPN (email address) of the mailbox to search/retrieve messages from (leave blank to search all mailboxes)'
 }
 if (([string]::IsNullOrEmpty($UserId))) {
-    Write-Output "`nWill attempt to search ALL mailboxes for each message ID. This could take a long time..." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "`nWill attempt to search ALL mailboxes for each query. This could take a long time..." | Tee-Object -FilePath $logFilePath -Append
     $UserId = "ALL"
     $UserList = Get-MgUser -All -Property "Id,DisplayName,UserPrincipalName,AssignedLicenses"
     $LicensedUsers = $UserList | Where-Object { $_.AssignedLicenses.Count -gt 0 }
@@ -187,6 +193,7 @@ if (([string]::IsNullOrEmpty($UserId))) {
     $licensedUsers | Select-Object DisplayName, UserPrincipalName, ID | Tee-Object -FilePath $logFilePath -Append
     Write-Output "`nThere are $($LicensedUsers.count) licensed users on tenant." | Tee-Object -FilePath $logFilePath -Append
 } else {
+    Write-Output "Checking tenant for specified user..."
     $LicensedUsers = Get-MgUser -All -Property "Id,DisplayName,UserPrincipalName,AssignedLicenses" | Where-Object { $_.UserPrincipalName -eq $UserId }
     if ($LicensedUsers.AssignedLicenses.Count -gt 0) {
         Write-Output "Licensed user $($LicensedUsers.UserPrincipalName) found in tenant." | Tee-Object -FilePath $logFilePath -Append
@@ -196,24 +203,37 @@ if (([string]::IsNullOrEmpty($UserId))) {
     }
 }
 
-if ($inputFile) {
-    $MessageIdList = Get-Content $inputFile
+if ($SearchParam) {
+     Write-Output "Will search using '$SearchParam' query type"
 } else {
-    Write-Output "`nEnter message ID ('internetMessageId') to search for (be sure to include any angle brackets),"
-    $MessageIdList = Read-Host "or leave blank to attempt to read default 'messageidlist.txt' file"
-    if ($MessageIdList.length -eq 0 -and $(Test-Path '.\messageidlist.txt')) {
-        $MessageIdList = Get-Content '.\messageidlist.txt'
+    Write-Output "`nEnter query type ('MessageID', 'Sender', 'Subject', 'SentAfter') to use"
+    $SearchParam = Read-Host "or leave blank to use default 'MessageID' search"
+    if ($SearchParam.length -eq 0) {
+        $SearchParam = 'MessageID'
     }
 }
-if ($MessageIdList.count -eq 0) {
-    Write-Output "Qualys tag name(s)/ID(s) or tag list file not specified. Ending." | Tee-Object -FilePath $logFilePath -Append
+
+if ($inputFile) {
+    Write-Output "Reading '$InputFile' for query list..."
+    $QueryList = Get-Content $inputFile
+} elseif ($InputQuery) {
+    Write-Output "Will search for '$InputQuery'"
+    $QueryList = $InputQuery
+} else {
+    Write-Output "`nEnter search string of type '$SearchParam' to search for (be sure to include angle brackets on MessageIDs),"
+    $QueryList = Read-Host "or leave blank to attempt to read default file - $OutputPath\$DomainName\MessageIDList.txt"
+    if ($QueryList.length -eq 0 -and $(Test-Path "$OutputPath\$DomainName\MessageIDList.txt")) {
+        $QueryList = Get-Content "$OutputPath\$DomainName\MessageIDList.txt"
+    }
+}
+if ($QueryList.count -eq 0) {
+    Write-Output "Query list not specified. Ending." | Tee-Object -FilePath $logFilePath -Append
     exit 95
 }
 
-Write-Output "`nMessageID list:" | Tee-Object -FilePath $logFilePath -Append
-$MessageIdList | Tee-Object -FilePath $logFilePath -Append
-Write-Output "`nList is $($MessageIdList.count) IDs long..." | Tee-Object -FilePath $logFilePath -Append
-
+Write-Output "`nFirst entry of query list:" | Tee-Object -FilePath $logFilePath -Append
+$QueryList | Select-Object -first 1 | Tee-Object -FilePath $logFilePath -Append
+Write-Output "`nQuery list is $($QueryList.count) items long..." | Tee-Object -FilePath $logFilePath -Append
 
 function Parse-JWTtoken {
     # https://jwt.io/
@@ -253,21 +273,21 @@ function Parse-JWTtoken {
     return $tokobj
 }
 
-
 $TokenTime = ''
 $token = ''
 $MessageInfoIndex = @()
 
-foreach ($MessageID in $MessageIdList) {
-    foreach ($User in $LicensedUsers) {
+foreach ($User in $LicensedUsers) {
+    foreach ($QueryString in $QueryList) {
 
         # Create/renew authorization header token is not set or has not be refreshed in over 30 minutes
         if (!$TokenTime -or $TokenTime.elapsed.totalseconds -gt 1800) {
             Write-Output "`nGetting authentication token..." | Tee-Object -FilePath $logFilePath -Append
             $TokenTime = [Diagnostics.StopWatch]::StartNew()
         
-            $MailAppInfo = Get-Content "$OutputPath\$DomainName\MailAppInfo.json" | Convertfrom-Json
+            $MailAppInfo = Get-Content "$OutputPath\$DomainName\$AppInfo" -ErrorAction SilentlyContinue | Convertfrom-Json
             if ($MailAppInfo) {
+                Write-Output "`nReading app info from saved $AppInfo..." | Tee-Object -FilePath $logFilePath -Append
                 $TenantID = $MailAppInfo.tenantid
                 $ClientID = $MailAppInfo.clientid
                 $ClientSecret = $MailAppInfo.clientsecret
@@ -281,15 +301,17 @@ foreach ($MessageID in $MessageIdList) {
             if ($TenantID -and $ClientID -and $ClientSecret) {
                 # Generate token through previously registered enterprise application credentials (https://lazyadmin.nl/powershell/get-msaltoken/):
                 # (Client credentials auth flow)
+                Write-Output "`nRetrieving token from logon.microsoftonline.com..." | Tee-Object -FilePath $logFilePath -Append
                 $AzureBody = @{
                     Grant_Type      = "client_credentials"
-                    Scope           = "https://graph.microsoft.com/.default+offline_access"
+                    Scope           = "https://graph.microsoft.com/.default" # "https://graph.microsoft.com/.default+offline_access"
                     Client_Id       = $ClientID
                     Client_Secret   = $ClientSecret
                 }
                 $token = (Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$($tenantID)/oauth2/v2.0/token" -Body $AzureBody)
                 $Token = $token.access_token
             } elseif ([Microsoft.Graph.PowerShell.Authentication.GraphSession]::Instance.AuthContext.Scopes) {
+                Write-Output "`nApplication not created/known. Will attempt to create application with Mail.Read permissions..." | Tee-Object -FilePath $logFilePath -Append
 
                 # Variables for application
                 $appName = "PowerShellMailRead"
@@ -300,30 +322,30 @@ foreach ($MessageID in $MessageIdList) {
 
 
                 # # Connect to Microsoft Graph - Should already be connected at this point
-                # Write-Log "Connecting to Microsoft Graph..."
+                # Write-Output "Connecting to Microsoft Graph..."
                 # Connect-MgGraph -Scopes "Application.ReadWrite.All", "Directory.ReadWrite.All","AppRoleAssignment.ReadWrite.All"
 
                 # Create the app registration
-                Write-Log "Creating app registration..."
+                Write-Output "Creating app registration..."
                 $app = New-MgApplication -DisplayName $appName -SignInAudience $supportedAccountTypes -Web @{ RedirectUris = @($redirectUri) }
 
                 # Create a client secret
-                Write-Log "Creating client secret..."
+                Write-Output "Creating client secret..."
                 $passwordCredential = @{
-                displayName = "ClientSecret"
-                endDateTime = (Get-Date).AddDays(10)
+                    displayName = "ClientSecret"
+                    endDateTime = (Get-Date).AddDays(10)
                 }
                 $secret = Add-MgApplicationPassword -ApplicationId $app.Id -PasswordCredential $passwordCredential
 
                 # Configure the authentication settings
-                Write-Log "Configuring authentication settings..."
+                Write-Output "Configuring authentication settings..."
                 $webSettings = @{
-                RedirectUris = @($redirectUri)
+                    RedirectUris = @($redirectUri)
                 }
                 Update-MgApplication -ApplicationId $app.Id -Web $webSettings
 
                 # Add API permissions
-                Write-Log "Adding API permissions..."
+                Write-Output "Adding API permissions..."
 
                 $app = Get-MgApplication | Where-Object { $_.displayName -eq $appName }
                 $servicePrincipal = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0000-c000-000000000000'" # Microsoft Graph
@@ -350,25 +372,23 @@ foreach ($MessageID in $MessageIdList) {
                 $TenantID = Get-MgOrganization | Select-Object -ExpandProperty Id
 
                 # Export the client secret to a text file
-                Write-Log "Exporting client app information to text file..."
+                Write-Output "Exporting client app information to text file..."
                 # $secretFilePath = Join-Path -Path (Split-Path -Path $FilePath) -ChildPath "clientSecret.txt"
                 # Set-Content -Path $secretFilePath -Value $secret.SecretText
 
                 # MailAppInfo.json
-                $tanantId
+                $tenantId
                 $spn.appid # (?)
                 $secret.SecretText
 
                 $MailAppInfo = [PSCustomObject]@{
-                                'tanantid' = $TenantID
+                                'tenantid' = $TenantID
                                 'clientid' = $spn.appid
                                 'clientsecret' = $secret.SecretText
                             }
                 $MailAppInfo | ConvertTo-Json -Depth 100 | Out-File -FilePath "$OutputPath\$DomainName\MailAppInfo.json"
 
-                $(Parse-JWTtoken $Token).roles -contains "Mail.Read"
-
-                # Retrieve token from current MgGraph module session - DELEGATED permissions:
+                # Retrieve token from current MgGraph module session - DELEGATED permissions (only works for accessing your own messages):
                 # (authorization code auth flow - can access items that account can interact with through Microsoft 365 apps, but can't access items owned by other users)
                 # $Parameters = @{
                 #     Method = "GET"
@@ -429,33 +449,56 @@ foreach ($MessageID in $MessageIdList) {
                 Write-Output "Unable to obtain token. Ending"
                 exit 93
             }
-        
+
             $AuthHeaders = @{
                 "Authorization" = "Bearer $($token)"
                 "Content-type"  = "application/json"
             }
+            $AuthHeaders
         }
 
         $Upn = $User.UserPrincipalName
-        
-
-        # https://graph.microsoft.com/v1.0/me/messages?$filter=internetMessageId eq 'Message_Id_Including_Brackets'
-
-        ## Alternate filters to test for search (date range, sender, subject line contains):
-        # $SearchUri = "https://graph.microsoft.com/v1.0/me/messages?$filter=subject eq '$subject' and sender/emailAddress/address eq '$SenderAddress' and sentDateTime ge $($StartDate.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
-        # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=subject eq '$subject'"
-        # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sender/emailAddress/address eq '$SenderAddress'"
-        # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sentDateTime ge $($StartDate.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
-        ## Need to finish creation of the $UserId "ALL" loop for multiple/all mailbox search
 
         # https://learn.microsoft.com/en-us/odata/concepts/queryoptions-overview
         # https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=http
         # https://learn.microsoft.com/en-us/graph/api/message-get?view=graph-rest-1.0&tabs=http
 
-        
-        # Search for the message by "internetMessageId"
-        Write-Output "`nSearching for $($MessageID) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
-        $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=internetMessageId eq '$MessageID'"
+        $TokenRole = $(Parse-JWTtoken $Token).roles -contains "Mail.Read"
+
+        if (!$TokenRole) {
+            Write-Output "Missing M365 token role - Correct and re-run"
+            exit 95
+        }
+
+        # Only handles single/first result properly at present. Need to test with varying responses to queries - no message, single message, multiple message - and update to handle properly.
+
+        if ($SearchParam -eq "MessageID") {
+            # Search for the message by "internetMessageId"
+            Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
+            $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=internetMessageId eq '$QueryString'"
+            # https://graph.microsoft.com/v1.0/me/messages?$filter=internetMessageId eq 'Message_Id_Including_Brackets'
+        } elseif ($SearchParam -eq "Sender") {
+            # Search for the message by "address"
+            Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
+            $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sender/emailAddress/address eq $QueryString'"
+            # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sender/emailAddress/address eq '$SenderAddress'"
+        } elseif ($SearchParam -eq "Subject") {
+            # Search for the message by "Subject"
+            Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
+            $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=subject eq '$QueryString'"
+            # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=subject eq '$subject'"
+        } elseif ($SearchParam -eq "SentAfter") {
+            # Search for the message by "sentDateTime"
+            Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
+            $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sentDateTime ge $($QueryString.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+            # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sentDateTime ge $($StartDate.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+        } else {
+            Write-Output "`nInvalid search parameter '$SearchParam'. Ending"
+            exit 96
+        }
+
+        # $SearchUri = "https://graph.microsoft.com/v1.0/me/messages?$filter=subject eq '$subject' and sender/emailAddress/address eq '$SenderAddress' and sentDateTime ge $($StartDate.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+
         $SearchUri = [uri]::EscapeUriString($SearchUri)
         $Response = ""
         $Content = ""
@@ -466,8 +509,8 @@ foreach ($MessageID in $MessageIdList) {
         $Content = $Response.Content | Convertfrom-Json
         if (!([string]::IsNullOrEmpty($Content.value.internetMessageId))) {
             Write-Output "Message found. Parsing metadata & attempting to retrieving message content..." | Tee-Object -FilePath $logFilePath -Append
-        
-            $OutputName = $MessageID -replace "[^a-zA-Z0-9_\.,@ -]" # Make the output name as close to the original Message ID as possible given file name limitations
+
+            $OutputName = $Content.value.internetMessageId -replace "[^a-zA-Z0-9_\.,@ -]" # Make the output name as close to the original Message ID as possible given file name limitations
             if ($Content.value.createdDateTime -ne $null) { $CreatedDateTime = $Content.value.createdDateTime[0].ToString('yyyy-MM-dd HH:mm:ss') } else { $CreatedDateTime = "N/A" }
             if ($Content.value.sentDateTime -ne $null) { $SentDateTime = $Content.value.sentDateTime[0].ToString('yyyy-MM-dd HH:mm:ss') } else { $SentDateTime = "N/A" }
             if ($Content.value.receivedDateTime -ne $null) { $ReceivedDateTime = $Content.value.receivedDateTime[0].ToString('yyyy-MM-dd HH:mm:ss') } else { $ReceivedDateTime = "N/A" }
@@ -490,7 +533,7 @@ foreach ($MessageID in $MessageIdList) {
             if ($Content.value.conversationId -ne $null) { $ConversationId = $Content.value.conversationId | Select-Object -First 1 } else { $ConversationId = "N/A" }
             
             $MessageInfo = [PSCustomObject]@{
-                'InternetMessageId' = $MessageID
+                'InternetMessageId' = $InternetMessageId
                 'FileName' = $Upn + "_" + $OutputName
                 'Mailbox' = $Upn
                 'CreatedDateTime' = $CreatedDateTime
@@ -517,10 +560,10 @@ foreach ($MessageID in $MessageIdList) {
             # If returned ID is not null get the message "value" and save the content to a file
             if(!([string]::IsNullOrEmpty($ID))) {
                 $BodyUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/$($ID)/`$value"
-                # $BodyUri = [uri]::EscapeUriString($BodyUri)
+                $BodyUri = [uri]::EscapeUriString($BodyUri)
                 # Query when using WebRequest or RestMethod with above auth header & token (instead of MgGraphRequest):
-                # $MessageContent = Invoke-WebRequest -Method Get -Uri $BodyUri -Headers $AuthHeaders -ErrorAction SilentlyContinue
-                $MessageContent = Invoke-MgGraphRequest -Method Get -Uri $BodyUri -ErrorAction SilentlyContinue
+                $MessageContent = Invoke-WebRequest -Method Get -Uri $BodyUri -Headers $AuthHeaders -ErrorAction SilentlyContinue
+                # $MessageContent = Invoke-MgGraphRequest -Method Get -Uri $BodyUri -ErrorAction SilentlyContinue
                 if (!([string]::IsNullOrEmpty($MessageContent.Content))) {
                     Write-Output "Message message content retrieved." | Tee-Object -FilePath $logFilePath -Append
                     $MessageContent.Content | out-file "$OutputPath\$DomainName\Messages_$date\$($Upn)_$($OutputName).eml" -Encoding $Encoding
@@ -534,10 +577,10 @@ foreach ($MessageID in $MessageIdList) {
             # $MessageInfo.InternetMessageId | fl
 
         } else {
-            Write-Output "$($MessageID) not found." | Tee-Object -FilePath $logFilePath -Append
+            Write-Output "$($QueryString) not found in $Upn." | Tee-Object -FilePath $logFilePath -Append
 
             $MessageInfo = [PSCustomObject]@{
-                'InternetMessageId' = $MessageID
+                'InternetMessageId' = $QueryString
                 'FileName' = 'NotFound'
                 'Mailbox' = $Upn
                 'CreatedDateTime' = ''

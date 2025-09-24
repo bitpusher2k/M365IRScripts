@@ -247,7 +247,7 @@ if (!$AuditOutput) {
 
         $AuditData = ConvertFrom-Json $Row.Auditdata
 
-        Write-Output "Parsing row $RowCount" | Tee-Object -FilePath $logFilePath -Append
+        # Write-Output "Parsing row $RowCount" | Tee-Object -FilePath $logFilePath -Append
 
         if ($AuditData.CreationTime -ne $Null) { $Row.AuditDataCreationTime = $AuditData.CreationTime } else { $Row.AuditDataCreationTime = "Unavailable" }
         if ($AuditData.Operation -ne $Null) { $Row.AuditDataOperation = $AuditData.Operation } else { $Row.AuditDataOperation = "Unavailable" }

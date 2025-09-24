@@ -350,10 +350,10 @@ if (!$LicenseBool) {
     Write-Output "Get-MgBetaAuditLogSignIn -All -Filter `"createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))`""
     $EntraSignInLogs = Get-MgBetaAuditLogSignIn -All -Filter "createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))"
 
-    Write-Output "Get-MgBetaAuditLogSignIn -All -Filter `"(createdDateTime gt $(createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd')))) and (signInEventTypes/any(t: t ne 'interactiveUser'))`""
-    $EntraSignInLogsNonInteractive = Get-MgBetaAuditLogSignIn -Filter "(createdDateTime gt $(createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd')))) and (signInEventTypes/any(t: t ne 'interactiveUser'))"
+    Write-Output "Get-MgBetaAuditLogSignIn -All -Filter `"(createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))) and (signInEventTypes/any(t: t ne 'interactiveUser'))`""
+    $EntraSignInLogsNonInteractive = Get-MgBetaAuditLogSignIn -Filter "(createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))) and (signInEventTypes/any(t: t ne 'interactiveUser'))"
 
-    # TO get ALL sign-in types in single query: Get-MgBetaAuditLogSignIn -Filter "(createdDateTime gt $(createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd')))) and (signInEventTypes/any(t: t eq 'nonInteractiveUser' OR t eq 'interactiveUser' OR t eq 'servicePrincipal' OR t eq 'managedIdentity'))"
+    # TO get ALL sign-in types in single query: Get-MgBetaAuditLogSignIn -Filter "(createdDateTime gt $(($StartDate).ToString('yyyy-MM-dd'))) and (signInEventTypes/any(t: t eq 'nonInteractiveUser' OR t eq 'interactiveUser' OR t eq 'servicePrincipal' OR t eq 'managedIdentity'))"
 
     
     $EntraSignInLogsJSON = $EntraSignInLogs | ConvertTo-Json -Depth 100
