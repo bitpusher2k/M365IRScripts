@@ -16,8 +16,9 @@
 #
 # Script can create the needed Enterprise App Registration with Mail.Read scope, or 
 # pass -TenantID, -ClientID, and -ClientSecret parameters to use an already created app.
-# Application information for one previously created by script will be in MailAppInfo.json.
-# Script requires MgGraph connection with Application.ReadWrite.All & User.Read.All scopes.
+# Requires MgGraph connection with Application.ReadWrite.All & User.Read.All scopes to do this, 
+# and will create secret for application that expires 10 days from creation.
+# Connection information from a previously created application by this script will be in MailAppInfo.json.
 #
 # https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/RegisteredApps
 #
@@ -58,6 +59,10 @@
 # Run with already existing connection to M365 tenant through
 # PowerShell modules, or already registered Enterprise Application.
 #
+# Use with DropShim.bat to allow drag-and-drop processing of an Internet Message ID list.
+# Recommended workflow is to run this script initially from the command line in the course of and investigation
+# where it will create Entra app, and subsequently use the shim drag-and-drop for message retrieval.
+#
 # Uses Microsoft Graph commands.
 #
 #comp #m365 #security #bec #script #irscript #powershell #graph #message #retrieve #search
@@ -65,8 +70,8 @@
 #Requires -Version 5.1
 
 Param (
-    [string]$InputQuery,
     [string]$InputFile,
+    [string]$InputQuery,
     [string]$OutputPath = "Default",
     [string]$SearchParam = "MessageID",
     [string]$TenantID,
@@ -130,44 +135,57 @@ $process.PriorityClass = $Priority
 
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
+$ScopeCheck = (Get-MgContext).Scopes
 
-Get-MgContext
+if (!$InputFile) {
+    Get-MgContext
+    if (($ScopeCheck -notcontains "User.Read.All" -and $ScopeCheck -notcontains "User.ReadWrite.All") -or $ScopeCheck -notcontains "Directory.ReadWrite.All" -or $ScopeCheck -notcontains "Application.ReadWrite.All" -or $ScopeCheck -notcontains "AppRoleAssignment.ReadWrite.All") {
+        Write-Output "Necessary graph scopes not found in current context. Press enter to connect with broader scopes, or press Ctrl+c to exit." | Tee-Object -FilePath $logFilePath -Append
+        Pause
+        Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All", "Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All"
+    }
 
-$ScopeCheck = (Get-MgContext).Scopes -contains "Mail.Read"
-if (!$ScopeCheck) {
-    Write-Output "Mail.Read scope not found in current context. Press enter to connect with broader scopes, or press Ctrl+c to exit." | Tee-Object -FilePath $logFilePath -Append
-    Pause
-    Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All","Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All"
-}
+    ## If OutputPath variable is not defined, prompt for it
+    if (!$OutputPath) {
+        Write-Output ""
+        $OutputPath = Read-Host "Enter the output base path, e.g. $($env:userprofile)\Desktop\Investigation (default)" | Tee-Object -FilePath $logFilePath -Append
+        If ($OutputPath -eq '') { $OutputPath = "$($env:userprofile)\Desktop\Investigation" }
+        Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
+    } elseif ($OutputPath -eq 'Default') {
+        Write-Output ""
+        $OutputPath = "$($env:userprofile)\Desktop\Investigation"
+        Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
+    }
 
-## If OutputPath variable is not defined, prompt for it
-if (!$OutputPath) {
-    Write-Output ""
-    $OutputPath = Read-Host "Enter the output base path, e.g. $($env:userprofile)\Desktop\Investigation (default)" | Tee-Object -FilePath $logFilePath -Append
-    If ($OutputPath -eq '') { $OutputPath = "$($env:userprofile)\Desktop\Investigation" }
-    Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
-} elseif ($OutputPath -eq 'Default') {
-    Write-Output ""
-    $OutputPath = "$($env:userprofile)\Desktop\Investigation"
-    Write-Output "Output base path will be in $OutputPath" | Tee-Object -FilePath $logFilePath -Append
-}
+    ## If OutputPath does not exist, create it
+    $CheckOutputPath = Get-Item $OutputPath -ErrorAction SilentlyContinue
+    if (!$CheckOutputPath) {
+        Write-Output ""
+        Write-Output "Output path does not exist. Directory will be created." | Tee-Object -FilePath $logFilePath -Append
+        mkdir $OutputPath
+    }
 
-## If OutputPath does not exist, create it
-$CheckOutputPath = Get-Item $OutputPath -ErrorAction SilentlyContinue
-if (!$CheckOutputPath) {
-    Write-Output ""
-    Write-Output "Output path does not exist. Directory will be created." | Tee-Object -FilePath $logFilePath -Append
-    mkdir $OutputPath
-}
-
-## Get Primary Domain Name for output subfolder
-# $PrimaryDomain = Get-AcceptedDomain | Where-Object Default -eq $true
-# $DomainName = $PrimaryDomain.DomainName
-$PrimaryDomain = Get-MgDomain | Where-Object { $_.isdefault -eq $True } | Select-Object -Property ID
-if ($PrimaryDomain) {
-    $DomainName = $PrimaryDomain.ID
+    ## Get Primary Domain Name for output subfolder
+    # $PrimaryDomain = Get-AcceptedDomain | Where-Object Default -eq $true
+    # $DomainName = $PrimaryDomain.DomainName
+    $PrimaryDomain = Get-MgDomain | Where-Object { $_.isdefault -eq $True } | Select-Object -Property ID
+    if ($PrimaryDomain) {
+        $DomainName = $PrimaryDomain.ID
+    } else {
+        $DomainName = "DefaultOutput"
+    }
 } else {
-    $DomainName = "DefaultOutput"
+    $OutputPath = $InputFile | split-path -Parent | Split-Path -Parent
+    $DomainName = $InputFile | split-path -Parent | Split-Path -Leaf
+    $MailAppInfo = Get-Content "$OutputPath\$DomainName\$AppInfo" -ErrorAction SilentlyContinue | Convertfrom-Json
+    if (!$MailAppInfo) {
+        Get-MgContext
+        if (($ScopeCheck -notcontains "User.Read.All" -and $ScopeCheck -notcontains "User.ReadWrite.All") -or $ScopeCheck -notcontains "Directory.ReadWrite.All" -or $ScopeCheck -notcontains "Application.ReadWrite.All" -or $ScopeCheck -notcontains "AppRoleAssignment.ReadWrite.All") {
+            Write-Output "Necessary graph scopes not found in current context. Press enter to connect with broader scopes, or press Ctrl+c to exit." | Tee-Object -FilePath $logFilePath -Append
+            Pause
+            Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All", "Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All"
+        }
+    }
 }
 
 $CheckSubDir = Get-Item $OutputPath\$DomainName\Messages_$date -ErrorAction SilentlyContinue
@@ -181,26 +199,47 @@ Write-Output "Domain/Messages sub-directory will be `"$DomainName\Messages_$date
 ## If UserId variable is not defined, prompt for it
 if (!$UserId) {
     Write-Output ""
-    $UserId = Read-Host 'Enter the UPN (email address) of the mailbox to search/retrieve messages from (leave blank to search all mailboxes)'
+    $UserId = Read-Host 'Enter the UPN (email address) of the mailbox(s) to search/retrieve messages from (seaparate multiple with commas, leave blank to search all mailboxes)'
 }
 if (([string]::IsNullOrEmpty($UserId))) {
-    Write-Output "`nWill attempt to search ALL mailboxes for each query. This could take a long time..." | Tee-Object -FilePath $logFilePath -Append
-    $UserId = "ALL"
-    $UserList = Get-MgUser -All -Property "Id,DisplayName,UserPrincipalName,AssignedLicenses"
-    $LicensedUsers = $UserList | Where-Object { $_.AssignedLicenses.Count -gt 0 }
-    $UnlicensedUsers = $UserList | Where-Object { $_.AssignedLicenses.Count -eq 0 }
-    Write-Output "`nList of licensed users on tenant:" | Tee-Object -FilePath $logFilePath -Append
-    $licensedUsers | Select-Object DisplayName, UserPrincipalName, ID | Tee-Object -FilePath $logFilePath -Append
-    Write-Output "`nThere are $($LicensedUsers.count) licensed users on tenant." | Tee-Object -FilePath $logFilePath -Append
-} else {
-    Write-Output "Checking tenant for specified user..."
-    $LicensedUsers = Get-MgUser -All -Property "Id,DisplayName,UserPrincipalName,AssignedLicenses" | Where-Object { $_.UserPrincipalName -eq $UserId }
-    if ($LicensedUsers.AssignedLicenses.Count -gt 0) {
-        Write-Output "Licensed user $($LicensedUsers.UserPrincipalName) found in tenant." | Tee-Object -FilePath $logFilePath -Append
+    if ($ScopeCheck -contains "User.Read.All" -or $ScopeCheck -contains "User.ReadWrite.All") {
+        Write-Output "`nWill attempt to search ALL licensed mailboxes for each query. This could take a long time..." | Tee-Object -FilePath $logFilePath -Append
+        $UserId = "ALL"
+        $UserList = Get-MgUser -All -Property "Id,DisplayName,UserPrincipalName,AssignedLicenses"
+        $LicensedUsers = $UserList | Where-Object { $_.AssignedLicenses.Count -gt 0 }
+        $UnlicensedUsers = $UserList | Where-Object { $_.AssignedLicenses.Count -eq 0 }
+        Write-Output "`nList of licensed users on tenant:" | Tee-Object -FilePath $logFilePath -Append
+        $licensedUsers | Select-Object DisplayName, UserPrincipalName, ID | Tee-Object -FilePath $logFilePath -Append
+        Write-Output "`nThere are $($LicensedUsers.count) licensed users on tenant." | Tee-Object -FilePath $logFilePath -Append
+        $LicensedUsers = $LicensedUsers | Select-Object -ExpandProperty UserPrincipalName
     } else {
-        Write-Output "Licensed user not found in tenant. Exiting." | Tee-Object -FilePath $logFilePath -Append
-        exit 92
+        Write-Output "`nNot connected to graph with needed scopes. Ending." | Tee-Object -FilePath $logFilePath -Append
+        exit 91
     }
+} else {
+    $UserIds = $UserId -split ','
+    if ($ScopeCheck -contains "User.Read.All" -or $ScopeCheck -contains "User.ReadWrite.All") {
+        Write-Output "Checking tenant for specified licensed user(s)..." | Tee-Object -FilePath $logFilePath -Append
+        $LicensedUsers = @()
+        ForEach ($Id in $UserIds) {
+            $LicensedUsers = $LicensedUsers + $(Get-MgUser -All -Property "Id,DisplayName,UserPrincipalName,AssignedLicenses" | Where-Object { $_.UserPrincipalName -eq $Id -and $_.AssignedLicenses.Count -gt 0})
+        }
+        if ($LicensedUsers) {
+            Write-Output "Licensed user(s) found in tenant." | Tee-Object -FilePath $logFilePath -Append
+            $LicensedUsers
+            $LicensedUsers = $LicensedUsers | Select-Object -ExpandProperty UserPrincipalName
+        } else {
+            Write-Output "Licensed user not found in tenant." | Tee-Object -FilePath $logFilePath -Append
+        }
+    } else {
+        Write-Output "Not connected to graph. Assuming UPN(s) are correct..." | Tee-Object -FilePath $logFilePath -Append
+        $LicensedUsers = $UserIds
+    }
+}
+
+if (!$LicensedUsers) {
+    Write-Output "No licensed users listed. Ending." | Tee-Object -FilePath $logFilePath -Append
+    exit 92
 }
 
 if ($SearchParam) {
@@ -220,9 +259,17 @@ if ($inputFile) {
     Write-Output "Will search for '$InputQuery'"
     $QueryList = $InputQuery
 } else {
-    Write-Output "`nEnter search string of type '$SearchParam' to search for (be sure to include angle brackets on MessageIDs),"
+    Write-Output "`nEnter search string of type '$SearchParam' to search individually (be sure to include angle brackets on MessageIDs),"
+    Write-Output "enter filename of query list located in $OutputPath\$DomainName\, preceded by an '*' to load specific list,"
     $QueryList = Read-Host "or leave blank to attempt to read default file - $OutputPath\$DomainName\MessageIDList.txt"
-    if ($QueryList.length -eq 0 -and $(Test-Path "$OutputPath\$DomainName\MessageIDList.txt")) {
+    if ($QueryList.length -gt 0 -and $QueryList[0] -eq "*") {
+        $QueryList = $QueryList.Substring(1)
+        if (Test-Path "$OutputPath\$DomainName\$QueryList") {
+            $QueryList = Get-Content "$OutputPath\$DomainName\$QueryList"
+        } else {
+            Write-Output "Unable to load file."
+        }
+    } elseif ($QueryList.length -eq 0 -and $(Test-Path "$OutputPath\$DomainName\MessageIDList.txt")) {
         $QueryList = Get-Content "$OutputPath\$DomainName\MessageIDList.txt"
     }
 }
@@ -277,7 +324,7 @@ $TokenTime = ''
 $token = ''
 $MessageInfoIndex = @()
 
-foreach ($User in $LicensedUsers) {
+foreach ($UPN in $LicensedUsers) {
     foreach ($QueryString in $QueryList) {
 
         # Create/renew authorization header token is not set or has not be refreshed in over 30 minutes
@@ -321,9 +368,9 @@ foreach ($User in $LicensedUsers) {
                 # https://graphpermissions.merill.net/permission/Mail.Read?tabs=apiv1%2CadministrativeUnit1
 
 
-                # # Connect to Microsoft Graph - Should already be connected at this point
+                # # Connect to Microsoft Graph - Should already be connected at this point if tenant/client/secret is not defined
                 # Write-Output "Connecting to Microsoft Graph..."
-                # Connect-MgGraph -Scopes "Application.ReadWrite.All", "Directory.ReadWrite.All","AppRoleAssignment.ReadWrite.All"
+                # Connect-MgGraph -Scopes "Application.ReadWrite.All", "Directory.ReadWrite.All", "AppRoleAssignment.ReadWrite.All"
 
                 # Create the app registration
                 Write-Output "Creating app registration..."
@@ -410,7 +457,7 @@ foreach ($User in $LicensedUsers) {
                 New-MgServicePrincipal -AppId "1950a258-227b-4e31-a9cf-717495945fc2" -DisplayName "Microsoft Azure PowerShell"
                 # Add or update the Oath2 permissions with "Mail.Read" 
                 
-                Add-AzADAppPermission -ApplicationId "1950a258-227b-4e31-a9cf-717495945fc2" -ApiId "00000003-0000-0000-c000-000000000000" -PermissionId "810c84a8-4a9e-49e6-bf7d-12d183f40d01"
+                # Add-AzADAppPermission -ApplicationId "1950a258-227b-4e31-a9cf-717495945fc2" -ApiId "00000003-0000-0000-c000-000000000000" -PermissionId "810c84a8-4a9e-49e6-bf7d-12d183f40d01"
                 
                 $EnterpriseAppName = "Microsoft Azure PowerShell"
                 $GraphSp = Get-MgServicePrincipal -Filter "AppId eq '00000003-0000-0000-c000-000000000000'"
@@ -457,8 +504,6 @@ foreach ($User in $LicensedUsers) {
             $AuthHeaders
         }
 
-        $Upn = $User.UserPrincipalName
-
         # https://learn.microsoft.com/en-us/odata/concepts/queryoptions-overview
         # https://learn.microsoft.com/en-us/graph/filter-query-parameter?tabs=http
         # https://learn.microsoft.com/en-us/graph/api/message-get?view=graph-rest-1.0&tabs=http
@@ -474,22 +519,18 @@ foreach ($User in $LicensedUsers) {
 
         if ($SearchParam -eq "MessageID") {
             # Search for the message by "internetMessageId"
-            Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
             $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=internetMessageId eq '$QueryString'"
             # https://graph.microsoft.com/v1.0/me/messages?$filter=internetMessageId eq 'Message_Id_Including_Brackets'
         } elseif ($SearchParam -eq "Sender") {
             # Search for the message by "address"
-            Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
             $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sender/emailAddress/address eq $QueryString'"
             # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sender/emailAddress/address eq '$SenderAddress'"
         } elseif ($SearchParam -eq "Subject") {
             # Search for the message by "Subject"
-            Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
             $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=subject eq '$QueryString'"
             # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=subject eq '$subject'"
         } elseif ($SearchParam -eq "SentAfter") {
             # Search for the message by "sentDateTime"
-            Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
             $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sentDateTime ge $($QueryString.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
             # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=sentDateTime ge $($StartDate.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
         } else {
@@ -498,6 +539,7 @@ foreach ($User in $LicensedUsers) {
         }
 
         # $SearchUri = "https://graph.microsoft.com/v1.0/me/messages?$filter=subject eq '$subject' and sender/emailAddress/address eq '$SenderAddress' and sentDateTime ge $($StartDate.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+        Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
 
         $SearchUri = [uri]::EscapeUriString($SearchUri)
         $Response = ""
@@ -511,20 +553,20 @@ foreach ($User in $LicensedUsers) {
             Write-Output "Message found. Parsing metadata & attempting to retrieving message content..." | Tee-Object -FilePath $logFilePath -Append
 
             $OutputName = $Content.value.internetMessageId -replace "[^a-zA-Z0-9_\.,@ -]" # Make the output name as close to the original Message ID as possible given file name limitations
-            if ($Content.value.createdDateTime -ne $null) { $CreatedDateTime = $Content.value.createdDateTime[0].ToString('yyyy-MM-dd HH:mm:ss') } else { $CreatedDateTime = "N/A" }
-            if ($Content.value.sentDateTime -ne $null) { $SentDateTime = $Content.value.sentDateTime[0].ToString('yyyy-MM-dd HH:mm:ss') } else { $SentDateTime = "N/A" }
-            if ($Content.value.receivedDateTime -ne $null) { $ReceivedDateTime = $Content.value.receivedDateTime[0].ToString('yyyy-MM-dd HH:mm:ss') } else { $ReceivedDateTime = "N/A" }
-            if ($Content.value.sender.emailAddress -ne $null) { $Sender = $Content.value.sender.emailAddress[0].address } else { $Sender = "N/A" }
-            if ($Content.value.from.emailAddress -ne $null) { $From = $Content.value.from.emailAddress[0].address } else { $From = "N/A" }
+            if ($Content.value.createdDateTime -ne $null) { $CreatedDateTime = $($Content.value.createdDateTime | Select-Object -First 1 | Get-Date).ToString('yyyy-MM-dd HH:mm:ss') } else { $CreatedDateTime = "N/A" }
+            if ($Content.value.sentDateTime -ne $null) { $SentDateTime = $($Content.value.sentDateTime | Select-Object -First 1 | Get-Date).ToString('yyyy-MM-dd HH:mm:ss') } else { $SentDateTime = "N/A" }
+            if ($Content.value.receivedDateTime -ne $null) { $ReceivedDateTime = $($Content.value.receivedDateTime | Select-Object -First 1 | Get-Date).ToString('yyyy-MM-dd HH:mm:ss') } else { $ReceivedDateTime = "N/A" }
+            if ($Content.value.sender.emailAddress -ne $null) { $Sender = $($Content.value.sender.emailAddress | Select-Object -First 1).address } else { $Sender = "N/A" }
+            if ($Content.value.from.emailAddress -ne $null) { $From = $($Content.value.from.emailAddress | Select-Object -First 1).address } else { $From = "N/A" }
             if ($Content.value.toRecipients.emailAddress -ne $null) { $To = $($Content.value.toRecipients.emailAddress | foreach-object {$_.address}) -join "," } else { $To = "N/A" }
-            if ($Content.value.replyTo.emailAddress -ne $null) { $ReplyTo = $Content.value.replyTo.emailAddress[0].address } else { $ReplyTo = "N/A" }
+            if ($Content.value.replyTo.emailAddress -ne $null) { $ReplyTo = $($Content.value.replyTo.emailAddress | Select-Object -First 1).address } else { $ReplyTo = "N/A" }
             if ($Content.value.ccRecipients.emailAddress -ne $null) { $CC = $($Content.value.ccRecipients.emailAddress | foreach-object {$_.address}) -join "," } else { $CC = "N/A" }
             if ($Content.value.bccRecipients.emailAddress -ne $null) { $BCC = $($Content.value.bccRecipients.emailAddress | foreach-object {$_.address}) -join "," } else { $BCC = "N/A" }
             if ($Content.value.subject -ne $null) { $Subject = $Content.value.subject | Select-Object -First 1 } else { $Subject = "N/A" }
             if ($Content.value.bodyPreview -ne $null) { $BodyPreview = $Content.value.bodyPreview | Select-Object -First 1 } else { $BodyPreview = "N/A" }
-            if ($Content.value.isRead -ne $null) { $IsRead = $Content.value.isRead[0] } else { $IsRead = "N/A" }
-            if ($Content.value.isDraft -ne $null) { $IsDraft = $Content.value.isDraft[0] } else { $IsDraft = "N/A" }
-            if ($Content.value.hasAttachments -ne $null) { $HasAttachments = $Content.value.hasAttachments[0] } else { $HasAttachments = "N/A" }
+            if ($Content.value.isRead -ne $null) { $IsRead = $($Content.value.isRead | Select-Object -First 1) } else { $IsRead = "N/A" }
+            if ($Content.value.isDraft -ne $null) { $IsDraft = $($Content.value.isDraft | Select-Object -First 1) } else { $IsDraft = "N/A" }
+            if ($Content.value.hasAttachments -ne $null) { $HasAttachments = $($Content.value.hasAttachments | Select-Object -First 1) } else { $HasAttachments = "N/A" }
             if ($Content.value.flag.flagStatus -ne $null) { $FlagStatus = $Content.value.flag.flagStatus | Select-Object -First 1 } else { $FlagStatus = "N/A" }
             if ($Content.value.webLink -ne $null) { $WebLink = $Content.value.webLink | Select-Object -First 1 } else { $WebLink = "N/A" }
             if ($Content.value.internetMessageId -ne $null) { $InternetMessageId = $Content.value.internetMessageId | Select-Object -First 1 } else { $InternetMessageId = "N/A" }
@@ -608,7 +650,7 @@ foreach ($User in $LicensedUsers) {
     }
 }
 
-$OutputCSV = "$OutputPath\$DomainName\$($UserId.Replace(',','-'))_MessageIndex_$($date).csv"
+$OutputCSV = "$OutputPath\$DomainName\$($($UserId | Select-Object -First 1).Replace(',','-'))_MessageIndex_$($date).csv"
 
 
 $MessageInfoIndex | Export-Csv -Path $OutputCSV -NoTypeInformation -Append -Encoding $Encoding
