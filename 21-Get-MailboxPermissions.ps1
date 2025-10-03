@@ -138,7 +138,7 @@ $ProgressDelta = 100 / ($Mbx.Count); $PercentComplete = 0; $MbxNumber = 0
 foreach ($M in $Mbx) {
     $MbxNumber++
     $MbxStatus = $M.DisplayName + " [" + $MbxNumber + "/" + $Mbx.Count + "]"
-    Write-Progress -Activity "Processing mailbox" -Status $MbxStatus -PercentComplete $PercentComplete
+    Write-Output "Processing mailbox $MbxStatus... $PercentComplete"
     $PercentComplete += $ProgressDelta
     # REST equivalent:
     # $Permissions = Get-ExoMailboxPermission -Identity $M.UserPrincipalName | ?  {$_.User -Like "*@*" }

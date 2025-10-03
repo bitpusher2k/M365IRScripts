@@ -17,8 +17,6 @@
 # Runs:
 # * 10-Get-BasicTenantInformation.ps1
 # * 18-Search-InboxRuleChanges.ps1 (first pass)
-# * 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1
-# * 12-Search-UnifiedAuditLogSignIn.ps1
 # * 13-Get-AllM365EmailAddresses.ps1
 # * 14-Get-AllUserPasswordReport.ps1
 # * 17-Search-MailboxSuspiciousRules.ps1
@@ -26,7 +24,7 @@
 # * 22-Get-EnterpriseApplications.ps1
 # * 20-Get-ForwardingSettings.ps1
 # * 21-Get-MailboxPermissions.ps1
-# * 23-Get-DefenderInformation.ps1
+# * 23-Get-DefenderInformation.ps1 # Get-MpThreatDetection not currently working - skipping
 # * 24-Get-EntraIDRisk.ps1
 # * 90-Get-MFAReport.ps1
 # * 91-Get-CAPReport-P1.ps1
@@ -34,6 +32,8 @@
 # * OPTIONALLY: 15-Search-UnifiedAuditLogIR.ps1
 # * OPTIONALLY: Get-UnifiedAuditLogEntries.ps1
 # * 18-Search-InboxRuleChanges.ps1 (second pass)
+# * 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1
+# * 12-Search-UnifiedAuditLogSignIn.ps1
 # * OPTIONALLY: Run several Invictus IR Microsoft Extractor Suite cmdlets for additional reports
 # * OPTIONALLY: Run CrowdStrike Reporting Tool for Azure (Get-CRTReport.ps1) for additional reports
 #
@@ -229,7 +229,7 @@ if ($DaysAgo) {
     exit
 }
 
-Write-Output "Opening Edge browser window to sign-in logs (manually download for Entra ID Free tenants)..."
+Write-Output "Opening Edge browser window to retrieve sign-in logs (manually download for Entra ID Free tenants)..."
 Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/SignIns"
 
 Write-Output "`nRunning 10-Get-BasicTenantInformation.ps1..." | Tee-Object -FilePath $logFilePath -Append
@@ -237,12 +237,6 @@ Write-Output "`nRunning 10-Get-BasicTenantInformation.ps1..." | Tee-Object -File
 
 Write-Output "`nRunning 18-Search-InboxRuleChanges.ps1... First pass..." | Tee-Object -FilePath $logFilePath -Append
 & "$PSScriptRoot\18-Search-InboxRuleChanges.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate
-
-Write-Output "`nRunning 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\11-Get-EntraIDAuditAndSignInLogs30-P1.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate
-
-Write-Output "`nRunning 12-Search-UnifiedAuditLogSignIn.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\12-Search-UnifiedAuditLogSignIn.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate -UserIds "ALL"
 
 Write-Output "`nRunning 13-Get-AllM365EmailAddresses.ps1..." | Tee-Object -FilePath $logFilePath -Append
 & "$PSScriptRoot\13-Get-AllM365EmailAddresses.ps1" -OutputPath $OutputPath
@@ -265,8 +259,8 @@ Write-Output "`nRunning 20-Get-ForwardingSettings.ps1..." | Tee-Object -FilePath
 Write-Output "`nRunning 21-Get-MailboxPermissions.ps1..." | Tee-Object -FilePath $logFilePath -Append
 & "$PSScriptRoot\21-Get-MailboxPermissions.ps1" -OutputPath $OutputPath
 
-Write-Output "`nRunning 23-Get-DefenderInformation.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\23-Get-DefenderInformation.ps1" -OutputPath $OutputPath
+# Write-Output "`nRunning 23-Get-DefenderInformation.ps1..." | Tee-Object -FilePath $logFilePath -Append # currently Get-MpThreatDetection cmdlet is failing
+# & "$PSScriptRoot\23-Get-DefenderInformation.ps1" -OutputPath $OutputPath
 
 Write-Output "`nRunning 24-Get-EntraIDRisk.ps1..." | Tee-Object -FilePath $logFilePath -Append
 & "$PSScriptRoot\24-Get-EntraIDRisk.ps1" -OutputPath $OutputPath
@@ -294,6 +288,12 @@ if ($Response -eq 'Y') {
 
 Write-Output "`nRunning 18-Search-InboxRuleChanges.ps1... Second pass (often gets info when first is blank)..." | Tee-Object -FilePath $logFilePath -Append
 & "$PSScriptRoot\18-Search-InboxRuleChanges.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate
+
+Write-Output "`nRunning 12-Search-UnifiedAuditLogSignIn.ps1..." | Tee-Object -FilePath $logFilePath -Append
+& "$PSScriptRoot\12-Search-UnifiedAuditLogSignIn.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate -UserIds "ALL"
+
+Write-Output "`nRunning 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1..." | Tee-Object -FilePath $logFilePath -Append
+& "$PSScriptRoot\11-Get-EntraIDAuditAndSignInLogs30-P1.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate
 
 Write-Output "`nRun a set of Invictus IR Microsoft Extractor Suite cmdlets to:"
 Write-Output "* Generate CSV report Security Defaults settings"

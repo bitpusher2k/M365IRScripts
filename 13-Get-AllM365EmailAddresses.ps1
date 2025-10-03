@@ -171,7 +171,7 @@ $Count = 0
 Get-Recipient -ResultSize Unlimited -RecipientTypeDetails $RecipientType | ForEach-Object {
     $Count++
     $DisplayName = $_.DisplayName
-    Write-Progress -Activity "`n     Retrieving email addresses of $DisplayName.." `n" Processed count: $Count"
+    Write-Output "`n     Retrieving email addresses of $DisplayName... Processed count: $Count"
     $RecipientTypeDetails = $_.RecipientTypeDetails
     $PrimarySMTPAddress = $_.PrimarySMTPAddress
     $Alias = ($_.EmailAddresses | Where-Object { $_ -clike "smtp:*" } | ForEach-Object { $_ -replace "smtp:", "" }) -join ","

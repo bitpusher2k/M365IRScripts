@@ -60,7 +60,7 @@ Write-Output "`n ** MS Graph (connecting to Graph first works better)..."
 # Import-Module Microsoft.Graph
 # Install-Module Microsoft.Graph.Beta
 # Import-Module Microsoft.Graph.Beta
-Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All","Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All"
+Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All","Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All", "AuditLogsQuery.Read.All"
 
 # list of all scopes:
 # Find-MgGraphPermission | ? {$_.Name -match "\bRead\b"}
@@ -113,8 +113,15 @@ if ($Test) {
 Write-Output "`n ** IPPS (Security & Compliance)..."
 # Import-Module ExchangeOnlineManagement
 Connect-IPPSSession
+
 Write-Output "`n ** Exchange Online (after IPPS so UAC logging check works)..."
-Connect-ExchangeOnline
+if ($host.version.major -gt 5) {
+    Write-Output "Opening Edge browser window to sign in by device. Use code that appears below..."
+    Start-Process msedge.exe -ArgumentList "https://login.microsoftonline.com/common/oauth2/deviceauth"
+    Connect-ExchangeOnline -Device
+} else {
+    Connect-ExchangeOnline
+}
 
 $EOSessions = Get-PSSession | Select-Object -Property State, Name
 $isconnected = (@($EOSessions) -like '@{State=Opened; Name=ExchangeOnlineInternalSession*').Count -gt 0

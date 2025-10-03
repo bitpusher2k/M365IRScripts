@@ -1381,6 +1381,14 @@ foreach ($inputFile in $inputfiles) {
             $OpsColum = "NOTFOUND"
         }
 
+        if ($headerRow -match "Identity") {
+            $IdColum = "Identity"
+        } elseif ($headerRow -match "RecordId") {
+            $IdColum = "RecordId"
+        } else {
+            $IdColum = "NOTFOUND"
+        }
+
         $CsvData = Import-Csv -Path $inputFile
         Write-Output "`nImported CSV is $($CsvData.length) records long."
         $OperationList = $CsvData.$OpsColum | Sort-Object | Get-Unique
@@ -1420,10 +1428,12 @@ foreach ($inputFile in $inputfiles) {
             # Simple way of doing it if all JSON has same structure:
             # $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json
 
-            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
+            if ($null -eq $CSVData[0].$IdColum) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On $IdColum -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
             $Combined = $Combined | Sort-Object * -Unique
             $Combined = $Combined | Sort-Object "CreationTime" -Descending
             $Combined = $Combined | Select-Object -Property @{Name = 'Recordtypes'; Expression = {$_.Recordtype -join ", "}}, * -ExcludeProperty Recordtype
+            $Combined = $Combined | Select-Object -Property @{Name = 'Operation'; Expression = {$_.Operation -join ", "}}, * -ExcludeProperty Operation
+            $Combined = $Combined | Select-Object -Property @{Name = 'UserId'; Expression = {$_.UserId -join ", "}}, * -ExcludeProperty UserId
             $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
             Write-Output "`n$outputPath written (simple)."
             Write-Output "Processed CSV is $($Combined.length) records long."
@@ -1456,10 +1466,12 @@ foreach ($inputFile in $inputfiles) {
             # Simple way of doing it if all JSON has same structure:
             # $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
 
-            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
+            if ($null -eq $CSVData[0].$IdColum) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On $IdColum -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
             $Combined = $Combined | Sort-Object * -Unique
             $Combined = $Combined | Sort-Object "CreationTime" -Descending
             $Combined = $Combined | Select-Object -Property @{Name = 'Recordtypes'; Expression = {$_.Recordtype -join ", "}}, * -ExcludeProperty Recordtype
+            $Combined = $Combined | Select-Object -Property @{Name = 'Operation'; Expression = {$_.Operation -join ", "}}, * -ExcludeProperty Operation
+            $Combined = $Combined | Select-Object -Property @{Name = 'UserId'; Expression = {$_.UserId -join ", "}}, * -ExcludeProperty UserId
             $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
             [io.file]::readalltext("$outputPath").replace("System.Object[]","") | Out-File "$outputPath" -Encoding utf8 –Force
             Write-Output "`n$outputPath written (EvotecIT)."
@@ -1493,10 +1505,12 @@ foreach ($inputFile in $inputfiles) {
             # Simple way of doing it if all JSON has same structure:
             # $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
 
-            if ($null -eq $CSVData[0].Identity) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On Identity -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
+            if ($null -eq $CSVData[0].$IdColum) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On $IdColum -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
             $Combined = $Combined | Sort-Object * -Unique
             $Combined = $Combined | Sort-Object "CreationTime" -Descending
             $Combined = $Combined | Select-Object -Property @{Name = 'Recordtypes'; Expression = {$_.Recordtype -join ", "}}, * -ExcludeProperty Recordtype
+            $Combined = $Combined | Select-Object -Property @{Name = 'Operation'; Expression = {$_.Operation -join ", "}}, * -ExcludeProperty Operation
+            $Combined = $Combined | Select-Object -Property @{Name = 'UserId'; Expression = {$_.UserId -join ", "}}, * -ExcludeProperty UserId
             $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
             Write-Output "`n$outputPath written (iRon)."
             Write-Output "Processed CSV is $($Combined.length) records long."

@@ -142,7 +142,7 @@ if (!$InputFile) {
     if (($ScopeCheck -notcontains "User.Read.All" -and $ScopeCheck -notcontains "User.ReadWrite.All") -or $ScopeCheck -notcontains "Directory.ReadWrite.All" -or $ScopeCheck -notcontains "Application.ReadWrite.All" -or $ScopeCheck -notcontains "AppRoleAssignment.ReadWrite.All") {
         Write-Output "Necessary graph scopes not found in current context. Press enter to connect with broader scopes, or press Ctrl+c to exit." | Tee-Object -FilePath $logFilePath -Append
         Pause
-        Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All", "Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All"
+        Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All", "Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All", "AuditLogsQuery.Read.All"
     }
 
     ## If OutputPath variable is not defined, prompt for it
@@ -183,7 +183,7 @@ if (!$InputFile) {
         if (($ScopeCheck -notcontains "User.Read.All" -and $ScopeCheck -notcontains "User.ReadWrite.All") -or $ScopeCheck -notcontains "Directory.ReadWrite.All" -or $ScopeCheck -notcontains "Application.ReadWrite.All" -or $ScopeCheck -notcontains "AppRoleAssignment.ReadWrite.All") {
             Write-Output "Necessary graph scopes not found in current context. Press enter to connect with broader scopes, or press Ctrl+c to exit." | Tee-Object -FilePath $logFilePath -Append
             Pause
-            Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All", "Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All"
+            Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All", "Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All", "AuditLogsQuery.Read.All"
         }
     }
 }
@@ -481,8 +481,17 @@ foreach ($UPN in $LicensedUsers) {
                     }
                     New-MgOauth2PermissionGrant -BodyParameter $params
                 }
-                Connect-AzAccount
-                $token = (Get-AzAccessToken -ResourceUrl 'https://graph.microsoft.com').Token
+                # Connect-AzAccount
+                # $token = (Get-AzAccessToken -ResourceUrl 'https://graph.microsoft.com').Token
+                Write-Output "`nRetrieving token from logon.microsoftonline.com..." | Tee-Object -FilePath $logFilePath -Append
+                $AzureBody = @{
+                    Grant_Type      = "client_credentials"
+                    Scope           = "https://graph.microsoft.com/.default" # "https://graph.microsoft.com/.default+offline_access"
+                    Client_Id       = $spn.appid
+                    Client_Secret   = $secret.SecretText
+                }                
+                $token = (Invoke-RestMethod -Method Post -Uri "https://login.microsoftonline.com/$($tenantID)/oauth2/v2.0/token" -Body $AzureBody)
+                $Token = $token.access_token
                 
                 # MSAL.PS testing....
                 # $connectionDetails = @{

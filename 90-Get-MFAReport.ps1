@@ -158,7 +158,7 @@ Get-MgUser -All -Property Id, DisplayName, UserPrincipalName, AccountEnabled, As
     $Is3rdPartyAuthenticatorUsed = "False"
     $MFAPhone = "-"
     $MicrosoftAuthenticatorDevice = "-"
-    Write-Progress -Activity "Processed users count: $ProcessedUserCount - Currently reviewing: $Name"
+    Write-Output "Processed users count: $ProcessedUserCount - Currently reviewing: $Name"
     [array]$MFAData = Get-MgUserAuthenticationMethod -UserId $UPN
     $AuthenticationMethod = @()
     $AdditionalDetails = @()

@@ -752,6 +752,8 @@ if ($Types -contains "Ext" -or $Types -contains "ALL") {
 #     }
 #  }
 
+Write-Output "Test query:" ; Search-UnifiedAuditLog -StartDate $EndDate -EndDate $EndDate -resultsize 1 # Test query to show warning if present
+
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
 Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append
 

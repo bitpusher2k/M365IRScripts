@@ -227,6 +227,7 @@ Write-Output "`nWill search for records related to: $UserIds user(s)" | Tee-Obje
 Write-Output "`nTotal range of days to check for sign-ins: $totalDays" | Tee-Object -FilePath $logFilePath -Append
 
 $count = 1
+Write-Output "Test query:" ; Search-UnifiedAuditLog -StartDate $EndDate -EndDate $EndDate -resultsize 1 # Test query to show warning if present
 do {
     Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
