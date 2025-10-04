@@ -229,8 +229,30 @@ if ($DaysAgo) {
     exit
 }
 
-Write-Output "Opening Edge browser window to retrieve sign-in logs (manually download for Entra ID Free tenants)..."
+Write-Output "Opening Edge browser window to Entra ID sign-ins for retrieval of sign-in logs (manually download for Entra ID Free tenants)..."
 Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/SignIns"
+
+Write-Output "Opening Edge browser window to Entra ID admin home page..."
+Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Overview"
+
+Write-Output "Opening Edge browser window to M365 Admin portal..."
+Start-Process msedge.exe -ArgumentList "https://admin.cloud.microsoft/?#/homepage"
+
+Write-Output "Opening Edge browser window to Entra ID Risky Users..."
+Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskyUsers"
+
+Write-Output "Opening Edge browser window to Entra ID Risky sign-ins..."
+Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskySignIns"
+
+Write-Output "Opening Edge browser window to Risk Detections..."
+Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskDetections"
+
+Write-Output "Opening additional Edge browser admin windows..."
+Start-Process msedge.exe -ArgumentList "https://entra.microsoft.com/"
+Start-Process msedge.exe -ArgumentList "https://admin.exchange.microsoft.com/#/homepage"
+Start-Process msedge.exe -ArgumentList "https://security.microsoft.com/"
+Start-Process msedge.exe -ArgumentList "https://purview.microsoft.com/"
+Start-Process msedge.exe -ArgumentList "https://admin.microsoft.com/sharepoint"
 
 Write-Output "`nRunning 10-Get-BasicTenantInformation.ps1..." | Tee-Object -FilePath $logFilePath -Append
 & "$PSScriptRoot\10-Get-BasicTenantInformation.ps1" -OutputPath $OutputPath

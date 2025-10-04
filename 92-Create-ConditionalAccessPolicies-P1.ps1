@@ -317,7 +317,7 @@ if ($Continue -eq "Y") {
         }
     }
     # [array]$Location6 = Read-Host "Enter slash-formatted IPv6 ranges to add to the block list (if any), comma separated (e.g.: '2603:8001:bf40:f00:855a:4064:fd77:abcd/128')" # Need to split input into array
-    Write-Output "Enter slash-formatted IPv6 range to add to the block list (if any) (e.g.: '2603:8001:bf40:f00:855a:4064:fd77:abcd/128' for single IP, '2603:8001:bf40:f00:855a:::/64 for full network/subnet range)"
+    Write-Output "Enter slash-formatted IPv6 range to add to the block list (if any) (e.g.: '2603:8001:bf40:f00:855a:4064:fd77:abcd/128' for single IP, '2a05:541:116:14::1/64 for full network/subnet range)"
     $Location6 = do {
         $IPv6 = Read-Host "Enter IP range, or leave blank to finish"
         $IPv6

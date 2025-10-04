@@ -165,10 +165,10 @@ $OutputCSV = "$OutputPath\$DomainName\UnifiedAuditLogEntries_$($UserIds.Replace(
 $sesid = Get-Random # Get random session number
 Write-Output "Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize" | Tee-Object -FilePath $logFilePath -Append
 $count = 1
+Write-Output "Test query:" ; Search-UnifiedAuditLog -StartDate $EndDate -EndDate $EndDate -resultsize 1 # Test query to show warning if present
 do {
     Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
-        Write-Output "Test query:" ; Search-UnifiedAuditLog -StartDate $EndDate -EndDate $EndDate -resultsize 1 # Test query to show warning if present
         $currentOutput = Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserIds -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize $resultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append

@@ -162,7 +162,7 @@ $process.PriorityClass = $Priority
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
-# Write-Output -Message "Determining the connected Exchange environment."
+# Write-Output "Determining the connected Exchange environment."
 
 # Could update to use Get-ConnectionInformation instead of Get-PSSession
 # and check Unified Audit Logging is enabled with Get-AdminAuditLogConfig
@@ -255,10 +255,10 @@ $SearchResultsProcessed = @()
 $sesid = Get-Random # Get random session number
 Write-Output "Search-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize" | Tee-Object -FilePath $logFilePath -Append
 $count = 1
+Write-Output "Test query:" ; Search-UnifiedAuditLog -StartDate $EndDate -EndDate $EndDate -resultsize 1 # Test query to show warning if present
 do {
     Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
-        Write-Output "Test query:" ; Search-UnifiedAuditLog -StartDate $EndDate -EndDate $EndDate -resultsize 1 # Test query to show warning if present
         $currentOutput = Search-UnifiedAuditLog -Operations New-InboxRule, Set-InboxRule, UpdateInboxRules, Remove-InboxRule, Disable-InboxRule -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
@@ -274,10 +274,10 @@ Write-Output "$($SearchResults.Count) New-InboxRule/Set-InboxRule/UpdateInboxRul
 $sesid = Get-Random # Get random session number
 Write-Output "Search-UnifiedAuditLog -Operations Set-Mailbox -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize" | Tee-Object -FilePath $logFilePath -Append
 $count = 1
+Write-Output "Test query:" ; Search-UnifiedAuditLog -StartDate $EndDate -EndDate $EndDate -resultsize 1 # Test query to show warning if present
 do {
     Write-Output "Getting unified audit logs page $count - Please wait" | Tee-Object -FilePath $logFilePath -Append
     try {
-        Write-Output "Test query:" ; Search-UnifiedAuditLog -StartDate $EndDate -EndDate $EndDate -resultsize 1 # Test query to show warning if present
         $currentOutput = Search-UnifiedAuditLog -Operations Set-Mailbox -StartDate $StartDate -EndDate $EndDate -SessionId $sesid -SessionCommand ReturnLargeSet -ResultSize:$ResultSize
     } catch {
         Write-Output "`n[002] - Search Unified Log error. Typically not connected to Exchange Online. Please connect and re-run script`n" | Tee-Object -FilePath $logFilePath -Append
@@ -302,7 +302,7 @@ if ($SearchResultsSetMailbox.Count -ge 1) {
 
 foreach ($sr in $SearchResults) {
 
-    Write-Output -Message "Processing log entry $($sr.ResultIndex) of $($sr.ResultCount)" | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "Processing log entry $($sr.ResultIndex) of $($sr.ResultCount)" | Tee-Object -FilePath $logFilePath -Append
 
     $AuditData = $null
     $AuditData = $sr.AuditData | ConvertFrom-Json

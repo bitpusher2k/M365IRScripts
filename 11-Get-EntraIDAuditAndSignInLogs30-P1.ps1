@@ -188,7 +188,7 @@ function ConvertTo-FlatObject {
             $Object = $InputObjects[0]
             $Iterate = [ordered]@{}
             if ($null -eq $Object) {
-                #Write-Output -Message "ConvertTo-FlatObject - Object is null"
+                #Write-Output "ConvertTo-FlatObject - Object is null"
             } elseif ($Object.GetType().Name -in 'String', 'DateTime', 'TimeSpan', 'Version', 'Enum') {
                 $Object = $Object.ToString()
             } elseif ($Depth) {
