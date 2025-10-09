@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Search-MailboxSuspiciousRules.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v3.1.1 last updated 2025-10-04
 # Script to check all mailbox rules on a domain for suspicious entries.
 # Entries are identified as suspicious based on several basic heuristic rules:
 # Forwarding, suspicious names, suspicious moving, suspicious keywords, deleting messages
@@ -138,6 +138,7 @@ foreach ($mailbox in $mailboxes) {
     $moveRules = $null
     $deleteRules = $null
     $keywordRules = $null
+    $sizeRules = $null
 
     Write-Output "Checking rules for $($mailbox.displayname) - $($mailbox.primarysmtpaddress) - $($mailbox.guid)"
     # $rules = get-inboxrule -Mailbox $mailbox.primarysmtpaddress # May not be unique - could be interpreted as Email Address, Display Name, Alias, or UPN and there could be a collision among these values
@@ -145,16 +146,18 @@ foreach ($mailbox in $mailboxes) {
 
     $forwardRules = $rules | Where-Object { $_.forwardto -or $_.forwardasattachmentto } # ForwardTo or ForwardAttachmentTo
     $nameRules = $rules | Where-Object { $_.Name -eq '...' -or $_.Name -like '*..*' -or $_.Name -like '*,,*' -or $_.Name.Length -lt 3 } # Name = ., Name = ,, Name = .., Name = ..., Name = //, Name = 1, any other really short name
-    $moveRules = $rules | Where-Object { $_.MoveToFolder -like 'RSS*' -or $_.MoveToFolder -like '*Archive*' -or $_.MoveToFolder -like '*History*' -or $_.MoveToFolder -like '*Junk*' -or $_.MoveToFolder -like '*Conversation*' } # MoveToFolder = RSS Subscriptions, MoveToFolder = RSS Feeds, MoveToFolder = Conversation History, MoveToFolder = Archive, MoveToFolder = Junk Email
+    $moveRules = $rules | Where-Object { $_.MoveToFolder -like 'RSS*' -or $_.MoveToFolder -like '*Archive*' -or $_.MoveToFolder -like '*History*' -or $_.MoveToFolder -like '*Junk*' -or $_.MoveToFolder -like '*Conversation*' -or $_.MoveToFolder -like '*Calendar*' } # MoveToFolder = RSS Subscriptions, MoveToFolder = RSS Feeds, MoveToFolder = Conversation History, MoveToFolder = Archive, MoveToFolder = Junk Email
     $deleteRules = $rules | Where-Object { $_.DeleteMessage -or $_.SoftDeleteMessage -or $_.MoveToFolder -like '*Deleted*' } # DeleteMessage = True, MoveToFolder = Deleted Items
     $keywords = @("docusign", "invoice", "payment", "bank", "fraud", "compromise", "password", "helpdesk", "w2", "mfa", "wire", "scam", "hack", "phish", "a;", "e;", "i;", "o;", "u;", "RE:")
-    $keywordRules = $rules | Where-Object { $_.BodyContainsWords -in $keywords -or $_.SubjectContainsWords -in $keywords -or $_.SubjectOrBodyContainsWords -in $keywords } # SubjectOrBodyContainsWords = docusign, invoice, payment, bank, fraud, compromise, helpdesk, password, w2, mfa, wire, scam, hack, phish, "RE:", semicolon-separated vowel list (will match on all messages)
+    $keywordRules = $rules | Where-Object { $_.BodyContainsWords -eq " " -or $_.BodyContainsWords -eq "`0" -or $_.SubjectContainsWords -eq " " -or $_.SubjectOrBodyContainsWords -eq " " -or $_.BodyContainsWords -in $keywords -or $_.SubjectContainsWords -in $keywords -or $_.SubjectOrBodyContainsWords -in $keywords } # Subject Or Body Contains Words = a blank space, Subject Or Body Contains Words = docusign, invoice, payment, bank, fraud, compromise, helpdesk, password, w2, mfa, wire, scam, hack, phish, "RE:", semicolon-separated vowel list (will match on all messages)
+    $sizeRules = $rules | Where-Object { $null -ne $_.WithinSizeRangeMinimum -and $_.WithinSizeRangeMinimum -le 1023 } # WithinSizeRangeMinimum set to value that will round down and equal everything
 
     foreach ($rule in $forwardRules) { Add-Member -InputObject $rule -MemberType NoteProperty -Name SuspectTrait -Value "MessageForwarding" -Force }
     foreach ($rule in $deleteRules) { Add-Member -InputObject $rule -MemberType NoteProperty -Name SuspectTrait -Value "MessageDeletion" -Force }
     foreach ($rule in $keywordRules) { Add-Member -InputObject $rule -MemberType NoteProperty -Name SuspectTrait -Value "RuleContainsKeywords" -Force }
     foreach ($rule in $moveRules) { Add-Member -InputObject $rule -MemberType NoteProperty -Name SuspectTrait -Value "MessageMoveFolder" -Force }
     foreach ($rule in $nameRules) { Add-Member -InputObject $rule -MemberType NoteProperty -Name SuspectTrait -Value "RuleName" -Force }
+    foreach ($rule in $sizeRules) { Add-Member -InputObject $rule -MemberType NoteProperty -Name SuspectTrait -Value "RuleSize" -Force }
 
     $suspiciousRules = @()
     $suspiciousRules += $forwardRules
@@ -162,6 +165,7 @@ foreach ($mailbox in $mailboxes) {
     $suspiciousRules += $moveRules
     $suspiciousRules += $deleteRules
     $suspiciousRules += $keywordRules
+    $suspiciousRules += $sizeRules
 
     foreach ($rule in $suspiciousRules) {
         $recipients = @()

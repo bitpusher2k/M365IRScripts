@@ -8,8 +8,10 @@
 # https://github.com/bitpusher2k
 #
 # Get-UserMessageTrace.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
-# Script to get message trace report of recent incoming & outgoing email for a given user.
+# v3.1.1 last updated 2025-10-09
+# Script to get message trace report of recent incoming & outgoing email for given user(s) or IP address.
+#
+# Updated to use Get-MessageTraceV2
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\Get-UserMessageTrace.ps1 -OutputPath "Default" -UserIds "compromisedaccount@contoso.com" -DaysAgo "10"
@@ -120,13 +122,22 @@ Write-Output "Domain sub-directory will be `"$DomainName`"" | Tee-Object -FilePa
 ## If UserIds variable is not defined, prompt for it
 if (!$UserIds) {
     Write-Output ""
-    $UserIds = Read-Host 'Enter the email address of account for message trace'
+    $UserIds = Read-Host 'Enter the email address(s) or IP address to perform message trace on (seaparate multiple email addresses with commas, maximum result size is 5000)'
+}
+
+$IPv4regex = '\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'
+$IPv6Regex = '^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::|^(?:[0-9a-fA-F]{1,4}:){1,7}:|^(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2}$|^(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3}$|^(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5}$|^[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6}$|^:(?::[0-9a-fA-F]{1,4}){1,7}[0-9a-fA-F]{1,4}$'
+
+$TypeParam = "UPN"
+if ($UserIds -match $IPv4regex -or $UserIds -match $IPv6regex) {
+    $TypeParam = "IP"
+    Write-Output "Will search for IP: $UserIds"
 }
 
 ## If DaysAgo variable is not defined and StartDate/EndDate were also not defined, prompt for it
 if (!$DaysAgo -and (!$StartDate -or !$EndtDate)) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available message trace entries for specified account (default: 10, maximum: 90 - entries past 10 days ago will be in "historical" report)' # https://learn.microsoft.com/en-us/exchange/monitoring/trace-an-email-message/message-trace-faq
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available message trace entries for specified account (default: 10, maximum: 90 - entries past 10 days ago will be in 10-day increment reports)' # https://learn.microsoft.com/en-us/exchange/monitoring/trace-an-email-message/message-trace-faq, https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/start-historicalsearch?view=exchange-ps, https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-messagetracev2?view=exchange-ps
     if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 90) { $DaysAgo = "90" }
     Write-Output "Will attempt to retrieve message trace entries going back $DaysAgo days from today."
 } elseif ($DaysAgo) {
@@ -140,38 +151,62 @@ if (!$DaysAgo -and (!$StartDate -or !$EndtDate)) {
 }
 
 if ($StartDate -and $EndtDate) {
-    Write-Output "Starting Get-MessageTrace..."
-    Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
-    Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+    Write-Output "Starting Get-MessageTraceV2..."
+    if ($TypeParam -eq "IP") {
+        Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+        Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+    } else {
+        Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+        Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+    }
 
-    Write-Output "Starting historical search to retrieve traces of messages older than 10 days..."
-    Start-HistoricalSearch -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Sender $UserIds historical search between $($StartDate.ToString('yyyyMMddHHmmss')) and $($EndtDate.ToString('yyyyMMddHHmmss'))" -ReportType messagetrace
-    Start-HistoricalSearch -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Recipient $UserIds historical search between $($StartDate.ToString('yyyyMMddHHmmss')) and $($EndtDate.ToString('yyyyMMddHHmmss'))" -ReportType messagetrace
-    Write-Output "Historical searches queued. Use 'Get-HistoricalSearch | Select ReportTitle,Status' to check the search status, then when complete download the reports from https://admin.exchange.microsoft.com/#/messagetrace"
-    Write-Output "Use 'Stop-HistoricalSearch -JobId <Guid>' to cancel."
+    # Write-Output "Starting historical search to retrieve traces of messages older than 10 days..."
+    # Start-HistoricalSearch -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Sender $UserIds historical search between $($StartDate.ToString('yyyyMMddHHmmss')) and $($EndtDate.ToString('yyyyMMddHHmmss'))" -ReportType messagetrace
+    # Start-HistoricalSearch -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Recipient $UserIds historical search between $($StartDate.ToString('yyyyMMddHHmmss')) and $($EndtDate.ToString('yyyyMMddHHmmss'))" -ReportType messagetrace
+    # Write-Output "Historical searches queued. Use 'Get-HistoricalSearch | Select ReportTitle,Status' to check the search status, then when complete download the reports from https://admin.exchange.microsoft.com/#/messagetrace"
+    # Write-Output "Use 'Stop-HistoricalSearch -JobId <Guid>' to cancel."
 } elseif ($DaysAgo -gt 10) {
     $StartDate = (Get-Date).AddDays(-10)
     $EndDate = (Get-Date).AddDays(1)
 
-    Write-Output "Starting Get-MessageTrace..."
-    Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
-    Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+    while ($DaysAgo -gt 0) {
+        Write-Output "Starting Get-MessageTraceV2..."
+        if ($TypeParam -eq "IP") {
+            Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        } else {
+            Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+        }
 
-    $StartDate = (Get-Date).AddDays(- $DaysAgo)
-    $EndDate = (Get-Date).AddDays(1)
+        $EndDate = ($StartDate)
+        $DaysAgo = $DaysAgo - 10
+        if ($DaysAgo -gt 10) {
+            $StartDate = ($StartDate).AddDays(-10)
+        } elseif ($DaysAgo -gt 0) {
+            $StartDate = ($StartDate).AddDays(-$DaysAgo)
+        }
+    }
 
-    Write-Output "Starting historical search to retrieve traces of messages older than 10 days..."
-    Start-HistoricalSearch -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Sender $UserIds historical search $DaysAgo days ago from $EndDate" -ReportType messagetrace
-    Start-HistoricalSearch -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Recipient $UserIds historical search $DaysAgo days ago from $EndDate" -ReportType messagetrace
-    Write-Output "Historical searches queued. Use 'Get-HistoricalSearch | Select ReportTitle,Status' to check the search status, then when complete download the reports from https://admin.exchange.microsoft.com/#/messagetrace"
-    Write-Output "Use 'Stop-HistoricalSearch -JobId <Guid>' to cancel."
+    # Write-Output "Starting historical search to retrieve traces of messages older than 10 days..."
+    # $StartDate = (Get-Date).AddDays(- $DaysAgo)
+    # $EndDate = (Get-Date).AddDays(1)
+    # Start-HistoricalSearch -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Sender $UserIds historical search $DaysAgo days ago from $EndDate" -ReportType messagetrace
+    # Start-HistoricalSearch -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Recipient $UserIds historical search $DaysAgo days ago from $EndDate" -ReportType messagetrace
+    # Write-Output "Historical searches queued. Use 'Get-HistoricalSearch | Select ReportTitle,Status' to check the search status, then when complete download the reports from https://admin.exchange.microsoft.com/#/messagetrace"
+    # Write-Output "Use 'Stop-HistoricalSearch -JobId <Guid>' to cancel."
 } else {
     $StartDate = (Get-Date).AddDays(- $DaysAgo)
     $EndDate = (Get-Date).AddDays(1)
 
-    Write-Output "Starting Get-MessageTrace..."
-    Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
-    Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+    Write-Output "Starting Get-MessageTraceV2..."
+    if ($TypeParam -eq "IP") {
+        Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+        Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+    } else {
+        Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+        Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+    }
 }
 
 ## Potential additions:

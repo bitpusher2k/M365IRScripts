@@ -250,6 +250,7 @@ if ($DaysAgo) {
 Write-Output "NOTE: Recently it has taken multiple runs before all email rule change events are properly retrieved and parsed by this script. Reason unknown - initiating search may prompt consolidation of log entries.."
 Write-Output "NOTE: Run script, wait 10 minutes, then run again to ensure all entries are retrieved."
 
+$SearchResults = @()
 $SearchResultsProcessed = @()
 
 $sesid = Get-Random # Get random session number

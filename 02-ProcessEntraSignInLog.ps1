@@ -65,7 +65,7 @@ foreach ($inputFile in $inputfiles) {
 
     $EntraLog = Import-Csv $inputFile -Header $InputHeaders | Select-Object -Skip 1 | Select-Object *, @{ n = 'City'; e = { $_.Location.Split(',')[0] } }, @{ n = 'Region'; e = { $_.Location.Split(',')[1] } }, @{ n = 'Country'; e = { $_.Location.Split(',')[2] } }, @{ n = 'DateOnly'; e = { $_.DateUTC.Split('T')[0] } }, @{ n = 'TimeOnly'; e = { $_.DateUTC.Split('T')[1].Remove(8) } }
 
-    $OutputHeaders = ("DateUTC", "DateOnly", "TimeOnly", "User", "Username", "IPaddress", "City", "Region", "Country", "Status", "UserType", "AuthRequirement", "ConditionalAccess", "TokenType", "Application", "Resource", "ResourceID", "FailureReason", "ClientApp", "Browser", "OS", "UserAgent", "Compliant", "Managed", "JoinType", "Latency", "MFAResult", "MFAMethod", "MFADetail","SessionID")
+    $OutputHeaders = ("DateUTC", "DateOnly", "TimeOnly", "User", "Username", "IPaddress", "City", "Region", "Country", "Status", "UserType", "AuthRequirement", "ConditionalAccess", "TokenType", "Application", "ApplicationID", "Resource", "ResourceID", "FailureReason", "ClientApp", "Browser", "OS", "UserAgent", "Compliant", "Managed", "JoinType", "Latency", "MFAResult", "MFAMethod", "MFADetail","SessionID")
 
     # $OutputHeaders = ("IPaddress")
 
