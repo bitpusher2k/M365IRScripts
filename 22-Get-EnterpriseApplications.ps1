@@ -186,7 +186,7 @@ Write-Output "* Newsletter Software Supermailer:  'a245e8c0-b53c-4b67-9b45-751d1
 Write-Output "* rclone:                           'b15665d9-eda6-4092-8539-0eec376afd59'"
 Write-Output "* CloudSponge:                      'a43e5392-f48b-46a4-a0f1-098b5eeb4757'"
 Write-Output "* SigParser:                        'caffae8c-0882-4c81-9a27-d1803af53a40'"
-if ($null -eq $response) {
+if ($null -eq $inoculate) {
     $inoculate = Read-Host 'Enter Y to proactivly inoculate this tenant against use of these applications'
 }
 if ($inoculate -eq "Y") {
