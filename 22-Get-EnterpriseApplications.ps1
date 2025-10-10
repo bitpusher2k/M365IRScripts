@@ -8,9 +8,14 @@
 # https://github.com/bitpusher2k
 #
 # Get-EnterpriseApplications.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
-# Script to list all Entra ID enterprise applications (really all Service Principals)
+# v3.1.1 last updated 2025-07-26
+# Script to list all Entra ID enterprise applications (Service Principals)
 # configured on a tenant, from newest created to oldest.
+# 
+# Now has option to block Enterprise Applications known to be used
+# maliciously by AppID.
+#
+# View full list in your tenant at https://portal.azure.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview/applicationType/All
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\ Get-EnterpriseApplications.ps1 -OutputPath "Default"
@@ -148,8 +153,8 @@ $results = Get-MgServicePrincipal -All
 # $results | Sort-Object createdDateTime -desc | Select-Object createdDateTime,DisplayName | FTion -Encoding $Encoding
 
 
-$results | Select-Object DisplayName, ServicePrincipalType, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, Id | Sort-Object createdDateTime -desc | Format-Table
-$results | Select-Object DisplayName, ServicePrincipalType, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, Id | Sort-Object createdDateTime -desc | Export-Csv $OutputCSV -Append -notypeinformat -Encoding $Encoding
+$results | Select-Object DisplayName, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, AppRoleAssignmentRequired, @{ Name = "TagList"; Expression = { $_.tags -join "," } }, ServicePrincipalType, Id | Sort-Object createdDateTime -desc | Format-Table
+$results | Select-Object DisplayName, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, AppRoleAssignmentRequired, @{ Name = "TagList"; Expression = { $_.tags -join "," } }, ServicePrincipalType, Id | Sort-Object createdDateTime -desc | Export-Csv $OutputCSV -Append -notypeinformat -Encoding $Encoding
 
 # Additional info:
 #  Get-MgServicePrincipal -ServicePrincipalId XXXX-xxx-xx-xx-XXXX | Select samlSingleSignOnSettings, loginUrl, logoutUrl, notificationEmailAddresses
@@ -166,6 +171,32 @@ if ((Test-Path -Path $OutputCSV) -eq "True") {
     # if ($UserInput -eq 6) {
     #     Invoke-Item "$OutputCSV"
     # }
+}
+
+
+# Proactively disable known malicious Enterprise Applications (service principles) by AppID using Microsoft Graph PowerShell
+# https://huntresslabs.github.io/rogueapps
+# https://github.com/MicrosoftDocs/entra-docs/blob/main/docs/identity/enterprise-apps/disable-user-sign-in-portal.md
+Write-Output "`nKnown potentially malicious Enterprise Application IDs (check if they are present and enabled in the report above):"
+Write-Output "* Perfectdata:                      'ff8d92dc-3d82-41d6-bcbd-b9174d163620'"
+Write-Output "* Mail_Backup:                      '2ef68ccc-8a4d-42ff-ae88-2d7bb89ad139'"
+Write-Output "* eM Client:                        'e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd'"
+Write-Output "* Newsletter Software Supermailer:  'a245e8c0-b53c-4b67-9b45-751d1dff8e6b'"
+Write-Output "* rclone:                           'b15665d9-eda6-4092-8539-0eec376afd59'"
+Write-Output "* CloudSponge:                      'a43e5392-f48b-46a4-a0f1-098b5eeb4757'"
+Write-Output "* SigParser:                        'caffae8c-0882-4c81-9a27-d1803af53a40'"
+$response = Read-Host 'Enter Y to proactivly inoculate this tenant against use of these applications'
+if ($response -eq "Y") {
+    # Connect to Microsoft Graph PowerShell - Connect-MgGraph -Scopes "Application.ReadWrite.All"
+    # Set the AppIDs of the service principals to be disabled
+    $BadAppIdList = @('ff8d92dc-3d82-41d6-bcbd-b9174d163620', '2ef68ccc-8a4d-42ff-ae88-2d7bb89ad139', 'e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd', 'a245e8c0-b53c-4b67-9b45-751d1dff8e6b', 'b15665d9-eda6-4092-8539-0eec376afd59', 'a43e5392-f48b-46a4-a0f1-098b5eeb4757', 'caffae8c-0882-4c81-9a27-d1803af53a40')
+    foreach ($AppID in $BadAppIdList) {
+        $servicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$AppID'"
+        if ($null -eq $servicePrincipal) { New-MgServicePrincipal -AppID $AppID ; $servicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$AppID'" }
+        # Disable, restrict assignment, and hide each service principal
+        Update-MgServicePrincipal -ServicePrincipalId $servicePrincipal.Id -AccountEnabled:$false -AppRoleAssignmentRequired:$true -Tags "HideApp"
+    }
+    Write-Output "`nKnown potentially malicious Enterprise Applications have been blocked by AppID on this tenant`n"
 }
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append

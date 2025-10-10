@@ -248,6 +248,7 @@ Write-Output "Opening Edge browser window to Risk Detections..."
 Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_IAM/SecurityMenuBlade/~/RiskDetections"
 
 Write-Output "Opening additional Edge browser admin windows..."
+Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview/applicationType/All"
 Start-Process msedge.exe -ArgumentList "https://entra.microsoft.com/"
 Start-Process msedge.exe -ArgumentList "https://admin.exchange.microsoft.com/#/homepage"
 Start-Process msedge.exe -ArgumentList "https://security.microsoft.com/"

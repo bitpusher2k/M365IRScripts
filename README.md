@@ -109,7 +109,7 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
 1. Contain incident - block sign-in to known or suspected compromised accounts and initiate password resets. Check user roles and mailbox permissions, and expand scope of incident accordingly.
 2. Retrieve and review account logs - start with sign-in logs, audit logs, inbox rules, mailbox audit logs. See below "Investigation Tips" for specifics on retrieving and reviewing M365 settings/logs using these IR scripts.
 3. Check built-in protections - Entra ID risk detections and Microsoft Defender alerts/incidents/quarantine ()
-4. Review tenant Enterprise Applications, impacted account MFA methods and registered devices (https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Users), changes to OneDrive files and junk mail configurations.
+4. Review tenant Enterprise Applications (https://portal.azure.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview/applicationType/All), impacted account MFA methods and registered devices (https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/Users), changes to OneDrive files and junk mail configurations.
 5. Pivot through logs following identified malicious/suspicious events to find related events - Chronology is the first element of induction; topology is the second. Correlate events by proximity in time and proximity in source.
 6. If impacted account scope is expanded by findings from logs & settings start back at step one and repeat.
 7. Once investigation is concluded and account(s) are secured clear messages from Microsoft Defender quarantine, unblock sending of any blocked account(s), use eDiscovory to find and remove identified spam/phishing messages from mailboxes. 
@@ -176,8 +176,8 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
     * Review output of scripts focusing on activity from any identified suspect IP addresses and related to any know suspect message subject lines.
 
 * To review Enterprise Applications
-    * View in console at https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/EnterpriseApps and/or use .\22-Get-EnterpriseApplications.ps1 to export report.
-    * Look for any applications added within the scope of the incident, and any applications often used for malicious purposes (PerfectData, eM Client - https://cybercorner.tech/malicious-azure-application-perfectdata-software-and-office365-business-email-compromise/, https://cybercorner.tech/malicious-usage-of-em-client-in-business-email-compromise/)
+    * View in console at https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/EnterpriseApps, https://portal.azure.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview/applicationType/Alland/or use .\22-Get-EnterpriseApplications.ps1 to export report.
+    * Look for any applications added within the scope of the incident, and any applications often used for malicious purposes (e.g. PerfectData, eM Client - https://cybercorner.tech/malicious-azure-application-perfectdata-software-and-office365-business-email-compromise/, https://cybercorner.tech/malicious-usage-of-em-client-in-business-email-compromise/)
 
 * To review Microsoft Defender alerts and Entra ID risk
     * View Defender alerts in console at https://security.microsoft.com > Alerts and/or use .\23-Get-DefenderInformation.ps1 to export report.
