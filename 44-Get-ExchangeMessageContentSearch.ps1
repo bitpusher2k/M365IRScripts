@@ -8,12 +8,12 @@
 # https://github.com/bitpusher2k
 #
 # Get-ExchangeMessageContentSearch.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v3.1.1 last updated 2025-10-10
 # Script to walk through usual content search steps for dealing with spam/phishing messages:
 # * Search for messages by sender & subject
 # * Export preview report
-# * Export message contents
-# * Purge messages
+# * Open browser window to export message contents (must now be done through web interface)
+# * Purge messages (soft delete)
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\Get-ExchangeMessageContentSearch.ps1 -OutputPath "Default" -UserIds "compromisedaccount@contoso.com" -DaysAgo "5" -Subject "Phishing Message"
@@ -21,7 +21,7 @@
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
-# Uses ExchangePowerShell (IPPS) commands.
+# Uses ExchangeOnlineManagement (IPPS) commands. Requires minimum module version of 3.9.0.
 #
 #comp #m365 #security #bec #script #irscript #powershell #contentsearch #export #message #purge #content #search
 
@@ -259,25 +259,16 @@ Invoke-Item "$OutputPath\$DomainName"
 
 Write-Output "."
 Write-Output "."
-$Continue = ""
-while ($Continue -ne "Y") {
-    $Continue = Read-Host "Enter 'Y' to continue with content search export. Press Ctrl+c to exit script now"
-}
-Write-Output "New-ComplianceSearchAction -SearchName `"$SearchName`" -Export"
-New-ComplianceSearchAction -SearchName "$SearchName" -Export
-$OperationStatus = Get-ComplianceSearchAction -Identity "$($SearchName)_Export"
-$OperationStatus.Name
-$OperationStatus.Status
 
-Write-Output "Opening Edge browser window so content search export can be retrieved and reviewed..."
-Write-Output "https://purview.microsoft.com/ediscovery/contentsearchv2?viewid=export (old link: https://compliance.microsoft.com/contentsearchv2?viewid=export)"
-Start-Process msedge.exe -ArgumentList "https://purview.microsoft.com/ediscovery/contentsearchv2?viewid=export"
+Write-Output "Opening Purview Cases page in Edge browser to start/retrieve Content Search export (must be done through web console)..."
+Write-Output "https://purview.microsoft.com/ediscovery/casespage"
+Start-Process msedge.exe -ArgumentList "https://purview.microsoft.com/ediscovery/casespage"
 # Start-Process msedge.exe -ArgumentList "https://compliance.microsoft.com/contentsearchv2?viewid=export -inprivate" # Use this string to open private window if Edge is not the browser being used for M365 management
-Write-Output "Sign-in with the account that started this content search, click `"Export`". When the export is 'Completed' retrieve the messages using `"Download results`" and the Export Key."
+Write-Output "Sign-in with the account that started this content search, navigate to Content Search > `"$SearchName`" > `"Export`"."
+Write-Output "Choose name/options (individual MSG files recommended for smaller exports) and click `"Export`"."
+Write-Output "Navigate to `"Process manager`" to monitor progress. When the export is `"Completed`" select it & click `"Download`"."
 
 # eDiscovery (Standard): compliance.microsoft.com/classicediscovery
-# eDiscovery (Premium): compliance.microsoft.com/advancedediscovery
-
 Write-Output "."
 Write-Output "."
 
@@ -304,6 +295,15 @@ if ($Continue -eq "YES") {
         $OperationStatus.Status
         $Continue = Read-Host "`nIf the purge status above is 'Completed' enter 'Y' to continue. Press enter to refresh status"
     }
+    $OperationStatus.SearchName | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt"
+    $OperationStatus.Action | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    $OperationStatus.Name | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    $OperationStatus.CreatedTime | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    $OperationStatus.JobStartTime | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    $OperationStatus.JobEndTime | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    $OperationStatus.results | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    $OperationStatus.results | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    $OperationStatus.Errors | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
 }
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append

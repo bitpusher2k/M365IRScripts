@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Connect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v3.1.1 last updated 2025-10-10
 # Script to connect PowerShell session to all needed M365 modules before
 # running other investigation & remediation scripts.
 #
@@ -27,8 +27,9 @@
 $modules = @("Microsoft.Graph", "Microsoft.Graph.Beta", "ExchangeOnlineManagement", "Microsoft-Extractor-Suite")
 
 foreach ($module in $modules) {
-    if (Get-Module -ListAvailable -Name $module) {
-        Write-Output "$module already installed"
+    $ModuleInfo = Get-Module -ListAvailable -Name $module
+    if ($ModuleInfo) {
+        Write-Output "$module already installed - Version $($ModuleInfo[0].version)"
     } else {
         Write-Output "Installing $module"
         Install-Module $module -Force -SkipPublisherCheck -Scope CurrentUser -ErrorAction Stop | Out-Null
@@ -110,9 +111,9 @@ if ($Test) {
 # }
 
 
-Write-Output "`n ** IPPS (Security & Compliance)..."
+Write-Output "`n ** IPPS (Security & Compliance - note that version 3.9.0 or greater is required for compliance search operations)..."
 # Import-Module ExchangeOnlineManagement
-Connect-IPPSSession
+Connect-IPPSSession -EnableSearchOnlySession
 
 Write-Output "`n ** Exchange Online (after IPPS so UAC logging check works)..."
 if ($host.version.major -gt 5) {

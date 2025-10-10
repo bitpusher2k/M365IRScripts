@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Disconnect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v3.1.1 last updated 2025-10-10
 # Script to disconnect from all M365 modules/sessions.
 #
 # Usage:
@@ -42,17 +42,17 @@ if ($Test) {
 }
 
 
-try {
-    $Test = $Null
-    $Test = Get-MsolDomain -ErrorAction SilentlyContinue
-    if ($Test) {
-        Write-Output "`nMSOL still connected."
-    } else {
-        Write-Output "`nMSOL disconnected."
-    }
-} catch {
-    Write-Output "`nMSOL disconnected."
-}
+# try {
+#     $Test = $Null
+#     $Test = Get-MsolDomain -ErrorAction SilentlyContinue
+#     if ($Test) {
+#         Write-Output "`nMSOL still connected."
+#     } else {
+#         Write-Output "`nMSOL disconnected."
+#     }
+# } catch {
+#     Write-Output "`nMSOL disconnected."
+# }
 
 
 Disconnect-ExchangeOnline -Confirm:$false -InformationAction Ignore -ErrorAction SilentlyContinue
@@ -67,22 +67,22 @@ if ($isconnected) {
 }
 
 
-try {
-    Disconnect-AzureAD -InformationAction Ignore -ErrorAction SilentlyContinue
-} catch {
-    Write-Output "Error calling Disconnect-AzureAD."
-}
-try {
-    $Test = $Null
-    $Test = Get-AzureADTenantDetail -ErrorAction SilentlyContinue
-    if ($Test) {
-        Write-Output "`nAzureAD still connected."
-    } else {
-        Write-Output "`nAzureAD disconnected."
-    }
-} catch {
-    Write-Output "`nAzureAD disconnected."
-}
+# try {
+#     Disconnect-AzureAD -InformationAction Ignore -ErrorAction SilentlyContinue
+# } catch {
+#     Write-Output "Error calling Disconnect-AzureAD."
+# }
+# try {
+#     $Test = $Null
+#     $Test = Get-AzureADTenantDetail -ErrorAction SilentlyContinue
+#     if ($Test) {
+#         Write-Output "`nAzureAD still connected."
+#     } else {
+#         Write-Output "`nAzureAD disconnected."
+#     }
+# } catch {
+#     Write-Output "`nAzureAD disconnected."
+#}
 
 
 Get-PSSession | Remove-PSSession

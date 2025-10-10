@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-EnterpriseApplications.ps1 - By Bitpusher/The Digital Fox
-# v3.1.1 last updated 2025-07-26
+# v3.1.1 last updated 2025-10-10
 # Script to list all Entra ID enterprise applications (Service Principals)
 # configured on a tenant, from newest created to oldest.
 # 
@@ -35,6 +35,7 @@ param(
     [int]$DaysAgo,
     [datetime]$StartDate,
     [datetime]$EndDate,
+    [string]$inoculate = "N",
     [string]$scriptName = "Get-EnterpriseApplications",
     [string]$Priority = "Normal",
     [string]$DebugPreference = "SilentlyContinue",
@@ -185,8 +186,10 @@ Write-Output "* Newsletter Software Supermailer:  'a245e8c0-b53c-4b67-9b45-751d1
 Write-Output "* rclone:                           'b15665d9-eda6-4092-8539-0eec376afd59'"
 Write-Output "* CloudSponge:                      'a43e5392-f48b-46a4-a0f1-098b5eeb4757'"
 Write-Output "* SigParser:                        'caffae8c-0882-4c81-9a27-d1803af53a40'"
-$response = Read-Host 'Enter Y to proactivly inoculate this tenant against use of these applications'
-if ($response -eq "Y") {
+if ($null -eq $response) {
+    $inoculate = Read-Host 'Enter Y to proactivly inoculate this tenant against use of these applications'
+}
+if ($inoculate -eq "Y") {
     # Connect to Microsoft Graph PowerShell - Connect-MgGraph -Scopes "Application.ReadWrite.All"
     # Set the AppIDs of the service principals to be disabled
     $BadAppIdList = @('ff8d92dc-3d82-41d6-bcbd-b9174d163620', '2ef68ccc-8a4d-42ff-ae88-2d7bb89ad139', 'e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd', 'a245e8c0-b53c-4b67-9b45-751d1dff8e6b', 'b15665d9-eda6-4092-8539-0eec376afd59', 'a43e5392-f48b-46a4-a0f1-098b5eeb4757', 'caffae8c-0882-4c81-9a27-d1803af53a40')
