@@ -795,7 +795,7 @@ if ($Continue -eq "Y") {
     Write-Output ""
 }
 
-## Create Require MFA authentication strength for all users policy - If you use external authentication methods, these are currently incompatable with authentication strength and you should use the Require multifactor authentication grant control.
+## Create Require MFA authentication strength for all users policy - If you use external authentication methods, these are currently incompatible with authentication strength and you should use the Require multi-factor authentication grant control.
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require MFA authentication strength for all users' conditional access policy"
 if ($Continue -eq "Y") {
@@ -1003,7 +1003,7 @@ Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Restrict device code flow and authentication transfer' conditional access policy (manual completion of configuration required)"
 if ($Continue -eq "Y") {
     $PolicySettings = @{
-        DisplayName     = "Restrict device code flow and authentication transfer"
+        DisplayName     = "Restrict device code flow and authentication transfer (manual completion of configuration required)"
         state           = "enabledForReportingButNotEnforced"
         conditions      = @{
             Applications   = @{
@@ -1032,7 +1032,56 @@ if ($Continue -eq "Y") {
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
     Write-Output "Policy created."
-    Write-Output "NOTE: Authentication Flows is in preview and NOT FULLY CONFIGURABLE FROM POWERSHELL - Go to this policy > Conditions > Authentication Flows, set Configure to Yes, Select Device code flow and Authentication transfer, and Save to finish configuration."
+    Write-Output "NOTE: Authentication Flows is in preview and NOT FULLY CONFIGURABLE FROM POWERSHELL - Go to this policy > Conditions > Authentication Flows, set Configure to Yes, Select Device code flow and Authentication transfer, update the name, and Save to finish configuration."
+    Write-Output "Opening Edge browser window to finish policy configuration..."
+    Write-Output "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"
+    Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"
+    Write-Output ""
+}
+
+## Create require token protection policy for Windoes/MacOS/iOS devices
+## https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-token-protection
+## You will need to go to https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies, select this policy, select Session and check "Require token protection..." to enable this policy (unable to set option from PS currently)
+Write-Output ""
+$Continue = Read-Host "Enter 'Y' to create 'Require Token Protection on supported applications and devices' conditional access policy (manual completion of configuration required)"
+if ($Continue -eq "Y") {
+    $PolicySettings = @{
+        DisplayName     = "Require Token Protection on supported applications and devices (manual completion of configuration required)"
+        state           = "enabledForReportingButNotEnforced"
+        conditions      = @{
+            Applications   = @{
+                includeApplications = @(
+                    "MicrosoftAdminPortals",
+                    "f0ae4899-d877-4d3c-ae25-679e38eea492", # AAD App Management
+                    "cc15fd57-2c6c-4117-a88c-83b1d56b4bbe", # Microsoft Teams Services
+                    "00000002-0000-0ff1-ce00-000000000000", # Office 365 Exchange Online
+                    "00000003-0000-0ff1-ce00-000000000000", # Office 365 SharePoint Online
+                    "Office365"
+                )
+            }
+            Users          = @{
+                includeUsers = @(
+                    "All"
+                )
+                excludeUsers = @(
+                    "$UserID"
+                )
+            }
+            ClientAppTypes = @(
+                "all"
+            )
+            Platforms      = @{
+                IncludePlatforms = @(
+                    "iOS",
+                    "windows",
+                    "macOS"
+                )
+            }
+        }
+    }
+    New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
+    Write-Output "Policy created."
+    Write-Output "NOTE: Token Protection is NOT FULLY CONFIGURABLE FROM POWERSHELL - Go to this policy > Session, check 'Require token protection...', update the name and Save to finish configuration."
     Write-Output "Opening Edge browser window to finish policy configuration..."
     Write-Output "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"
     Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"

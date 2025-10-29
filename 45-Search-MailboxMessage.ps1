@@ -547,6 +547,10 @@ foreach ($UPN in $LicensedUsers) {
             exit 96
         }
 
+            # DELETE message by "internetMessageId" - needs Mail.ReadWrite
+            # $SearchUri = "https://graph.microsoft.com/v1.0/users/$($Upn)/messages/?`$filter=internetMessageId eq '$QueryString'"
+            # $Response = Invoke-WebRequest -Method Delete -Uri $SearchUri -Headers $AuthHeaders
+
         # $SearchUri = "https://graph.microsoft.com/v1.0/me/messages?$filter=subject eq '$subject' and sender/emailAddress/address eq '$SenderAddress' and sentDateTime ge $($StartDate.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
         Write-Output "`nSearching for $($QueryString) in $($Upn)..." | Tee-Object -FilePath $logFilePath -Append
 
