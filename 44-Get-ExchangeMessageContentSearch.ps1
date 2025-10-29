@@ -205,9 +205,9 @@ $SearchName = "Suspicious email search $date"
 if ($Identifier) {
     $Query = "(Identifier:" + $Identifier + ")"
 } elseif ($UserIds -eq "Any Sender") {
-    $Query = "sent>=" + $StartDate + " AND (subject:" + $Subject + ")"
+    $Query = "sent>=" + $((StartDate).ToString('yyyy-MM-dd')) + " AND (subject:" + $Subject + ")"
 } else {
-    $Query = "From:" + $UserIds + " AND sent>=" + $StartDate + " AND (subject:" + $Subject + ")"
+    $Query = "From:" + $UserIds + " AND sent>=" + $((StartDate).ToString('yyyy-MM-dd')) + " AND (subject:`"" + $Subject + "`")"
 }
 Write-Output "Starting content search - `"$SearchName`""
 Write-Output "New-ComplianceSearch -name `"$SearchName`" -ExchangeLocation all -ContentMatchQuery $Query`n"
