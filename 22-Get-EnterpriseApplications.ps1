@@ -8,12 +8,13 @@
 # https://github.com/bitpusher2k
 #
 # Get-EnterpriseApplications.ps1 - By Bitpusher/The Digital Fox
-# v3.1.1 last updated 2025-10-10
-# Script to list all Entra ID enterprise applications (Service Principals)
-# configured on a tenant, from newest created to oldest.
-# 
-# Now has option to block Enterprise Applications known to be used
-# maliciously by AppID.
+# v3.1.3 last updated 2025-10-31
+# Script to report all Entra ID enterprise applications (Service Principals)
+# configured on a tenant, from newest created to oldest, then check
+# for suspicious apps (based on known name/App ID, non-alpha name, reply URL,
+# "test" name, or name matching a user's name).
+# Can then optionally block Enterprise Applications known to be used
+# maliciously by AppID (adds them to tenant then disables them).
 #
 # View full list in your tenant at https://portal.azure.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview/applicationType/All
 #
@@ -132,6 +133,7 @@ Write-Output "Domain sub-directory will be `"$DomainName`"" | Tee-Object -FilePa
 
 
 $OutputCSV = "$OutputPath\$DomainName\AllEnterpriseApplications_$($date).csv"
+$OutputCSVSuspect = "$OutputPath\$DomainName\SuspectEnterpriseApplications_$($date).csv"
 
 Write-Output "Listing all Enterprise Applications..."
 
@@ -153,9 +155,54 @@ $results = Get-MgServicePrincipal -All
 # $results | Sort-Object createdDateTime -desc | Select-Object createdDateTime,DisplayName | FT
 # $results | Sort-Object createdDateTime -desc | Select-Object createdDateTime,DisplayName | FTion -Encoding $Encoding
 
+# Show & save reports of all apps
+$results | Select-Object DisplayName, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, AppRoleAssignmentRequired, @{ Name = "TagList"; Expression = { $_.tags -join "," } }, @{ Name = "ReplyUrls"; Expression = { $_.ReplyUrls -join "," } }, ServicePrincipalType, Id | Sort-Object createdDateTime -desc | Format-Table
+$results | Select-Object DisplayName, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, AppRoleAssignmentRequired, @{ Name = "TagList"; Expression = { $_.tags -join "," } }, @{ Name = "ReplyUrls"; Expression = { $_.ReplyUrls -join "," } }, ServicePrincipalType, Id | Sort-Object createdDateTime -desc | Export-Csv $OutputCSV -Append -notypeinformat -Encoding $Encoding
 
-$results | Select-Object DisplayName, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, AppRoleAssignmentRequired, @{ Name = "TagList"; Expression = { $_.tags -join "," } }, ServicePrincipalType, Id | Sort-Object createdDateTime -desc | Format-Table
-$results | Select-Object DisplayName, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, AppRoleAssignmentRequired, @{ Name = "TagList"; Expression = { $_.tags -join "," } }, ServicePrincipalType, Id | Sort-Object createdDateTime -desc | Export-Csv $OutputCSV -Append -notypeinformat -Encoding $Encoding
+
+# Check for suspicious applications
+
+$SuspectList = @()
+
+## Name/app ID matches known rogue app (Huntress list)
+
+$rogueAppNames = @('Perfectdata','Mail_Backup','eM Client','Newsletter Software Supermailer','rclone','CloudSponge','SigParser')
+$rogueAppIDs = @('ff8d92dc-3d82-41d6-bcbd-b9174d163620','2ef68ccc-8a4d-42ff-ae88-2d7bb89ad139','e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd','a245e8c0-b53c-4b67-9b45-751d1dff8e6b','b15665d9-eda6-4092-8539-0eec376afd59','a43e5392-f48b-46a4-a0f1-098b5eeb4757','caffae8c-0882-4c81-9a27-d1803af53a40')
+$SuspectList += $results | Where-Object { $rogueAppNames -contains $_.DisplayName }
+$SuspectList += $results | Where-Object { $rogueAppIDs -contains $_.AppId }
+
+## Name is made up of non-alphanumeric characters
+
+$nonAlphaNum = "^[^a-zA-Z0-9]+$"
+$SuspectList += $results | Where-Object { $_.DisplayName -match $nonAlphaNum }
+
+## Application has suspicious reply URL (from Proofpoint's MACT campaign 1445 intel - https://www.proofpoint.com/us/blog/cloud-security/revisiting-mact-malicious-applications-credible-cloud-tenants)
+
+$SuspiciousUrl = "^http://localhost:\d+/access/"
+$SuspectList += $results | Where-Object { $_.ReplyUrls -match $SuspiciousUrl }
+
+## Name of app is "test"/"test app"/"app test"
+
+$testAppName = "^(test|test app|app test|apptest)$"
+$SuspectList += $results | Where-Object { $_.DisplayName -match $testAppName }
+
+## App name matches a user's name
+
+$Users = Get-MgUser -all | select DisplayName, UserPrincipalName
+
+ForEach ($User in $Users) {
+    if ($results.DisplayName -Contains $User.DisplayName) { $SuspectList += $results | Where-Object {$_.DisplayName -Contains $User.DisplayName} }
+    if ($results.DisplayName -Contains $User.UserPrincipalName) { $SuspectList += $results | Where-Object {$_.DisplayName -Contains $User.UserPrincipalName} }
+}
+
+
+# Show & save reports of suspect apps
+if ($SuspectList.length -gt 0) {
+    Write-Output "`n`nSuspicious applications found - Please review:"
+    $SuspectList | Select-Object DisplayName, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, AppRoleAssignmentRequired, @{ Name = "TagList"; Expression = { $_.tags -join "," } }, @{ Name = "ReplyUrls"; Expression = { $_.ReplyUrls -join "," } }, ServicePrincipalType, Id -Unique | Sort-Object createdDateTime -desc | Format-Table
+    $SuspectList | Select-Object DisplayName, @{ Name = "CreatedDateTime"; Expression = { $_.additionalproperties['createdDateTime'] } }, AccountEnabled, AppRoleAssignmentRequired, @{ Name = "TagList"; Expression = { $_.tags -join "," } }, @{ Name = "ReplyUrls"; Expression = { $_.ReplyUrls -join "," } }, ServicePrincipalType, Id -Unique | Sort-Object createdDateTime -desc | Export-Csv $OutputCSVSuspect -Append -notypeinformat -Encoding $Encoding
+}
+
 
 # Additional info:
 #  Get-MgServicePrincipal -ServicePrincipalId XXXX-xxx-xx-xx-XXXX | Select samlSingleSignOnSettings, loginUrl, logoutUrl, notificationEmailAddresses
@@ -178,28 +225,28 @@ if ((Test-Path -Path $OutputCSV) -eq "True") {
 # Proactively disable known malicious Enterprise Applications (service principles) by AppID using Microsoft Graph PowerShell
 # https://huntresslabs.github.io/rogueapps
 # https://github.com/MicrosoftDocs/entra-docs/blob/main/docs/identity/enterprise-apps/disable-user-sign-in-portal.md
-Write-Output "`nKnown potentially malicious Enterprise Application IDs (check if they are present and enabled in the report above):"
-Write-Output "* Perfectdata:                      'ff8d92dc-3d82-41d6-bcbd-b9174d163620'"
-Write-Output "* Mail_Backup:                      '2ef68ccc-8a4d-42ff-ae88-2d7bb89ad139'"
-Write-Output "* eM Client:                        'e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd'"
-Write-Output "* Newsletter Software Supermailer:  'a245e8c0-b53c-4b67-9b45-751d1dff8e6b'"
-Write-Output "* rclone:                           'b15665d9-eda6-4092-8539-0eec376afd59'"
-Write-Output "* CloudSponge:                      'a43e5392-f48b-46a4-a0f1-098b5eeb4757'"
-Write-Output "* SigParser:                        'caffae8c-0882-4c81-9a27-d1803af53a40'"
+Write-Output "`nKnown potentially malicious Enterprise Application Names & IDs:" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* Perfectdata:                      'ff8d92dc-3d82-41d6-bcbd-b9174d163620'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* Mail_Backup:                      '2ef68ccc-8a4d-42ff-ae88-2d7bb89ad139'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* eM Client:                        'e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* Newsletter Software Supermailer:  'a245e8c0-b53c-4b67-9b45-751d1dff8e6b'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* rclone:                           'b15665d9-eda6-4092-8539-0eec376afd59'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* CloudSponge:                      'a43e5392-f48b-46a4-a0f1-098b5eeb4757'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* SigParser:                        'caffae8c-0882-4c81-9a27-d1803af53a40'" | Tee-Object -FilePath $logFilePath -Append
 if ($null -eq $inoculate) {
     $inoculate = Read-Host 'Enter Y to proactivly inoculate this tenant against use of these applications'
 }
 if ($inoculate -eq "Y") {
-    # Connect to Microsoft Graph PowerShell - Connect-MgGraph -Scopes "Application.ReadWrite.All"
-    # Set the AppIDs of the service principals to be disabled
-    $BadAppIdList = @('ff8d92dc-3d82-41d6-bcbd-b9174d163620', '2ef68ccc-8a4d-42ff-ae88-2d7bb89ad139', 'e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd', 'a245e8c0-b53c-4b67-9b45-751d1dff8e6b', 'b15665d9-eda6-4092-8539-0eec376afd59', 'a43e5392-f48b-46a4-a0f1-098b5eeb4757', 'caffae8c-0882-4c81-9a27-d1803af53a40')
-    foreach ($AppID in $BadAppIdList) {
+    # Requires Microsoft Graph PowerShell connection with permission to write application information - Connect-MgGraph -Scopes "Application.ReadWrite.All"
+    foreach ($AppID in $rogueAppIDs) {
         $servicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$AppID'"
         if ($null -eq $servicePrincipal) { New-MgServicePrincipal -AppID $AppID ; $servicePrincipal = Get-MgServicePrincipal -Filter "appId eq '$AppID'" }
         # Disable, restrict assignment, and hide each service principal
         Update-MgServicePrincipal -ServicePrincipalId $servicePrincipal.Id -AccountEnabled:$false -AppRoleAssignmentRequired:$true -Tags "HideApp"
     }
-    Write-Output "`nKnown potentially malicious Enterprise Applications have been blocked by AppID on this tenant`n"
+    Write-Output "`nKnown potentially malicious Enterprise Applications listed above have been blocked from use by AppID on this tenant.`n" | Tee-Object -FilePath $logFilePath -Append
+} elseif ($inoculate -eq "N") {
+    Write-Output "`nRun this script again with the '-inoculate Y' attribute to block these applications from being used on this tenant.`n" | Tee-Object -FilePath $logFilePath -Append
 }
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
