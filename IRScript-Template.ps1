@@ -86,9 +86,9 @@ $process.PriorityClass = $Priority
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
-$ScopeCheck = (Get-MgContext).Scopes -contains "User.Read.All"
-if (!$ScopeCheck) {
-    Write-Output "User.Read.All scope not found in current context. Press enter to connect with broader scopes, or press Ctrl+c to exit." | Tee-Object -FilePath $logFilePath -Append
+$ScopeCheck = Get-MgContext | Select -Expandproperty Scopes
+if (($ScopeCheck -notcontains "User.Read.All" -and $ScopeCheck -notcontains "User.ReadWrite.All") -or $ScopeCheck -notcontains "Directory.ReadWrite.All") {
+    Write-Output "Necessary graph scopes not found in current context. Press enter to connect with broader scopes, or press Ctrl+c to exit." | Tee-Object -FilePath $logFilePath -Append
     Pause
     Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All", "Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All", "AuditLogsQuery.Read.All"
 }

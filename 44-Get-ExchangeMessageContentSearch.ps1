@@ -205,9 +205,9 @@ $SearchName = "Suspicious email search $date"
 if ($Identifier) {
     $Query = "(Identifier:" + $Identifier + ")"
 } elseif ($UserIds -eq "Any Sender") {
-    $Query = "sent>=" + $((StartDate).ToString('yyyy-MM-dd')) + " AND (subject:" + $Subject + ")"
+    $Query = "sent>=" + $(($StartDate).ToString('yyyy-MM-dd')) + " AND (subject:" + $Subject + ")"
 } else {
-    $Query = "From:" + $UserIds + " AND sent>=" + $((StartDate).ToString('yyyy-MM-dd')) + " AND (subject:`"" + $Subject + "`")"
+    $Query = "From:" + $UserIds + " AND sent>=" + $(($StartDate).ToString('yyyy-MM-dd')) + " AND (subject:`"" + $Subject + "`")"
 }
 Write-Output "Starting content search - `"$SearchName`""
 Write-Output "New-ComplianceSearch -name `"$SearchName`" -ExchangeLocation all -ContentMatchQuery $Query`n"
@@ -295,15 +295,13 @@ if ($Continue -eq "YES") {
         $OperationStatus.Status
         $Continue = Read-Host "`nIf the purge status above is 'Completed' enter 'Y' to continue. Press enter to refresh status"
     }
-    $OperationStatus.SearchName | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt"
-    $OperationStatus.Action | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
-    $OperationStatus.Name | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
-    $OperationStatus.CreatedTime | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
-    $OperationStatus.JobStartTime | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
-    $OperationStatus.JobEndTime | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
-    $OperationStatus.results | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
-    $OperationStatus.results | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
-    $OperationStatus.Errors | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    "Search name: $($OperationStatus.SearchName)" | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt"
+    "Action: $($OperationStatus.Action)" | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    "Operation name: $($OperationStatus.Name)" | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    "Start time: $($OperationStatus.JobStartTime)" | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    "End time: $($OperationStatus.JobEndTime)" | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    "`nResults:`n$($OperationStatus.results)" | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
+    "`nErrors:`n$($OperationStatus.Errors)" | Out-File "$OutputPath\$DomainName\ContentSearchPurgeResults_$($date).txt" -Append
 }
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
