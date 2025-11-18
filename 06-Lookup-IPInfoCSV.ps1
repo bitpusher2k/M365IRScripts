@@ -80,12 +80,6 @@ param(
 $RowCount = 0
 $LookupCount = 0
 
-if (Test-Path "$PSScriptRoot\IPAddressData.xml") {
-    $IPAddressHash = Import-CliXml "$PSScriptRoot\IPAddressData.xml"
-} else {
-    $IPAddressHash = @{}
-}
-
 $total = [Diagnostics.StopWatch]::StartNew()
 Write-Output "$scriptName started"
 if ($APIKey -eq "") {
@@ -98,6 +92,12 @@ if (($InfoSource -eq "scamalytics" -or $InfoSource -eq "ip2locationio" -or $Info
     Write-Output "Using fallback source $InfoSource due to lack of API key."
 }
 Write-Output "`nIP information service specified: $InfoSource"
+
+if (Test-Path "$PSScriptRoot\IPAddressData_$($InfoSource).xml") {
+    $IPAddressHash = Import-CliXml "$PSScriptRoot\IPAddressData_$($InfoSource).xml"
+} else {
+    $IPAddressHash = @{}
+}
 
 foreach ($inputFile in $inputfiles) {
     # Load spreadsheet
@@ -132,13 +132,13 @@ foreach ($inputFile in $inputfiles) {
     }
 
     # Add IP information columns to end of spreadsheet data
-    $Spreadsheet | Add-Member -NotePropertyName "IP_Country" -NotePropertyValue $null # Country code
-    $Spreadsheet | Add-Member -NotePropertyName "IP_Region" -NotePropertyValue $null # State/Region name
-    $Spreadsheet | Add-Member -NotePropertyName "IP_City" -NotePropertyValue $null # City name
-    $Spreadsheet | Add-Member -NotePropertyName "IP_ISP" -NotePropertyValue $null # ISP name
-    $Spreadsheet | Add-Member -NotePropertyName "IP_Org" -NotePropertyValue $null # Organization name
-    $Spreadsheet | Add-Member -NotePropertyName "IP_Type" -NotePropertyValue $null # Extra IP information (VPN, TOR, DCH, Proxy, Blacklists) - service dependant
-    $Spreadsheet | Add-Member -NotePropertyName "IP_Score" -NotePropertyValue $null # Risk value from 0(low) to 100 (high) - service dependant
+    $Spreadsheet | Add-Member -NotePropertyName "IP_Country_$($InfoSource)" -NotePropertyValue $null # Country code
+    $Spreadsheet | Add-Member -NotePropertyName "IP_Region_$($InfoSource)" -NotePropertyValue $null # State/Region name
+    $Spreadsheet | Add-Member -NotePropertyName "IP_City_$($InfoSource)" -NotePropertyValue $null # City name
+    $Spreadsheet | Add-Member -NotePropertyName "IP_ISP_$($InfoSource)" -NotePropertyValue $null # ISP name
+    $Spreadsheet | Add-Member -NotePropertyName "IP_Org_$($InfoSource)" -NotePropertyValue $null # Organization name
+    $Spreadsheet | Add-Member -NotePropertyName "IP_Type_$($InfoSource)" -NotePropertyValue $null # Extra IP information (VPN, TOR, DCH, Proxy, Blacklists) - service dependent
+    $Spreadsheet | Add-Member -NotePropertyName "IP_Score_$($InfoSource)" -NotePropertyValue $null # Risk value from 0(low) to 100 (high) - service dependent
 
     if ($IPv6NetworkInfoOnly) {
         Write-Output "Only looking up network-level information for IPv6 addresses (saves API calls)"
@@ -249,212 +249,212 @@ foreach ($inputFile in $inputfiles) {
             # Set the IP info values for this record
             if ($InfoSource -eq "scamalytics") {
                 $scamalytics = $IPObject
-                $Row.IP_Country = $scamalytics.ip_country_code # Paywalled
-                $Row.IP_Region = $scamalytics.ip_state_name # Paywalled
-                $Row.IP_City = $scamalytics.IP_City # Paywalled
-                $Row.IP_ISP = $scamalytics.{isp name} # Paywalled
-                $Row.IP_Org = $scamalytics.{Organization Name} # Paywalled
-                $Row.IP_Type = $scamalytics.proxy_type # Paywalled
-                $Row.IP_Score = $scamalytics.score
+                $Row."IP_Country_$InfoSource" = $scamalytics.ip_country_code # Paywalled
+                $Row."IP_Region_$InfoSource" = $scamalytics.ip_state_name # Paywalled
+                $Row."IP_City_$InfoSource" = $scamalytics.IP_City # Paywalled
+                $Row."IP_ISP_$InfoSource" = $scamalytics.{isp name} # Paywalled
+                $Row."IP_Org_$InfoSource" = $scamalytics.{Organization Name} # Paywalled
+                $Row."IP_Type_$InfoSource" = $scamalytics.proxy_type # Paywalled
+                $Row."IP_Score_$InfoSource" = $scamalytics.score
             } elseif ($InfoSource -eq "ipapico") {
                 $ipapico = $IPObject
-                $Row.IP_Country = $ipapico.country_code
-                $Row.IP_Region = $ipapico.region
-                $Row.IP_City = $ipapico.city
-                $Row.IP_ISP = ""
-                $Row.IP_Org = $ipapico.org
-                $Row.IP_Type = ""
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $ipapico.country_code
+                $Row."IP_Region_$InfoSource" = $ipapico.region
+                $Row."IP_City_$InfoSource" = $ipapico.city
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = $ipapico.org
+                $Row."IP_Type_$InfoSource" = ""
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "ipapicom") {
                 $ipapicom = $IPObject
-                $Row.IP_Country = $ipapicom.countryCode
-                $Row.IP_Region = $ipapicom.regionname
-                $Row.IP_City = $ipapicom.city
-                $Row.IP_ISP = $ipapicom.isp
-                $Row.IP_Org = $ipapicom.org
-                $Row.IP_Type = ""
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $ipapicom.countryCode
+                $Row."IP_Region_$InfoSource" = $ipapicom.regionname
+                $Row."IP_City_$InfoSource" = $ipapicom.city
+                $Row."IP_ISP_$InfoSource" = $ipapicom.isp
+                $Row."IP_Org_$InfoSource" = $ipapicom.org
+                $Row."IP_Type_$InfoSource" = ""
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "ip2locationio") {
                 $ip2location = $IPObject
-                $Row.IP_Country = $ip2location.country_code
-                $Row.IP_Region = $ip2location.region_name
-                $Row.IP_City = $ip2location.city_name
-                $Row.IP_ISP = ""
-                $Row.IP_Org = $ip2location.as
-                $Row.IP_Type = if ($ip2location.is_proxy) {"Proxy"} else {""}
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $ip2location.country_code
+                $Row."IP_Region_$InfoSource" = $ip2location.region_name
+                $Row."IP_City_$InfoSource" = $ip2location.city_name
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = $ip2location.as
+                $Row."IP_Type_$InfoSource" = if ($ip2location.is_proxy) {"Proxy"} else {""}
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "hostipinfo") {
                 $hostipinfo = $IPObject
-                $Row.IP_Country = $hostipinfo.country_code
-                $Row.IP_Region = ""
-                $Row.IP_City = $hostipinfo.city
-                $Row.IP_ISP = ""
-                $Row.IP_Org = ""
-                $Row.IP_Type = ""
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $hostipinfo.country_code
+                $Row."IP_Region_$InfoSource" = ""
+                $Row."IP_City_$InfoSource" = $hostipinfo.city
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = ""
+                $Row."IP_Type_$InfoSource" = ""
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "iphubinfo") {
                 $iphubinfo = $IPObject
-                $Row.IP_Country = $iphubinfo.countryCode
-                $Row.IP_Region = ""
-                $Row.IP_City = ""
-                $Row.IP_ISP = $iphubinfo.isp
-                $Row.IP_Org = ""
-                $Row.IP_Type = ""
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $iphubinfo.countryCode
+                $Row."IP_Region_$InfoSource" = ""
+                $Row."IP_City_$InfoSource" = ""
+                $Row."IP_ISP_$InfoSource" = $iphubinfo.isp
+                $Row."IP_Org_$InfoSource" = ""
+                $Row."IP_Type_$InfoSource" = ""
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "abuseipdbcom") {
                 $abuseipdbcom = $IPObject
-                $Row.IP_Country = $abuseipdbcom.data.countryCode
-                $Row.IP_Region = ""
-                $Row.IP_City = ""
-                $Row.IP_ISP = $abuseipdbcom.data.isp
-                $Row.IP_Org = $abuseipdbcom.data.domain
-                $Row.IP_Type = $abuseipdbcom.data.usageType
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $abuseipdbcom.data.countryCode
+                $Row."IP_Region_$InfoSource" = ""
+                $Row."IP_City_$InfoSource" = ""
+                $Row."IP_ISP_$InfoSource" = $abuseipdbcom.data.isp
+                $Row."IP_Org_$InfoSource" = $abuseipdbcom.data.domain
+                $Row."IP_Type_$InfoSource" = $abuseipdbcom.data.usageType
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "ipqualityscorecom") {
                 $ipqualityscorecom = $IPObject
-                $Row.IP_Country = $ipqualityscorecom.country_code
-                $Row.IP_Region = $ipqualityscorecom.region
-                $Row.IP_City = $ipqualityscorecom.city
-                $Row.IP_ISP = $ipqualityscorecom.isp
-                $Row.IP_Org = $ipqualityscorecom.organization
+                $Row."IP_Country_$InfoSource" = $ipqualityscorecom.country_code
+                $Row."IP_Region_$InfoSource" = $ipqualityscorecom.region
+                $Row."IP_City_$InfoSource" = $ipqualityscorecom.city
+                $Row."IP_ISP_$InfoSource" = $ipqualityscorecom.isp
+                $Row."IP_Org_$InfoSource" = $ipqualityscorecom.organization
                 # Grab subset of the properties related to proxy info that are "true" and smash them into a string
                 $subset = $ipqualityscorecom | Select-Object -Property proxy, vpn, tor, active_vpn, active_tor, recent_abuse, bot_status
                 # $ipInfo = $subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | join-string -Property name -DoubleQuote -Separator ',' # PowerShell 7
                 $ipInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
-                $Row.IP_Type = $ipInfo
-                $Row.IP_Score = ""
+                $Row."IP_Type_$InfoSource" = $ipInfo
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "freeipapicom") {
                 $freeipapicom = $IPObject
-                $Row.IP_Country = $freeipapicom.countryCode
-                $Row.IP_Region = $freeipapicom.regionName
-                $Row.IP_City = $freeipapicom.cityName
-                $Row.IP_ISP = ""
-                $Row.IP_Org = $freeipapicom.asnOrganization
-                $Row.IP_Type = $freeipapicom.aisProxy
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $freeipapicom.countryCode
+                $Row."IP_Region_$InfoSource" = $freeipapicom.regionName
+                $Row."IP_City_$InfoSource" = $freeipapicom.cityName
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = $freeipapicom.asnOrganization
+                $Row."IP_Type_$InfoSource" = $freeipapicom.aisProxy
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "findipnet") {
                 $findipnet = $IPObject
-                $Row.IP_Country = $findipnet.country.iso_code
-                $Row.IP_Region = ($findipnet.subdivisions.names | select en | foreach-object { "$($_.en)" }) -join ', '
-                $Row.IP_City = $findipnet.city.names.en
-                $Row.IP_ISP = $findipnet.traits.isp
-                $Row.IP_Org = $findipnet.traits.organization
-                $Row.IP_Type = $findipnet.traits.user_type
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $findipnet.country.iso_code
+                $Row."IP_Region_$InfoSource" = ($findipnet.subdivisions.names | select en | foreach-object { "$($_.en)" }) -join ', '
+                $Row."IP_City_$InfoSource" = $findipnet.city.names.en
+                $Row."IP_ISP_$InfoSource" = $findipnet.traits.isp
+                $Row."IP_Org_$InfoSource" = $findipnet.traits.organization
+                $Row."IP_Type_$InfoSource" = $findipnet.traits.user_type
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "1ipio") {
                 $1ipio = $IPObject
-                $Row.IP_Country = $1ipio.country_code
-                $Row.IP_Region = $1ipio.region
-                $Row.IP_City = $1ipio.city
-                $Row.IP_ISP = ""
-                $Row.IP_Org = ""
-                $Row.IP_Type = ""
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $1ipio.country_code
+                $Row."IP_Region_$InfoSource" = $1ipio.region
+                $Row."IP_City_$InfoSource" = $1ipio.city
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = ""
+                $Row."IP_Type_$InfoSource" = ""
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "ipinfoiolite") {
                 $ipinfoiolite = $IPObject
-                $Row.IP_Country = $ipinfoiolite.country_code
-                $Row.IP_Region = ""
-                $Row.IP_City = ""
-                $Row.IP_ISP = ""
-                $Row.IP_Org = $ipinfoiolite.as_name
-                $Row.IP_Type = ""
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $ipinfoiolite.country_code
+                $Row."IP_Region_$InfoSource" = ""
+                $Row."IP_City_$InfoSource" = ""
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = $ipinfoiolite.as_name
+                $Row."IP_Type_$InfoSource" = ""
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "ipwhoorg") {
                 $ipwhoorg = $IPObject
-                $Row.IP_Country = $ipwhoorg.data.countryCode
-                $Row.IP_Region = $ipwhoorg.data.region
-                $Row.IP_City = $ipwhoorg.data.city
-                $Row.IP_ISP = ""
-                $Row.IP_Org = ""
+                $Row."IP_Country_$InfoSource" = $ipwhoorg.data.countryCode
+                $Row."IP_Region_$InfoSource" = $ipwhoorg.data.region
+                $Row."IP_City_$InfoSource" = $ipwhoorg.data.city
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = ""
                 # Grab subset of the properties related to proxy info that are "true" and not "low" and smash them into a string
                 $subset = $ipwhoorg.data.security | Select-Object -Property isVpn, isTor, isThreat
                 # $ipInfo = $subset.psobject.properties | Select-Object name, value | Where-Object { $_.value -and $_.value -ne "low" } | join-string -Property name -DoubleQuote -Separator ',' # PowerShell 7
                 $ipInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value -and $_.value -ne "low" } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
-                $Row.IP_Type = $ipInfo
-                $Row.IP_Score = ""
+                $Row."IP_Type_$InfoSource" = $ipInfo
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "apibundleio") {
                 $apibundleio = $IPObject
-                $Row.IP_Country = $apibundleio.country.iso_2_code
-                $Row.IP_Region = ""
-                $Row.IP_City = $apibundleio.city.name
-                $Row.IP_ISP = ""
-                $Row.IP_Org = $apibundleio.connection.aso
-                $Row.IP_Type = ""
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $apibundleio.country.iso_2_code
+                $Row."IP_Region_$InfoSource" = ""
+                $Row."IP_City_$InfoSource" = $apibundleio.city.name
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = $apibundleio.connection.aso
+                $Row."IP_Type_$InfoSource" = ""
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "ipscorecom") {
                 $ipscorecom = $IPObject
-                $Row.IP_Country = $ipscorecom.geoip2.countrycode
-                $Row.IP_Region = $ipscorecom.geoip1.region
-                $Row.IP_City = $ipscorecom.geoip1.city
-                $Row.IP_ISP = $ipscorecom.isp
-                $Row.IP_Org = $ipscorecom.org
+                $Row."IP_Country_$InfoSource" = $ipscorecom.geoip2.countrycode
+                $Row."IP_Region_$InfoSource" = $ipscorecom.geoip1.region
+                $Row."IP_City_$InfoSource" = $ipscorecom.geoip1.city
+                $Row."IP_ISP_$InfoSource" = $ipscorecom.isp
+                $Row."IP_Org_$InfoSource" = $ipscorecom.org
                 # Grab subset of the properties related to blacklist info that are "listed" and smash them into a string
                 $subset = $ipscorecom.blacklists | Select-Object -Property spamhaus, sorbs, spamcop, southkoreannbl, barracuda
                 # $blacklistInfo = $subset.psobject.properties | Select-Object name, value | Where-Object { $_.value -eq "listed" } | join-string -Property name -DoubleQuote -Separator ',' # PowerShell 7
                 $blacklistInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value -eq "listed" } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
-                $Row.IP_Type = $blacklistInfo
-                $Row.IP_Score = ""
+                $Row."IP_Type_$InfoSource" = $blacklistInfo
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "virustotalcom") {
                 $virustotalcom = $IPObject
-                $Row.IP_Country = $virustotalcom.data.attributes.rdap.country
-                $Row.IP_Region = ""
-                $Row.IP_City = ""
-                $Row.IP_ISP = ""
-                $Row.IP_Org = $virustotalcom.data.attributes.as_owner
+                $Row."IP_Country_$InfoSource" = $virustotalcom.data.attributes.rdap.country
+                $Row."IP_Region_$InfoSource" = ""
+                $Row."IP_City_$InfoSource" = ""
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = $virustotalcom.data.attributes.as_owner
                 # Grab subset of the properties related to last analysis info that are not zero and smash them into a string
                 $subset = $virustotalcom.data.attributes.last_analysis_stats | Select-Object -Property malicious, suspicious, undetected, harmless, timeout
                 # $statsInfo = $subset.psobject.properties | Select-Object name, value | Where-Object { $_.value -gt 0 } | join-string -Property name -DoubleQuote -Separator ',' # PowerShell 7
                 $statsInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value -gt 0 } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
-                $Row.IP_Type = $statsInfo
-                $Row.IP_Score = ""
+                $Row."IP_Type_$InfoSource" = $statsInfo
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "ipgeolocationio") {
                 $ipgeolocationio = $IPObject
-                $Row.IP_Country = $ipgeolocationio.location.country_code2
-                $Row.IP_Region = $ipgeolocationio.location.state_prov
-                $Row.IP_City = $ipgeolocationio.location.city
-                $Row.IP_ISP = ""
-                $Row.IP_Org = ""
-                $Row.IP_Type = ""
-                $Row.IP_Score = ""
+                $Row."IP_Country_$InfoSource" = $ipgeolocationio.location.country_code2
+                $Row."IP_Region_$InfoSource" = $ipgeolocationio.location.state_prov
+                $Row."IP_City_$InfoSource" = $ipgeolocationio.location.city
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = ""
+                $Row."IP_Type_$InfoSource" = ""
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "ipapiis") {
                 $ipapiis = $IPObject
-                $Row.IP_Country = $ipapiis.location.country_code
-                $Row.IP_Region = $ipapiis.location.state
-                $Row.IP_City = $ipapiis.location.city
-                $Row.IP_ISP = $ipapiis.asn.org
-                $Row.IP_Org = $ipapiis.company.name
+                $Row."IP_Country_$InfoSource" = $ipapiis.location.country_code
+                $Row."IP_Region_$InfoSource" = $ipapiis.location.state
+                $Row."IP_City_$InfoSource" = $ipapiis.location.city
+                $Row."IP_ISP_$InfoSource" = $ipapiis.asn.org
+                $Row."IP_Org_$InfoSource" = $ipapiis.company.name
                 # Grab subset of the properties related to proxy info that are "true" and smash them into a string
                 $subset = $ipapiis | Select-Object -Property is_bogon, is_mobile, is_satellite, is_crawler, is_datacenter, is_tor, is_proxy, is_vpn, is_abuser
                 # $ipInfo = $subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | join-string -Property name -DoubleQuote -Separator ',' # PowerShell 7
                 $ipInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
-                $Row.IP_Type = $ipInfo
-                $Row.IP_Score = $ipapiis.asn.abuser_score
+                $Row."IP_Type_$InfoSource" = $ipInfo
+                $Row."IP_Score_$InfoSource" = $ipapiis.asn.abuser_score
             } elseif ($InfoSource -eq "ipdataco") {
                 $ipdataco = $IPObject
-                $Row.IP_Country = $ipdataco.country_code
-                $Row.IP_Region = $ipdataco.region
-                $Row.IP_City = $ipdataco.city
-                $Row.IP_ISP = ""
-                $Row.IP_Org = $ipdataco.asn.name
+                $Row."IP_Country_$InfoSource" = $ipdataco.country_code
+                $Row."IP_Region_$InfoSource" = $ipdataco.region
+                $Row."IP_City_$InfoSource" = $ipdataco.city
+                $Row."IP_ISP_$InfoSource" = ""
+                $Row."IP_Org_$InfoSource" = $ipdataco.asn.name
                 # Grab subset of the properties related to proxy info that are "true" and smash them into a string
                 $subset = $ipdataco.threat | Select-Object -Property is_tor, is_icloud_relay, is_proxy, is_datacenter, is_anonymous, is_known_attacker, is_known_abuser, is_threat, is_bogon 
                 # $ipInfo = $subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | join-string -Property name -DoubleQuote -Separator ',' # PowerShell 7
                 $ipInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
-                $Row.IP_Type = $ipInfo
-                $Row.IP_Score = ""
+                $Row."IP_Type_$InfoSource" = $ipInfo
+                $Row."IP_Score_$InfoSource" = ""
             } elseif ($InfoSource -eq "fraudlogixcom") {
                 $fraudlogixcom = $IPObject
-                $Row.IP_Country = $fraudlogixcom.CountryCode
-                $Row.IP_Region = $fraudlogixcom.region
-                $Row.IP_City = $fraudlogixcom.city
-                $Row.IP_ISP = $fraudlogixcom.isp
-                $Row.IP_Org = $fraudlogixcom.organization
+                $Row."IP_Country_$InfoSource" = $fraudlogixcom.CountryCode
+                $Row."IP_Region_$InfoSource" = $fraudlogixcom.region
+                $Row."IP_City_$InfoSource" = $fraudlogixcom.city
+                $Row."IP_ISP_$InfoSource" = $fraudlogixcom.isp
+                $Row."IP_Org_$InfoSource" = $fraudlogixcom.organization
                 # Grab subset of the properties related to proxy info that are "true" and smash them into a string
                 $subset = $fraudlogixcom | Select-Object -Property MaskedDevices, Proxy, TOR, VPN, DataCenter, SearchEngineBot, AbnormalTraffic
                 # $proxyInfo = $subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | join-string -Property name -DoubleQuote -Separator ',' # PowerShell 7
                 $proxyInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
-                $Row.IP_Type = $proxyInfo
-                $Row.IP_Score = $fraudlogixcom.RiskScore
+                $Row."IP_Type_$InfoSource" = $proxyInfo
+                $Row."IP_Score_$InfoSource" = $fraudlogixcom.RiskScore
             }
             Write-Output "`n"
         } elseif ($IP -eq 0) {
@@ -474,7 +474,7 @@ foreach ($inputFile in $inputfiles) {
     $Spreadsheet | Export-Csv -Path "$outputPath" -NoTypeInformation
 }
 
-$IPAddressHash | Export-Clixml -path "$PSScriptRoot\IPAddressData.xml" -Force
+$IPAddressHash | Export-Clixml -path "$PSScriptRoot\IPAddressData_$($InfoSource).xml" -Force
 
 Write-Output "Processed a total of $RowCount rows using $LookupCount lookups."
 
