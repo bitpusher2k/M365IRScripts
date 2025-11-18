@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Create-ConditionalAccessPolicies.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v3.1.1 last updated 2025-11-17
 # Script to backup current Named Locations/Conditional Access Policies and
 # to set up basic set of Named Locations and Conditional Access Policies in report-only mode.
 #
@@ -17,6 +17,7 @@
 # https://learn.microsoft.com/en-us/entra/identity/conditional-access/plan-conditional-access
 # https://learn.microsoft.com/en-us/entra/identity/conditional-access/howto-conditional-access-insights-reporting
 # https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-continuous-access-evaluation
+# https://learn.microsoft.com/en-us/entra/fundamentals/security-defaults
 #
 #
 # Prompts for creation of:
@@ -73,7 +74,7 @@
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
-# Uses (ExchangePowerShell), Microsoft Graph commands.
+# Uses Microsoft Graph commands.
 # If not connected:
 # Connect-MgGraph -Scopes "Policy.Read.All","Policy.ReadWrite.ConditionalAccess","Application.Read.All"
 # To check needed permissions for a command:
@@ -145,6 +146,13 @@ $process.PriorityClass = $Priority
 
 $date = Get-Date -Format "yyyyMMddHHmmss"
 
+$ScopeCheck = Get-MgContext | Select -Expandproperty Scopes
+if ($ScopeCheck -notcontains "Policy.Read.All" -or $ScopeCheck -notcontains "Policy.ReadWrite.ConditionalAccess" -or ($ScopeCheck -notcontains "Application.Read.All" -and $ScopeCheck -notcontains "Application.ReadWrite.All")) {
+    Write-Output "Necessary graph scopes not found in current context. Press enter to connect with broader scopes, or press Ctrl+c to exit." | Tee-Object -FilePath $logFilePath -Append
+    Pause
+    Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All", "Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All", "AuditLogsQuery.Read.All"
+}
+
 ## If OutputPath variable is not defined, prompt for it
 if (!$OutputPath) {
     Write-Output ""
@@ -184,17 +192,17 @@ if (!$CheckSubDir) {
 
 
 Write-Output ""
-Write-Output "Current Graph context:"
+Write-Output "Current Graph context:" | Tee-Object -FilePath $logFilePath -Append
 $Context = Get-MgContext
-$Context
+$Context | Tee-Object -FilePath $logFilePath -Append
 Write-Output "Current Graph user:"
 $User = Get-MgUser -UserId $Context.Account
-$User.DisplayName
-$User.UserPrincipalName
-$User.ID
-$UserID = $User.ID
+$User.DisplayName | Tee-Object -FilePath $logFilePath -Append
+$User.UserPrincipalName | Tee-Object -FilePath $logFilePath -Append
+$User.ID | Tee-Object -FilePath $logFilePath -Append
+$UserID = $User.ID | Tee-Object -FilePath $logFilePath -Append
 Write-Output ""
-Write-Output "Tenant Entra ID licenses (Conditional Access Policies require at least 'P1' license)."
+Write-Output "Tenant Entra ID licenses (Conditional Access Policies require at least 'P1' license)." | Tee-Object -FilePath $logFilePath -Append
 $LicenseStatus = (Get-MgSubscribedSku).ServicePlans | Where-Object { $_.ServicePlanName -like 'AAD_PREMIUM*' }
 if ($LicenseStatus) {
     Write-Output "Connected tenant appears to be license for at least Entra ID P1:"
@@ -203,8 +211,8 @@ if ($LicenseStatus) {
     Write-Output "Tenant does not appear to be licensed to use Conditional Access Policies."
 }
 Write-Output ""
-Write-Output "Script will attempt to backup any currently configured named locations and conditional access policies, then create a basic set of same."
-Write-Output "All created policies will initially be in report-only mode, and the current user will be excluded from all created policies."
+Write-Output "Script will attempt to backup any currently configured named locations and conditional access policies, then create a basic set of same." | Tee-Object -FilePath $logFilePath -Append
+Write-Output "All created policies will initially be in report-only mode, and the current user will be excluded from all created policies." | Tee-Object -FilePath $logFilePath -Append
 
 
 Write-Output ""
@@ -215,12 +223,12 @@ Write-Output ""
 
 [array]$ConfiguredNamedLocations = Get-MgIdentityConditionalAccessNamedLocation | Sort-Object DisplayName
 if ($ConfiguredNamedLocations) {
-    Write-Output "Configured Named Locations in tenant:"
-    $ConfiguredNamedLocations.DisplayName
+    Write-Output "Configured Named Locations in tenant:" | Tee-Object -FilePath $logFilePath -Append
+    $ConfiguredNamedLocations.DisplayName | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
     $Continue = Read-Host "Enter 'Y' to backup current Named Locations to JSON"
     if ($Continue -eq "Y") {
-        Write-Output "Backing up current Named Locations to JSON..."
+        Write-Output "Backing up current Named Locations to JSON..." | Tee-Object -FilePath $logFilePath -Append
         $ConfiguredNamedLocations | ConvertTo-Json -Depth 100 | Out-File "$OutputPath\$DomainName\NamedLocationsExport_$($date).json" -Encoding $Encoding
     }
 }
@@ -228,13 +236,12 @@ if ($ConfiguredNamedLocations) {
 Write-Output ""
 [array]$ConfiguredPolicies = Get-MgIdentityConditionalAccessPolicy | Sort-Object DisplayName
 if ($ConfiguredPolicies) {
-    Write-Output "Configured Conditional Access Policies in tenant:"
-    Get-MgIdentityConditionalAccessPolicy | Select-Object DisplayName, ID, CreatedDateTime, State
-
+    Write-Output "Configured Conditional Access Policies in tenant:" | Tee-Object -FilePath $logFilePath -Append
+    Get-MgIdentityConditionalAccessPolicy | Select-Object DisplayName, ID, CreatedDateTime, State | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
     $Continue = Read-Host "Enter 'Y' to backup current Conditional Access Policies to JSON"
     if ($Continue -eq "Y") {
-        Write-Output "Backing up current Conditional Access Policies to JSON..."
+        Write-Output "Backing up current Conditional Access Policies to JSON..." | Tee-Object -FilePath $logFilePath -Append
         $ConfiguredPolicies | ConvertTo-Json -Depth 100 | Out-File "$OutputPath\$DomainName\ConditionalAccessPoliciesExport_$($date).json" -Encoding $Encoding
     }
 }
@@ -242,7 +249,7 @@ if ($ConfiguredPolicies) {
 
 # https://andrewstaylor.com/2022/09/13/securing-azure-ad-quickly-and-programatically/
 
-# ## Create Azure AD Breakglass user
+# ## Create Azure AD Break-glass user
 # $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
 # $bgpassword = Get-RandomPassword -Length 20
 # $PasswordProfile.Password = $bgpassword
@@ -251,7 +258,7 @@ if ($ConfiguredPolicies) {
 ## Create allowed countries named location
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Allowed Sign-in Countries' Named Location (US & CA only)"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredNamedLocations.DisplayName -notcontains "Allowed Sign-in Countries") {
     $params = @{
         "@odata.type"                     = "#microsoft.graph.countryNamedLocation"
         DisplayName                       = "Allowed Sign-in Countries"
@@ -262,15 +269,17 @@ if ($Continue -eq "Y") {
         IncludeUnknownCountriesAndRegions = $false
     }
     New-MgIdentityConditionalAccessNamedLocation -BodyParameter $params
-    Write-Output "Named location created."
+    Write-Output "Named location 'Allowed Sign-in Countries' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create blocked countries named location
 Write-Output ""
-Write-Output "High-risk countries - Russia, Nigeria, South Africa, UAE, The Netherlands"
+Write-Output "High-risk countries - Russia, Nigeria, South Africa, UAE, The Netherlands" | Tee-Object -FilePath $logFilePath -Append
 $Continue = Read-Host "Enter 'Y' to create 'Blocked High Risk Countries' Named Location"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredNamedLocations.DisplayName -notcontains "Blocked High Risk Countries") {
     $params = @{
         "@odata.type"                     = "#microsoft.graph.countryNamedLocation"
         DisplayName                       = "Blocked High Risk Countries"
@@ -285,14 +294,16 @@ if ($Continue -eq "Y") {
         IncludeUnknownCountriesAndRegions = $false
     }
     New-MgIdentityConditionalAccessNamedLocation -BodyParameter $params
-    Write-Output "Named Location created."
+    Write-Output "Named Location 'Blocked High Risk Countries' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create blocked IP address named location
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Blocked High Risk IP Addresses' Named Location"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredNamedLocations.DisplayName -notcontains "Blocked High Risk IP Addresses") {
     $params = @{
         "@odata.type" = "#microsoft.graph.ipNamedLocation"
         DisplayName   = "Blocked High Risk IP Addresses"
@@ -300,7 +311,7 @@ if ($Continue -eq "Y") {
         IpRanges      = @()
     }
     # [array]$Location4 = Read-Host "Enter slash-formatted IPv4 ranges to add to the block list, comma separated (e.g.: '97.98.134.100/32','98.114.200.24/32','98.47.98.66/32','99.115.38.155/32')" # Need to split input into array
-    Write-Output "Enter slash-formatted IPv4 range to add to the block list (if any) (e.g.: '97.98.134.100/32' for single IP, '97.98.134.1/24' for full class C range)"
+    Write-Output "Enter slash-formatted IPv4 range to add to the block list (if any) (e.g.: '97.98.134.100/32' for single IP, '97.98.134.1/24' for full class C range)" | Tee-Object -FilePath $logFilePath -Append
     $Location4 = do {
         $IPv4 = Read-Host "Enter IP range, or leave blank to finish"
         $IPv4
@@ -317,7 +328,7 @@ if ($Continue -eq "Y") {
         }
     }
     # [array]$Location6 = Read-Host "Enter slash-formatted IPv6 ranges to add to the block list (if any), comma separated (e.g.: '2603:8001:bf40:f00:855a:4064:fd77:abcd/128')" # Need to split input into array
-    Write-Output "Enter slash-formatted IPv6 range to add to the block list (if any) (e.g.: '2603:8001:bf40:f00:855a:4064:fd77:abcd/128' for single IP, '2a05:541:116:14::1/64 for full network/subnet range)"
+    Write-Output "Enter slash-formatted IPv6 range to add to the block list (if any) (e.g.: '2603:8001:bf40:f00:855a:4064:fd77:abcd/128' for single IP, '2a05:541:116:14::1/64 for full network/subnet range)" | Tee-Object -FilePath $logFilePath -Append
     $Location6 = do {
         $IPv6 = Read-Host "Enter IP range, or leave blank to finish"
         $IPv6
@@ -334,14 +345,16 @@ if ($Continue -eq "Y") {
     }
     # $params.IpRanges
     New-MgIdentityConditionalAccessNamedLocation -BodyParameter $params
-    Write-Output "Named Location created."
+    Write-Output "Named Location 'Blocked High Risk IP Addresses' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create allowed countries conditional access policy
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Allow Sign-in from Specific Countries Only' Conditional Access Policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Allow Sign-in from Specific Countries Only") {
     $location = Get-MgIdentityConditionalAccessNamedLocation | Where-Object DisplayName -EQ "Allowed Sign-in Countries"
     $locationid = $location.ID
     $conditions = @{
@@ -375,14 +388,16 @@ if ($Continue -eq "Y") {
     $name = "Allow Sign-in from Specific Countries Only"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
-    Write-Output "Policy created."
+    Write-Output "Policy 'Allow Sign-in from Specific Countries Only' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create blocked countries conditional access policy
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Block Sign-in from High Risk Countries' Conditional Access Policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Block Sign-in from High Risk Countries") {
     $location = Get-MgIdentityConditionalAccessNamedLocation | Where-Object DisplayName -EQ "Blocked High Risk Countries"
     $locationid = $location.ID
     $conditions = @{
@@ -413,14 +428,16 @@ if ($Continue -eq "Y") {
     $name = "Block Sign-in from High Risk Countries"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
-    Write-Output "Policy created."
+    Write-Output "Policy 'Block Sign-in from High Risk Countries'  created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create blocked IPs conditional access policy
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Block Sign-in from High Risk IPs' Conditional Access Policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Block Sign-in from High Risk IPs") {
     $location = Get-MgIdentityConditionalAccessNamedLocation | Where-Object DisplayName -EQ "Blocked High Risk IP Addresses"
     $locationid = $location.ID
     $conditions = @{
@@ -451,15 +468,17 @@ if ($Continue -eq "Y") {
     $name = "Block Sign-in from High Risk IPs"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
-    Write-Output "Policy created."
+    Write-Output "Policy 'Block Sign-in from High Risk IPs' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create conditional access policy to require MFA for device registration/enrollment
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require MFA for Device Registration' Conditional Access Policy"
 # https://learn.microsoft.com/en-us/mem/intune/enrollment/multi-factor-authentication
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require MFA for Device Registration") {
     $conditions = @{
         Users          = @{
             includeUsers = @(
@@ -484,17 +503,19 @@ if ($Continue -eq "Y") {
     $name = "Require MFA for Device Registration"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require MFA for Device Registration' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create conditional access policy to block legacy authentication
 ## Check for legacy auth from sign-in logs by filtering for "Client app" and selecting all legacy ones - Autodiscover, Exchange ActiveSync, Exchange Online Powershell, 
 ## Exchange Web Services, IMAP, MAPI Over HTTP, Offline Address Book, Other clients, Outlook Anywhere (RPC over HTTP), POP, Reporting Web Services, SMTP, Universal Outlook
 Write-Output ""
-Write-Output "Blocked Legacy Protocols include POP, IMAP, SMTP, Older Office Clients and ActiveSync using Basic authentication."
+Write-Output "Blocked Legacy Protocols include POP, IMAP, SMTP, Older Office Clients and ActiveSync using Basic authentication." | Tee-Object -FilePath $logFilePath -Append
 $Continue = Read-Host "Enter 'Y' to create 'Block Legacy Authentication All Apps' Conditional Access Policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Block Legacy Authentication All Apps") {
     $conditions = @{
         Applications   = @{
             includeApplications = 'All'
@@ -519,14 +540,16 @@ if ($Continue -eq "Y") {
     $name = "Block Legacy Authentication All Apps"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
-    Write-Output "Policy created."
+    Write-Output "Policy 'Block Legacy Authentication All Apps' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create conditional access policy to block unused operating system authentication
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Block sign-in from unused operating systems' Conditional Access Policy (includes 'Windows Phone', 'MacOS', and 'Linux')"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Block sign-in from unused operating systems") {
     $conditions = @{
         Applications   = @{
             includeApplications = 'All'
@@ -557,14 +580,16 @@ if ($Continue -eq "Y") {
     $name = "Block sign-in from unused operating systems"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
-    Write-Output "Policy created."
+    Write-Output "Policy 'Block sign-in from unused operating systems' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create MFA enforcing policy for admins
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require Multifactor Authentication for Admin Roles' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require Multifactor Authentication for Admin Roles") {
     $PolicySettings = @{
         DisplayName     = "Require Multifactor Authentication for Admin Roles"
         state           = "enabledForReportingButNotEnforced"
@@ -615,14 +640,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require Multifactor Authentication for Admin Roles' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create MFA enforcing policy for Azure management access
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require Multifactor Authentication for Azure management' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require Multifactor Authentication for Azure management") {
     $PolicySettings = @{
         DisplayName     = "Require Multifactor Authentication for Azure management"
         state           = "enabledForReportingButNotEnforced"
@@ -659,14 +686,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require Multifactor Authentication for Azure management' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create MFA enforcing policy for all users
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require Multifactor Authentication for All Users' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require Multifactor Authentication for All Users") {
     $PolicySettings = @{
         DisplayName     = "Require Multifactor Authentication for All Users"
         state           = "enabledForReportingButNotEnforced"
@@ -703,14 +732,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require Multifactor Authentication for All Users' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create Require Hybrid Azure AD joined device policy
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require Hybrid Azure AD joined device' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require Hybrid Azure AD joined device") {
     $PolicySettings = @{
         DisplayName     = "Require Hybrid Azure AD joined device"
         state           = "enabledForReportingButNotEnforced"
@@ -740,14 +771,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require Hybrid Azure AD joined device' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create Require phishing-resistant MFA for administrators policy - If you use external authentication methods, these are currently incompatible with authentication strength and you should use the Require multifactor authentication grant control.
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require phishing-resistant MFA for administrators' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require phishing-resistant MFA for administrators") {
     $PolicySettings = @{
         DisplayName     = "Require phishing-resistant MFA for administrators"
         state           = "enabledForReportingButNotEnforced"
@@ -791,14 +824,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require phishing-resistant MFA for administrators' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create Require MFA authentication strength for all users policy - If you use external authentication methods, these are currently incompatible with authentication strength and you should use the Require multi-factor authentication grant control.
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require MFA authentication strength for all users' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require MFA authentication strength for all users") {
     $PolicySettings = @{
         DisplayName     = "Require MFA authentication strength for all users"
         state           = "enabledForReportingButNotEnforced"
@@ -828,14 +863,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require MFA authentication strength for all users' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
-}   
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
+}
     
 ## Create Require MFA authentication strength for guests policy - Currently, you can only apply authentication strength policies to external users who authenticate with Microsoft Entra ID. For email one-time passcode, SAML/WS-Fed, and Google federation users, use the MFA grant control to require MFA.
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require MFA authentication strength for guests' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require MFA authentication strength for guests") {
     $PolicySettings = @{
         DisplayName     = "Require MFA authentication strength for guests"
         state           = "enabledForReportingButNotEnforced"
@@ -868,14 +905,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require MFA authentication strength for guests' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
-}   
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
+}
 
-## Create Secure security info registration policy - If you use external authentication methods, these are currently incompatable with authentication strength and you should use the Require multifactor authentication grant control.
+## Create Secure security info registration policy - If you use external authentication methods, these are currently incompatible with authentication strength and you should use the Require multifactor authentication grant control.
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Secure security info registration policy' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Secure security info registration policy") {
     $conditions = @{
         Users          = @{
             includeUsers = @(
@@ -914,14 +953,16 @@ if ($Continue -eq "Y") {
     $name = "Secure security info registration policy"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
-    Write-Output "Policy created."
+    Write-Output "Policy 'Secure security info registration policy' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create Require authentication strength for device registration policy - If you use external authentication methods, these are currently incompatible with authentication strength and you should use the Require multifactor authentication grant control.
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require authentication strength for device registration' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require authentication strength for device registration") {
     $conditions = @{
         Users          = @{
             includeUsers = @(
@@ -946,14 +987,16 @@ if ($Continue -eq "Y") {
     $name = "Require authentication strength for device registration"
     $state = "enabledForReportingButNotEnforced"
     New-MgIdentityConditionalAccessPolicy -DisplayName $name -State $state -Conditions $conditions -GrantControls $grantcontrols
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require authentication strength for device registration' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create Require device compliance policy - Without a compliance policy created in Microsoft Intune this Conditional Access policy will not function as intended. Create a compliance policy first and ensure you have at least one compliant device before proceeding.
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require device compliance' conditional access policy"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require device compliance") {
     $PolicySettings = @{
         DisplayName     = "Require device compliance"
         state           = "enabledForReportingButNotEnforced"
@@ -994,14 +1037,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require device compliance' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create Restrict device code flow and authentication transfer policy
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Restrict device code flow and authentication transfer' conditional access policy (manual completion of configuration required)"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Restrict device code flow and authentication transfer") {
     $PolicySettings = @{
         DisplayName     = "Restrict device code flow and authentication transfer (manual completion of configuration required)"
         state           = "enabledForReportingButNotEnforced"
@@ -1031,20 +1076,22 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
-    Write-Output "NOTE: Authentication Flows is in preview and NOT FULLY CONFIGURABLE FROM POWERSHELL - Go to this policy > Conditions > Authentication Flows, set Configure to Yes, Select Device code flow and Authentication transfer, update the name, and Save to finish configuration."
-    Write-Output "Opening Edge browser window to finish policy configuration..."
-    Write-Output "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"
+    Write-Output "Policy 'Restrict device code flow and authentication transfer' created." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "NOTE: Authentication Flows is in preview and NOT FULLY CONFIGURABLE FROM POWERSHELL - Go to this policy > Conditions > Authentication Flows, set Configure to Yes, Select Device code flow and Authentication transfer, update the name, and Save to finish configuration." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "Opening Edge browser window to finish policy configuration..." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies" | Tee-Object -FilePath $logFilePath -Append
     Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
-## Create require token protection policy for Windoes/MacOS/iOS devices
+## Create require token protection policy for Windows/MacOS/iOS devices
 ## https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-token-protection
 ## You will need to go to https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies, select this policy, select Session and check "Require token protection..." to enable this policy (unable to set option from PS currently)
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require Token Protection on supported applications and devices' conditional access policy (manual completion of configuration required)"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require Token Protection on supported applications and devices") {
     $PolicySettings = @{
         DisplayName     = "Require Token Protection on supported applications and devices (manual completion of configuration required)"
         state           = "enabledForReportingButNotEnforced"
@@ -1080,18 +1127,20 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
-    Write-Output "NOTE: Token Protection is NOT FULLY CONFIGURABLE FROM POWERSHELL - Go to this policy > Session, check 'Require token protection...', update the name and Save to finish configuration."
-    Write-Output "Opening Edge browser window to finish policy configuration..."
-    Write-Output "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"
+    Write-Output "Policy 'Require Token Protection on supported applications and devices' created." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "NOTE: Token Protection is NOT FULLY CONFIGURABLE FROM POWERSHELL - Go to this policy > Session, check 'Require token protection...', update the name and Save to finish configuration." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "Opening Edge browser window to finish policy configuration..." | Tee-Object -FilePath $logFilePath -Append
+    Write-Output "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies" | Tee-Object -FilePath $logFilePath -Append
     Start-Process msedge.exe -ArgumentList "https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies"
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create Require MFA for risky sign-in (P2) policy
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require MFA for risky sign-in (P2)' conditional access policy (only works with Entra ID P2 subscription)"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require MFA for risky sign-in (P2)") {
     $PolicySettings = @{
         DisplayName     = "Require MFA for risky sign-in (P2)"
         state         = "enabledForReportingButNotEnforced"
@@ -1132,14 +1181,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require MFA for risky sign-in (P2)' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create Require password change for risky users (P2) policy
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Require password change for risky users (P2)' conditional access policy (only works with Entra ID P2 subscription)"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require password change for risky users (P2)") {
     $PolicySettings = @{
         DisplayName     = "Require password change for risky users (P2)"
         state         = "enabledForReportingButNotEnforced"
@@ -1182,14 +1233,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Require password change for risky users (P2)' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create policy to block high-risk sign-ins (P2)
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Block High-Risk Sign-ins (P2)' conditional access policy (only works with Entra ID P2 subscription)"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Block High-Risk Sign-ins (P2)") {
     $PolicySettings = @{
         DisplayName   = "Block High-Risk Sign-ins (P2)"
         state         = "enabledForReportingButNotEnforced"
@@ -1222,14 +1275,16 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Block High-Risk Sign-ins (P2)' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Create policy to block high-risk users (P2)
 Write-Output ""
 $Continue = Read-Host "Enter 'Y' to create 'Block High-Risk Users (P2)' conditional access policy (only works with Entra ID P2 subscription)"
-if ($Continue -eq "Y") {
+if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Block High-Risk Users (P2)") {
     $PolicySettings = @{
         DisplayName   = "Block High-Risk Users (P2)"
         state         = "enabledForReportingButNotEnforced"
@@ -1262,8 +1317,10 @@ if ($Continue -eq "Y") {
         }
     }
     New-MgIdentityConditionalAccessPolicy -BodyParameter $PolicySettings
-    Write-Output "Policy created."
+    Write-Output "Policy 'Block High-Risk Users (P2)' created." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
+} else {
+    Write-Output "Skipping..." | Tee-Object -FilePath $logFilePath -Append
 }
 
 ## Exclude a break-glass account from all Conditional Access Policies
@@ -1287,37 +1344,37 @@ if ($Continue -eq "Y") {
     }
     [array]$Policies = Get-MgIdentityConditionalAccessPolicy | Sort-Object DisplayName
     foreach ($Policy in $Policies) {
-        Write-Output ("Checking conditional access policy {0}" -f $Policy.DisplayName)
+        Write-Output ("Checking conditional access policy {0}" -f $Policy.DisplayName) | Tee-Object -FilePath $logFilePath -Append
         [array]$ExcludedUsers = $Policy.conditions.Users.excludeUsers
         if ($UserID -notin $ExcludedUsers) {
-            Write-Output ("Can't find user $UserUPN in CA policy {0}" -f $Policy.DisplayName)
-            Write-Output "Updating policy with account to exclude"
+            Write-Output ("Can't find user $UserUPN in CA policy {0}" -f $Policy.DisplayName) | Tee-Object -FilePath $logFilePath -Append
+            Write-Output "Updating policy with account to exclude" | Tee-Object -FilePath $logFilePath -Append
             Update-MgIdentityConditionalAccessPolicy -BodyParameter $Parameters -ConditionalAccessPolicyId $Policy.ID
         }
     }
-    Write-Output "Account excluded from policies."
+    Write-Output "Account excluded from policies." | Tee-Object -FilePath $logFilePath -Append
     Write-Output ""
 }
 
-Write-Output "`nDone! Check output path for any JSON backups created."
+Write-Output "`nDone! Check output path for any JSON backups created." | Tee-Object -FilePath $logFilePath -Append
 Write-Output ""
-Write-Output "Configured Named Locations in tenant:"
-(Get-MgIdentityConditionalAccessNamedLocation).DisplayName
+Write-Output "Configured Named Locations in tenant:" | Tee-Object -FilePath $logFilePath -Append
+(Get-MgIdentityConditionalAccessNamedLocation).DisplayName | Tee-Object -FilePath $logFilePath -Append
 Write-Output ""
-Write-Output "Configured Conditional Access Policies in tenant (those created by this script are created in 'report-only' mode):"
-Get-MgIdentityConditionalAccessPolicy | Select-Object DisplayName, ID, CreatedDateTime, State
+Write-Output "Configured Conditional Access Policies in tenant (those created by this script are created in 'report-only' mode):" | Tee-Object -FilePath $logFilePath -Append
+Get-MgIdentityConditionalAccessPolicy | Select-Object DisplayName, ID, CreatedDateTime, State | Tee-Object -FilePath $logFilePath -Append
 Write-Output ""
-Write-Output "To enable a policy above use the command: Update-MgIdentityConditionalAccessPolicy -ConditionalAccessPolicyId 'XXXX-XXXX-XXXX-XXXXXX' -State enabled"
-Write-Output "Or go to https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies to review and enable policies in the Admin Center."
+Write-Output "To enable a policy above use the command: Update-MgIdentityConditionalAccessPolicy -ConditionalAccessPolicyId 'XXXX-XXXX-XXXX-XXXXXX' -State enabled" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "Or go to https://portal.azure.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies to review and enable policies in the Admin Center." | Tee-Object -FilePath $logFilePath -Append
 Write-Output ""
-Write-Output "For additional policies view Microsoft templates - https://aka.ms/ConditionalAccessTemplateDocs"
+Write-Output "For additional policies view Microsoft templates - https://aka.ms/ConditionalAccessTemplateDocs" | Tee-Object -FilePath $logFilePath -Append
 Write-Output ""
-Write-Output "To view Microsoft Conditional Access templates in PowerShell:"
-Write-Output "Get-MgBetaIdentityConditionalAccessTemplate"
+Write-Output "To view Microsoft Conditional Access templates in PowerShell:" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "Get-MgBetaIdentityConditionalAccessTemplate" | Tee-Object -FilePath $logFilePath -Append
 Write-Output ""
-Write-Output "To deploy Conditional Access policy from template in PowerShell:"
-Write-Output '$catemplate = Get-MgBetaIdentityConditionalAccessTemplate -ConditionalAccessTemplateId XXXX-XXXX-XXXX-XXXXXX'
-Write-Output 'New-MgIdentityConditionalAccessPolicy -TemplateId $catemplate.Id -DisplayName $catemplate.Name -State enabledForReportingButNotEnforce' # https://ourcloudnetwork.com/how-to-deploy-conditional-access-templates-with-graph-powershell/
+Write-Output "To deploy Conditional Access policy from template in PowerShell:" | Tee-Object -FilePath $logFilePath -Append
+Write-Output '$catemplate = Get-MgBetaIdentityConditionalAccessTemplate -ConditionalAccessTemplateId XXXX-XXXX-XXXX-XXXXXX' | Tee-Object -FilePath $logFilePath -Append
+Write-Output 'New-MgIdentityConditionalAccessPolicy -TemplateId $catemplate.Id -DisplayName $catemplate.Name -State enabledForReportingButNotEnforce' | Tee-Object -FilePath $logFilePath -Append # https://ourcloudnetwork.com/how-to-deploy-conditional-access-templates-with-graph-powershell/
 
 Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
 Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append

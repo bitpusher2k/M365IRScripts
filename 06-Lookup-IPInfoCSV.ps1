@@ -9,7 +9,7 @@
 # https://github.com/bitpusher2k
 #
 # Lookup-IPInfoCSV.ps1 - By Bitpusher/The Digital Fox
-# v3.1.1 last updated 2025-11-15
+# v3.1.1 last updated 2025-11-17
 # Processes an exported CSV with a column of IP addresses, adding "IP_Country", "IP_Region",
 # "IP_City", "IP_ISP", "IP_Org", "IP_Type", "IP_Score" columns and populating these
 # columns with available information from one of 20-ish online services.
@@ -91,11 +91,11 @@ Write-Output "$scriptName started"
 if ($APIKey -eq "") {
     Write-Output "API key not set - can only use a subset of services."
 } else {
-    Write-Output "API key specified."
+    Write-Output "API key set."
 }
-if (($InfoSource -eq "scamalytics" -or $InfoSource -eq "ip2locationio" -or $InfoSource -eq "iphubinfo") -and $APIKey -eq "") {
-    $InfoSource = "ipapico"
-    Write-Output "Using fallback information source due to lack of API key."
+if (($InfoSource -eq "scamalytics" -or $InfoSource -eq "ip2locationio" -or $InfoSource -eq "iphubinfo" -or $InfoSource -eq "abuseipdbcom" -or $InfoSource -eq "ipqualityscorecom" -or $InfoSource -eq "findipnet" -or $InfoSource -eq "ipinfoiolite" -or $InfoSource -eq "apibundleio" -or $InfoSource -eq "virustotalcom" -or $InfoSource -eq "ipgeolocationio" -or $InfoSource -eq "ipapiis" -or $InfoSource -eq "ipdataco" -or $InfoSource -eq "" -or $InfoSource -eq "fraudlogixcom") -and $APIKey -eq "") {
+    $InfoSource = "freeipapicom"
+    Write-Output "Using fallback source $InfoSource due to lack of API key."
 }
 Write-Output "`nIP information service specified: $InfoSource"
 
