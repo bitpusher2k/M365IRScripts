@@ -510,8 +510,9 @@ if ($Continue -eq "Y" -and $ConfiguredPolicies.DisplayName -notcontains "Require
 }
 
 ## Create conditional access policy to block legacy authentication
-## Check for legacy auth from sign-in logs by filtering for "Client app" and selecting all legacy ones - Autodiscover, Exchange ActiveSync, Exchange Online Powershell, 
+## Check for legacy auth from sign-in logs by filtering for "Client app" and selecting all 13 legacy ones - Autodiscover, Exchange ActiveSync, Exchange Online Powershell, 
 ## Exchange Web Services, IMAP, MAPI Over HTTP, Offline Address Book, Other clients, Outlook Anywhere (RPC over HTTP), POP, Reporting Web Services, SMTP, Universal Outlook
+## (All methods EXCEPT "Browser" and "Mobile App and Desktop clients" are legacy)
 Write-Output ""
 Write-Output "Blocked Legacy Protocols include POP, IMAP, SMTP, Older Office Clients and ActiveSync using Basic authentication." | Tee-Object -FilePath $logFilePath -Append
 $Continue = Read-Host "Enter 'Y' to create 'Block Legacy Authentication All Apps' Conditional Access Policy"
