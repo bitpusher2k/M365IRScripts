@@ -9,10 +9,11 @@
 # https://github.com/bitpusher2k
 #
 # Lookup-IPInfoCSV.ps1 - By Bitpusher/The Digital Fox
-# v3.1.2 last updated 2025-11-18
+# v3.1.3 last updated 2025-12-05
 # Processes an exported CSV with a column of IP addresses, adding "IP_Country", "IP_Region",
-# "IP_City", "IP_ISP", "IP_Org", "IP_Type", "IP_Score" columns and populating these
-# columns with available information from one or more of 20-ish online services.
+# "IP_City", "IP_ISP", "IP_Org", "IP_Type", "IP_Score", "IP_ASN", "IP_Range" columns
+# and populating these columns with available information from one or more of 20-ish
+# online services.
 # The addition of this information supports identification of activity patterns
 # during manual review of logs.
 # Script identifies valid public IPv4/IPv6 addresses, and skips lookup of private/invalid
@@ -158,6 +159,8 @@ foreach ($inputFile in $inputfiles) {
         $Spreadsheet | Add-Member -NotePropertyName "IP_Org_$($InfoSource)" -NotePropertyValue $null # Organization name
         $Spreadsheet | Add-Member -NotePropertyName "IP_Type_$($InfoSource)" -NotePropertyValue $null # Extra IP information (VPN, TOR, DCH, Proxy, Blacklists) - service dependent
         $Spreadsheet | Add-Member -NotePropertyName "IP_Score_$($InfoSource)" -NotePropertyValue $null # Risk value from 0(low) to 100 (high) - service dependent
+        $Spreadsheet | Add-Member -NotePropertyName "IP_ASN_$($InfoSource)" -NotePropertyValue $null # ASN number - service dependent
+        $Spreadsheet | Add-Member -NotePropertyName "IP_Range_$($InfoSource)" -NotePropertyValue $null # ASN IP block range - service dependent
 
         if ($IPv6NetworkInfoOnly) {
             Write-Output "Only looking up network-level information for IPv6 addresses (saves API calls)"
@@ -199,48 +202,48 @@ foreach ($inputFile in $inputfiles) {
                 if (!($IPAddressHash[$IP])) {
                     Write-Output "Querying online service."
                     if ($InfoSource -eq "scamalytics") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api11.scamalytics.com/vc3/?key=$APIKey&ip=$IP"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api11.scamalytics.com/vc3/?key=$APIKey&ip=$IP" -UseBasicParsing
                     } elseif ($InfoSource -eq "ipapico") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://ipapi.co/$IP/json/" # Supported formats: json, jsonp, xml, csv, yaml
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://ipapi.co/$IP/json/" -UseBasicParsing # Supported formats: json, jsonp, xml, csv, yaml
                     } elseif ($InfoSource -eq "ipapicom") {
                         write-output "before"
-                        write-output "Invoke-WebRequest -Method Get -Uri `"http://ip-api.com/json/$IP`""
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "http://ip-api.com/json/$IP"
+                        write-output "Invoke-WebRequest -Method Get -Uri `"http://ip-api.com/json/$IP`" -UseBasicParsing"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "http://ip-api.com/json/$IP" -UseBasicParsing
                         write-output "after"
                         Start-Sleep -Seconds 1.5 # Slow down to avoid throttling/rate limiting issues with the web service
                     } elseif ($InfoSource -eq "ip2locationio") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ip2location.io/?key=$APIKey&ip=$IP"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ip2location.io/?key=$APIKey&ip=$IP" -UseBasicParsing
                     } elseif ($InfoSource -eq "hostipinfo") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.hostip.info/get_json.php?ip=$IP"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.hostip.info/get_json.php?ip=$IP" -UseBasicParsing
                     } elseif ($InfoSource -eq "iphubinfo") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "http://v2.api.iphub.info/ip/$IP" -Headers @{ "X-Key" = "$APIKey" }
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "http://v2.api.iphub.info/ip/$IP" -Headers @{ "X-Key" = "$APIKey" } -UseBasicParsing
                     } elseif ($InfoSource -eq "abuseipdbcom") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.abuseipdb.com/api/v2/check/?ipAddress=$IP&maxAgeInDays=90" -Headers @{ "Accept" = "application/json"; "key" = "$APIKey" }
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.abuseipdb.com/api/v2/check/?ipAddress=$IP&maxAgeInDays=90" -Headers @{ "Accept" = "application/json"; "key" = "$APIKey" } -UseBasicParsing
                     } elseif ($InfoSource -eq "ipqualityscorecom") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://www.ipqualityscore.com/api/json/ip/$APIKey/$IP/?strictness=0&allow_public_access_points=true"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://www.ipqualityscore.com/api/json/ip/$APIKey/$IP/?strictness=0&allow_public_access_points=true" -UseBasicParsing
                     } elseif ($InfoSource -eq "freeipapicom") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://free.freeipapi.com/api/json/$IP"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://free.freeipapi.com/api/json/$IP" -UseBasicParsing
                         Start-Sleep -Seconds 1 # Slow down to avoid throttling/rate limiting issues with the web service
                     } elseif ($InfoSource -eq "findipnet") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.findip.net/$IP/?token=$APIKey"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.findip.net/$IP/?token=$APIKey" -UseBasicParsing
                     } elseif ($InfoSource -eq "1ipio") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://1ip.io/api/$IP"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://1ip.io/api/$IP" -UseBasicParsing
                     } elseif ($InfoSource -eq "ipinfoiolite") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipinfo.io/lite/$IP/?token=$APIKey"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipinfo.io/lite/$IP/?token=$APIKey" -UseBasicParsing
                     } elseif ($InfoSource -eq "ipwhoorg") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipwho.org/ip/$IP"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipwho.org/ip/$IP" -UseBasicParsing
                     } elseif ($InfoSource -eq "apibundleio") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.apibundle.io/ip-lookup?apikey=$APIKey&ip=$IP"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.apibundle.io/ip-lookup?apikey=$APIKey&ip=$IP" -UseBasicParsing
                     } elseif ($InfoSource -eq "ipscorecom") {
-                        $IPInfo = Invoke-WebRequest -Method Post -Uri "https://ip-score.com/fulljson" -Body @{ ip="$IP" }
+                        $IPInfo = Invoke-WebRequest -Method Post -Uri "https://ip-score.com/fulljson" -Body @{ ip="$IP" } -UseBasicParsing
                     } elseif ($InfoSource -eq "virustotalcom") {
                         $IPInfo = Invoke-RestMethod -Uri "https://www.virustotal.com/api/v3/ip_addresses/$IP" -Method Get -Headers @{ "Accept" = "application/json" ; "x-apikey" = "$APIKey" }
                     } elseif ($InfoSource -eq "ipgeolocationio") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipgeolocation.io/v2/ipgeo?apiKey=$APIKey&ip=$IP"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipgeolocation.io/v2/ipgeo?apiKey=$APIKey&ip=$IP" -UseBasicParsing
                     } elseif ($InfoSource -eq "ipapiis") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipapi.is?q=$IP&key=$APIKey"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipapi.is?q=$IP&key=$APIKey" -UseBasicParsing
                     } elseif ($InfoSource -eq "ipdataco") {
-                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipdata.co/$IP/?api-key=$APIKey"
+                        $IPInfo = Invoke-WebRequest -Method Get -Uri "https://api.ipdata.co/$IP/?api-key=$APIKey" -UseBasicParsing
                     } elseif ($InfoSource -eq "fraudlogixcom") {
                         $IPInfo = Invoke-RestMethod -Uri "https://iplist.fraudlogix.com/v5?ip=$IP" -Method Get -Headers @{ "x-api-key" = "$APIKey" ; "Content-Type" = "application/json" }
                     }
@@ -275,6 +278,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = $scamalytics.{Organization Name} # Paywalled
                     $Row."IP_Type_$InfoSource" = $scamalytics.proxy_type # Paywalled
                     $Row."IP_Score_$InfoSource" = $scamalytics.score
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "ipapico") {
                     $ipapico = $IPObject
                     $Row."IP_Country_$InfoSource" = $ipapico.country_code
@@ -284,6 +289,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = $ipapico.org
                     $Row."IP_Type_$InfoSource" = ""
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "ipapicom") {
                     $ipapicom = $IPObject
                     $Row."IP_Country_$InfoSource" = $ipapicom.countryCode
@@ -293,6 +300,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = $ipapicom.org
                     $Row."IP_Type_$InfoSource" = ""
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "ip2locationio") {
                     $ip2location = $IPObject
                     $Row."IP_Country_$InfoSource" = $ip2location.country_code
@@ -302,6 +311,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = $ip2location.as
                     $Row."IP_Type_$InfoSource" = if ($ip2location.is_proxy) {"Proxy"} else {""}
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "hostipinfo") {
                     $hostipinfo = $IPObject
                     $Row."IP_Country_$InfoSource" = $hostipinfo.country_code
@@ -311,6 +322,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = ""
                     $Row."IP_Type_$InfoSource" = ""
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "iphubinfo") {
                     $iphubinfo = $IPObject
                     $Row."IP_Country_$InfoSource" = $iphubinfo.countryCode
@@ -320,6 +333,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = ""
                     $Row."IP_Type_$InfoSource" = ""
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "abuseipdbcom") {
                     $abuseipdbcom = $IPObject
                     $Row."IP_Country_$InfoSource" = $abuseipdbcom.data.countryCode
@@ -329,6 +344,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = $abuseipdbcom.data.domain
                     $Row."IP_Type_$InfoSource" = $abuseipdbcom.data.usageType
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "ipqualityscorecom") {
                     $ipqualityscorecom = $IPObject
                     $Row."IP_Country_$InfoSource" = $ipqualityscorecom.country_code
@@ -342,6 +359,8 @@ foreach ($inputFile in $inputfiles) {
                     $ipInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
                     $Row."IP_Type_$InfoSource" = $ipInfo
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "freeipapicom") {
                     $freeipapicom = $IPObject
                     $Row."IP_Country_$InfoSource" = $freeipapicom.countryCode
@@ -351,6 +370,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = $freeipapicom.asnOrganization
                     $Row."IP_Type_$InfoSource" = $freeipapicom.aisProxy
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "findipnet") {
                     $findipnet = $IPObject
                     $Row."IP_Country_$InfoSource" = $findipnet.country.iso_code
@@ -360,6 +381,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = $findipnet.traits.organization
                     $Row."IP_Type_$InfoSource" = $findipnet.traits.user_type
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "1ipio") {
                     $1ipio = $IPObject
                     $Row."IP_Country_$InfoSource" = $1ipio.country_code
@@ -369,6 +392,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = ""
                     $Row."IP_Type_$InfoSource" = ""
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "ipinfoiolite") {
                     $ipinfoiolite = $IPObject
                     $Row."IP_Country_$InfoSource" = $ipinfoiolite.country_code
@@ -378,6 +403,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = $ipinfoiolite.as_name
                     $Row."IP_Type_$InfoSource" = ""
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "ipwhoorg") {
                     $ipwhoorg = $IPObject
                     $Row."IP_Country_$InfoSource" = $ipwhoorg.data.countryCode
@@ -391,6 +418,8 @@ foreach ($inputFile in $inputfiles) {
                     $ipInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value -and $_.value -ne "low" } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
                     $Row."IP_Type_$InfoSource" = $ipInfo
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "apibundleio") {
                     $apibundleio = $IPObject
                     $Row."IP_Country_$InfoSource" = $apibundleio.country.iso_2_code
@@ -400,6 +429,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = $apibundleio.connection.aso
                     $Row."IP_Type_$InfoSource" = ""
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "ipscorecom") {
                     $ipscorecom = $IPObject
                     $Row."IP_Country_$InfoSource" = $ipscorecom.geoip2.countrycode
@@ -413,6 +444,8 @@ foreach ($inputFile in $inputfiles) {
                     $blacklistInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value -eq "listed" } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
                     $Row."IP_Type_$InfoSource" = $blacklistInfo
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "virustotalcom") {
                     $virustotalcom = $IPObject
                     $Row."IP_Country_$InfoSource" = $virustotalcom.data.attributes.rdap.country
@@ -426,6 +459,8 @@ foreach ($inputFile in $inputfiles) {
                     $statsInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value -gt 0 } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
                     $Row."IP_Type_$InfoSource" = $statsInfo
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "ipgeolocationio") {
                     $ipgeolocationio = $IPObject
                     $Row."IP_Country_$InfoSource" = $ipgeolocationio.location.country_code2
@@ -435,6 +470,8 @@ foreach ($inputFile in $inputfiles) {
                     $Row."IP_Org_$InfoSource" = ""
                     $Row."IP_Type_$InfoSource" = ""
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "ipapiis") {
                     $ipapiis = $IPObject
                     $Row."IP_Country_$InfoSource" = $ipapiis.location.country_code
@@ -448,6 +485,8 @@ foreach ($inputFile in $inputfiles) {
                     $ipInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
                     $Row."IP_Type_$InfoSource" = $ipInfo
                     $Row."IP_Score_$InfoSource" = $ipapiis.asn.abuser_score
+                    $Row."IP_ASN_$InfoSource" = $ipapiis.asn.asn
+                    $Row."IP_Range_$InfoSource" = $ipapiis.asn.route
                 } elseif ($InfoSource -eq "ipdataco") {
                     $ipdataco = $IPObject
                     $Row."IP_Country_$InfoSource" = $ipdataco.country_code
@@ -461,6 +500,8 @@ foreach ($inputFile in $inputfiles) {
                     $ipInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
                     $Row."IP_Type_$InfoSource" = $ipInfo
                     $Row."IP_Score_$InfoSource" = ""
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 } elseif ($InfoSource -eq "fraudlogixcom") {
                     $fraudlogixcom = $IPObject
                     $Row."IP_Country_$InfoSource" = $fraudlogixcom.CountryCode
@@ -474,6 +515,8 @@ foreach ($inputFile in $inputfiles) {
                     $proxyInfo = ($subset.psobject.properties | Select-Object name, value | Where-Object { $_.value } | ForEach-Object { "`"$($_.name)`"" }) -join ',' # PowerShell 5
                     $Row."IP_Type_$InfoSource" = $proxyInfo
                     $Row."IP_Score_$InfoSource" = $fraudlogixcom.RiskScore
+                    $Row."IP_ASN_$InfoSource" = ""
+                    $Row."IP_Range_$InfoSource" = ""
                 }
                 Write-Output "`n"
             } elseif ($IP -eq 0) {

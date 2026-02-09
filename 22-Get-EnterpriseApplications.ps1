@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-EnterpriseApplications.ps1 - By Bitpusher/The Digital Fox
-# v3.1.3 last updated 2025-10-31
+# v3.1.4 last updated 2025-12-15
 # Script to report all Entra ID enterprise applications (Service Principals)
 # configured on a tenant, from newest created to oldest, then check
 # for suspicious apps (based on known name/App ID, non-alpha name, reply URL,
@@ -171,10 +171,11 @@ $results | Select-Object DisplayName, @{ Name = "CreatedDateTime"; Expression = 
 
 $SuspectList = @()
 
-## Name/app ID matches known rogue app (Huntress list)
+## Name/app ID matches known rogue app (derived from Huntress list & CrowdStrike rules)
 
-$rogueAppNames = @('Perfectdata','Mail_Backup','eM Client','Newsletter Software Supermailer','rclone','CloudSponge','SigParser')
-$rogueAppIDs = @('ff8d92dc-3d82-41d6-bcbd-b9174d163620','2ef68ccc-8a4d-42ff-ae88-2d7bb89ad139','e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd','a245e8c0-b53c-4b67-9b45-751d1dff8e6b','b15665d9-eda6-4092-8539-0eec376afd59','a43e5392-f48b-46a4-a0f1-098b5eeb4757','caffae8c-0882-4c81-9a27-d1803af53a40')
+$rogueAppNames = @('Perfectdata','Mail_Backup','eM Client','Newsletter Software Supermailer','rclone','CloudSponge','SigParser','PostBox','ZoomInfo Communitiez','Fastmail','Zoominfo','Spike')
+$rogueAppIDs = @('ff8d92dc-3d82-41d6-bcbd-b9174d163620','2ef68ccc-8a4d-42ff-ae88-2d7bb89ad139','e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd','a245e8c0-b53c-4b67-9b45-751d1dff8e6b','b15665d9-eda6-4092-8539-0eec376afd59','4761b959-9780-4c2d-87a3-512b4638f767','a43e5392-f48b-46a4-a0f1-098b5eeb4757','caffae8c-0882-4c81-9a27-d1803af53a40','179d5108-412b-4c95-8e34-06786784ab39','497ac034-5120-4c1a-929a-0351f5c09918','77468577-4f6e-40e7-b745-11d3d0c28095','858d7e42-35f0-44b7-9033-df309239a47f','946c777c-bc85-489e-b034-392389ae23d6')
+
 $SuspectList += $results | Where-Object { $rogueAppNames -contains $_.DisplayName }
 $SuspectList += $results | Where-Object { $rogueAppIDs -contains $_.AppId }
 
@@ -231,6 +232,10 @@ if ((Test-Path -Path $OutputCSV) -eq "True") {
 
 # Proactively disable known malicious Enterprise Applications (service principles) by AppID using Microsoft Graph PowerShell
 # https://huntresslabs.github.io/rogueapps
+# https://cybercorner.tech/common-oauth-apps-used-in-business-email-compromise/
+# https://docs.datadoghq.com/security/default_rules/def-000-ihv/
+# https://github.com/randomaccess3/detections/blob/main/M365_Oauth_Apps/MaliciousOauthAppDetections.json
+# https://byteintocyber.com/microsoft-365-application-ids-bec-investigation-resources/
 # https://github.com/MicrosoftDocs/entra-docs/blob/main/docs/identity/enterprise-apps/disable-user-sign-in-portal.md
 Write-Output "`nKnown potentially malicious Enterprise Application Names & IDs:" | Tee-Object -FilePath $logFilePath -Append
 Write-Output "* Perfectdata:                      'ff8d92dc-3d82-41d6-bcbd-b9174d163620'" | Tee-Object -FilePath $logFilePath -Append
@@ -238,8 +243,15 @@ Write-Output "* Mail_Backup:                      '2ef68ccc-8a4d-42ff-ae88-2d7bb
 Write-Output "* eM Client:                        'e9a7fea1-1cc0-4cd9-a31b-9137ca5deedd'" | Tee-Object -FilePath $logFilePath -Append
 Write-Output "* Newsletter Software Supermailer:  'a245e8c0-b53c-4b67-9b45-751d1dff8e6b'" | Tee-Object -FilePath $logFilePath -Append
 Write-Output "* rclone:                           'b15665d9-eda6-4092-8539-0eec376afd59'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* rclone:                           '4761b959-9780-4c2d-87a3-512b4638f767'" | Tee-Object -FilePath $logFilePath -Append
 Write-Output "* CloudSponge:                      'a43e5392-f48b-46a4-a0f1-098b5eeb4757'" | Tee-Object -FilePath $logFilePath -Append
 Write-Output "* SigParser:                        'caffae8c-0882-4c81-9a27-d1803af53a40'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* PostBox:                          '179d5108-412b-4c95-8e34-06786784ab39'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* ZoomInfo Communitiez Login:       '497ac034-5120-4c1a-929a-0351f5c09918'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* Fastmail:                         '77468577-4f6e-40e7-b745-11d3d0c28095'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* Zoominfo Login:                   '858d7e42-35f0-44b7-9033-df309239a47f'" | Tee-Object -FilePath $logFilePath -Append
+Write-Output "* Spike:                            '946c777c-bc85-489e-b034-392389ae23d6'" | Tee-Object -FilePath $logFilePath -Append
+
 if ($null -eq $inoculate) {
     $inoculate = Read-Host 'Enter Y to proactivly inoculate this tenant against use of these applications'
 }

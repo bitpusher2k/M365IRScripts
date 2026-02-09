@@ -8,7 +8,7 @@
 # https://github.com/bitpusher2k
 #
 # Get-ForwardingSettings.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v3.1.1 last updated 2025-12-02
 # Script to enumerate all mailboxes with a forwarding addresses set.
 #
 # Usage:
@@ -123,7 +123,7 @@ $OutputCSV = "$OutputPath\$DomainName\MailboxForwardingSettings_$($date).csv"
 
 Write-Output "Enumerating all mailboxes with forwarding addresses set..."
 
-$Forwarding = Get-Mailbox -ResultSize unlimited | Where-Object { ($_.ForwardingSMTPAddress -ne $null) -or ($_.ForwardingAddress -ne $null) } | Select-Object Name, ForwardingSMTPAddress, ForwardingAddress, DeliverToMailboxAndForward
+$Forwarding = Get-Mailbox -ResultSize unlimited | Where-Object { ($_.ForwardingSMTPAddress -ne $null) -or ($_.ForwardingAddress -ne $null) } | Select-Object Name, UserPrincipalName, ForwardingSMTPAddress, ForwardingAddress, DeliverToMailboxAndForward
 $Forwarding
 $Forwarding | Export-Csv $OutputCSV -NoTypeInformation -Encoding $Encoding
 

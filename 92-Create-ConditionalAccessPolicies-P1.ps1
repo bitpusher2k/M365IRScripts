@@ -289,6 +289,7 @@ if ($Continue -eq "Y" -and $ConfiguredNamedLocations.DisplayName -notcontains "B
             "ZA" # South Africa - 9%
             "AE" # United Arab Emirates - 2%
             "NL" # The Netherlands - 4% of Europe's 5%
+            "CN" # China - 4% of Asia-Pacific's 2%
             # United States - 25%, UK - 3%, Canada 3%
         )
         IncludeUnknownCountriesAndRegions = $false

@@ -137,7 +137,7 @@ if ($UserIds -match $IPv4regex -or $UserIds -match $IPv6regex) {
 ## If DaysAgo variable is not defined and StartDate/EndDate were also not defined, prompt for it
 if (!$DaysAgo -and (!$StartDate -or !$EndtDate)) {
     Write-Output ""
-    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available message trace entries for specified account (default: 10, maximum: 90 - entries past 10 days ago will be in 10-day increment reports)' # https://learn.microsoft.com/en-us/exchange/monitoring/trace-an-email-message/message-trace-faq, https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/start-historicalsearch?view=exchange-ps, https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-messagetracev2?view=exchange-ps
+    $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available message trace entries for specified account (default: 10, maximum: 90 - entries past 10 days ago will be in 10-day increment reports if V2 cmdlet is available, otherwise you will get errors - run a "historical" message trace from https://admin.exchange.microsoft.com/#/messagetrace)' # https://learn.microsoft.com/en-us/exchange/monitoring/trace-an-email-message/message-trace-faq, https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/start-historicalsearch?view=exchange-ps, https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-messagetracev2?view=exchange-ps
     if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 90) { $DaysAgo = "90" }
     Write-Output "Will attempt to retrieve message trace entries going back $DaysAgo days from today."
 } elseif ($DaysAgo) {
@@ -150,14 +150,26 @@ if (!$DaysAgo -and (!$StartDate -or !$EndtDate)) {
     exit
 }
 
+$TraceV2 = Get-Command Get-MessageTracev2 -ErrorAction SilentlyContinue
+
 if ($StartDate -and $EndtDate) {
-    Write-Output "Starting Get-MessageTraceV2..."
+    Write-Output "Starting message trace..."
     if ($TypeParam -eq "IP") {
-        Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
-        Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+        if ($Tracev2) {
+            Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+        } else {
+            Get-MessageTrace -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTrace -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+        }
     } else {
-        Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
-        Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+        if ($Tracev2) {
+            Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+        } else {
+            Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+        }
     }
 
     # Write-Output "Starting historical search to retrieve traces of messages older than 10 days..."
@@ -170,13 +182,23 @@ if ($StartDate -and $EndtDate) {
     $EndDate = (Get-Date).AddDays(1)
 
     while ($DaysAgo -gt 0) {
-        Write-Output "Starting Get-MessageTraceV2..."
+        Write-Output "Starting message trace..."
         if ($TypeParam -eq "IP") {
-            Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
-            Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+            if ($Tracev2) {
+                Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+                Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+            } else {
+                Get-MessageTrace -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+                Get-MessageTrace -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+            }
         } else {
-            Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
-            Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+            if ($Tracev2) {
+                Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+                Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+            } else {
+                Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+                Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC_$($date).csv" -NoTypeInformation -Encoding $Encoding
+            }
         }
 
         $EndDate = ($StartDate)
@@ -199,13 +221,23 @@ if ($StartDate -and $EndtDate) {
     $StartDate = (Get-Date).AddDays(- $DaysAgo)
     $EndDate = (Get-Date).AddDays(1)
 
-    Write-Output "Starting Get-MessageTraceV2..."
+    Write-Output "Starting message trace..."
     if ($TypeParam -eq "IP") {
-        Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
-        Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+        if ($Tracev2) {
+            Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+        } else {
+            Get-MessageTrace -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTrace -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+        }
     } else {
-        Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
-        Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+        if ($Tracev2) {
+            Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+        } else {
+            Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_From_$(($StartDate).ToString("yyyyMMddHHmmss"))UTC_To_$(($EndDate).ToString("yyyyMMddHHmmss"))UTC.csv" -NoTypeInformation -Encoding $Encoding
+        }
     }
 }
 
