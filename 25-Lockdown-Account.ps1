@@ -132,7 +132,7 @@ $OutputCSV = "$OutputPath\$DomainName\AccountsBlocked_$($date).csv"
 ## If UserIds variable is not defined, prompt for it
 if (!$UserIds) {
     Write-Output ""
-    $UserIds = Read-Host 'Enter the user ID(s) (email address/UPN or object ID) of accounts to lock down (revoke sessions, set random password, block sign-in), comma seaparated'
+    $UserIds = Read-Host 'Enter the user ID(s) (email address/UPN or object ID) of accounts to lock down (revoke sessions, set random password, block sign-in), comma separated'
 }
 
 Write-Output "Attempting to block access and revoke sessions for $UserIds..."
