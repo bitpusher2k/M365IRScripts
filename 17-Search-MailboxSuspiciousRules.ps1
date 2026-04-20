@@ -144,11 +144,11 @@ foreach ($mailbox in $mailboxes) {
     # $rules = get-inboxrule -Mailbox $mailbox.primarysmtpaddress # May not be unique - could be interpreted as Email Address, Display Name, Alias, or UPN and there could be a collision among these values
     $rules = get-inboxrule -Mailbox $mailbox.GUID -IncludeHidden
 
-    $forwardRules = $rules | Where-Object { $_.forwardto -or $_.forwardasattachmentto } # ForwardTo or ForwardAttachmentTo
+    $forwardRules = $rules | Where-Object { $_.forwardto -or $_.forwardasattachmentto -or $_.RedirectTo } # ForwardTo or ForwardAttachmentTo or RedirectTo
     $nameRules = $rules | Where-Object { $_.Name -eq '...' -or $_.Name -like '*..*' -or $_.Name -like '*,,*' -or $_.Name.Length -lt 3 } # Name = ., Name = ,, Name = .., Name = ..., Name = //, Name = 1, any other really short name
     $moveRules = $rules | Where-Object { $_.MoveToFolder -like 'RSS*' -or $_.MoveToFolder -like '*Archive*' -or $_.MoveToFolder -like '*History*' -or $_.MoveToFolder -like '*Junk*' -or $_.MoveToFolder -like '*Conversation*' -or $_.MoveToFolder -like '*Calendar*' } # MoveToFolder = RSS Subscriptions, MoveToFolder = RSS Feeds, MoveToFolder = Conversation History, MoveToFolder = Archive, MoveToFolder = Junk Email
     $deleteRules = $rules | Where-Object { $_.DeleteMessage -or $_.SoftDeleteMessage -or $_.MoveToFolder -like '*Deleted*' } # DeleteMessage = True, MoveToFolder = Deleted Items
-    $keywords = @("docusign", "invoice", "payment", "bank", "fraud", "compromise", "password", "helpdesk", "w2", "mfa", "wire", "scam", "hack", "phish", "a;", "e;", "i;", "o;", "u;", "RE:")
+    $keywords = @("docusign", "invoice", "payment", "bank", "fraud", "compromise", "password", "helpdesk", "w2", "mfa", "wire", "scam", "hack", "phish", "a;", "e;", "i;", "o;", "u;", "RE:", "ACH", "routing", "venmo", "zelle", "bitcoin", "crypto")
     $keywordRules = $rules | Where-Object { $_.BodyContainsWords -eq " " -or $_.BodyContainsWords -eq "`0" -or $_.SubjectContainsWords -eq " " -or $_.SubjectOrBodyContainsWords -eq " " -or $_.BodyContainsWords -in $keywords -or $_.SubjectContainsWords -in $keywords -or $_.SubjectOrBodyContainsWords -in $keywords } # Subject Or Body Contains Words = a blank space, Subject Or Body Contains Words = docusign, invoice, payment, bank, fraud, compromise, helpdesk, password, w2, mfa, wire, scam, hack, phish, "RE:", semicolon-separated vowel list (will match on all messages)
     $sizeRules = $rules | Where-Object { $null -ne $_.WithinSizeRangeMinimum -and $_.WithinSizeRangeMinimum -le 1023 } # WithinSizeRangeMinimum set to value that will round down and equal everything
 
