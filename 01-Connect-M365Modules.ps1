@@ -77,11 +77,11 @@ Write-Output "`n ** MS Graph (connecting to Graph first works better)..."
 # Install-Module Microsoft.Graph.Beta
 # Import-Module Microsoft.Graph.Beta
 if ($ReadOnly) {
-    Write-Output "Connecting with read-only scopes..."
-    Connect-MgGraph -Scopes "UserAuthenticationMethod.Read.All", "Directory.Read.All", "User.Read.All", "Group.Read.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.Read.ConditionalAccess", "Application.Read.All", "Files.Read.All", "Sites.Read.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.Read.All", "SecurityEvents.Read.All","Directory.AccessAsUser.All", "AppRoleAssignment.Read.All", "AuditLogsQuery.Read.All"
+    Write-Output "Connecting with read-only scopes (besides AppRoleAssignment)..."
+    Connect-MgGraph -Scopes "Agreement.Read.All","Application.Read.All","Application.ReadWrite.All","AppRoleAssignment.ReadWrite.All","AuditLog.Read.All","AuditLogsQuery.Read.All","DelegatedPermissionGrant.ReadWrite.All","Directory.Read.All","Domain.Read.All","Files.Read.All","Group.Read.All","GroupMember.Read.All","IdentityRiskEvent.Read.All","IdentityRiskyUser.Read.All","Organization.Read.All","Policy.Read.All","Policy.Read.ConditionalAccess","Policy.ReadWrite.ConditionalAccess","RoleManagement.Read.Directory","SecurityEvents.Read.All","SecurityEvents.Read.All","Directory.AccessAsUser.All","Sites.Read.All","User.Read.All","User.ReadWrite.All","UserAuthenticationMethod.Read.All"
 } else {
-    Write-Output "Connecting with read-write scopes..."
-    Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All","Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All", "AuditLogsQuery.Read.All"
+    Write-Output "Connecting with read and write scopes..."
+    Connect-MgGraph -Scopes "Agreement.Read.All","Application.Read.All","Application.ReadWrite.All","AppRoleAssignment.ReadWrite.All","AuditLog.Read.All","AuditLogsQuery.Read.All","DelegatedPermissionGrant.ReadWrite.All","Directory.AccessAsUser.All","Directory.Read.All","Directory.ReadWrite.All","Domain.Read.All","Files.Read.All","Files.ReadWrite.All","Group.Read.All","Group.ReadWrite.All","GroupMember.Read.All","IdentityRiskEvent.Read.All","IdentityRiskyUser.Read.All","IdentityRiskyUser.ReadWrite.All","Mail.Read","Mail.Send","Organization.Read.All","Policy.Read.All","Policy.Read.ConditionalAccess","Policy.ReadWrite.ConditionalAccess","RoleManagement.Read.Directory","SecurityEvents.Read.All","SecurityEvents.ReadWrite.All","Sites.Read.All","Sites.ReadWrite.All","User.Read.All","User.ReadWrite.All","UserAuthenticationMethod.Read.All","UserAuthenticationMethod.ReadWrite.All"
 }
 
 # list of all scopes:
@@ -96,7 +96,7 @@ $Test = Get-MgDomain -ErrorAction SilentlyContinue
 if ($Test) {
     Write-Output "`nMS Graph module connected."
 } else {
-    Write-Output "`n*** MS Graph failed to connect - Try to connect again with: Connect-MgGraph -Scopes `"UserAuthenticationMethod.ReadWrite.All`",`"Directory.ReadWrite.All`",`"User.ReadWrite.All`",`"Group.ReadWrite.All`",`"GroupMember.Read.All`",`"Policy.Read.All`",`"Policy.ReadWrite.ConditionalAccess`",`"Application.ReadWrite.All`",`"Files.ReadWrite.All`",`"Sites.ReadWrite.All`",`"AuditLog.Read.All`",`"Agreement.Read.All`",`"IdentityRiskEvent.Read.All`",`"IdentityRiskyUser.ReadWrite.All`",`"Mail.Send`",`"Mail.Read`",`"SecurityEvents.ReadWrite.All`",`"Directory.AccessAsUser.All`",`"AppRoleAssignment.ReadWrite.All`""
+    Write-Output '`n*** MS Graph failed to connect - Try to connect again with: Connect-MgGraph -Scopes "Agreement.Read.All","Application.Read.All","Application.ReadWrite.All","AppRoleAssignment.ReadWrite.All","AuditLog.Read.All","AuditLogsQuery.Read.All","DelegatedPermissionGrant.ReadWrite.All","Directory.AccessAsUser.All","Directory.Read.All","Directory.ReadWrite.All","Domain.Read.All","Files.Read.All","Files.ReadWrite.All","Group.Read.All","Group.ReadWrite.All","GroupMember.Read.All","IdentityRiskEvent.Read.All","IdentityRiskyUser.Read.All","IdentityRiskyUser.ReadWrite.All","Mail.Read","Mail.Send","Organization.Read.All","Policy.Read.All","Policy.Read.ConditionalAccess","Policy.ReadWrite.ConditionalAccess","RoleManagement.Read.Directory","SecurityEvents.Read.All","SecurityEvents.ReadWrite.All","Sites.Read.All","Sites.ReadWrite.All","User.Read.All","User.ReadWrite.All","UserAuthenticationMethod.Read.All","UserAuthenticationMethod.ReadWrite.All"'
 }
 
 # To connect to GCC High/DOD the -Environment parameter needs to be specified:

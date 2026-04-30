@@ -11,6 +11,7 @@
 # Hydra-Collect.ps1 - By Bitpusher/The Digital Fox
 # v4.0.0 last updated 2026-04-27
 # Script to trigger set of oft-used investigation scripts with default options at the outset of an investigation.
+# Also opens set of oft-used M365 Admin Consoles.
 # "Hydra" because each sub-script "head" is independent (a failure of one will not impact others), and because it's memorable.
 #
 # Sets output to default "investigation" desktop folder and sets scope to past seven days by default.

@@ -9,7 +9,7 @@
 # https://github.com/bitpusher2k
 #
 # Lookup-IPInfoCSV.ps1 - By Bitpusher/The Digital Fox
-# v4.0.0 last updated 2026-04-27
+# v4.0.1 last updated 2026-04-30
 # Processes an exported CSV with a column of IP addresses, adding "IP_Country", "IP_Region",
 # "IP_City", "IP_ISP", "IP_Org", "IP_Type", "IP_Score", "IP_ASN", "IP_Range" columns
 # and populating these columns with available information from one or more of 20-ish
@@ -22,8 +22,10 @@
 # Script uses a hash table for IP information to increase speed and reduce API calls.
 #
 # Script saves IP information to "IPAddressData_XXX.xml" files in script directory to
-# save on API calls when processing multiple files in a row. It is recommended that
-# this file be deleted every few months so fresh IP information is retrieved.
+# save on API calls/lookups when processing multiple files in a row. This includes
+# geolite2local results (avoids redundant binary searches on repeated IPs).
+# It is recommended that these files be deleted every few months so fresh IP
+# information is retrieved.
 #
 # Currently includes syntax to lookup & add IP information from these services:
 # * geolite2local - LOCAL lookup using GeoLite2 City + ASN databases from ip-location-db
@@ -677,9 +679,9 @@ foreach ($inputFile in $inputfiles) {
             $APIKey = $(Import-Csv "$PSScriptRoot\test\api.txt" | Select APIKey, Service | Where-Object {$_.Service -like "*$InfoSource*"} | Select-Object -ExpandProperty APIKey) # Load API key
             # API key required for scamalytics, ip2locationio, iphubinfo, abuseipdbcom, ipqualityscorecom, findipnet, ipinfoiolite, apibundleio, virustotalcom, ipgeolocationio, ipapiis, ipdataco, fraudlogixcom
             if ($APIKey -eq "") {
-                Write-Output "API key not set - can only use a subset of services."
+                Write-Output "`nAPI key not set - can only use a subset of services."
             } else {
-                Write-Output "API key set."
+                Write-Output "`nAPI key set."
             }
 
             if (($InfoSource -eq "scamalytics" -or $InfoSource -eq "ip2locationio" -or $InfoSource -eq "iphubinfo" -or $InfoSource -eq "abuseipdbcom" -or $InfoSource -eq "ipqualityscorecom" -or $InfoSource -eq "findipnet" -or $InfoSource -eq "ipinfoiolite" -or $InfoSource -eq "apibundleio" -or $InfoSource -eq "virustotalcom" -or $InfoSource -eq "ipgeolocationio" -or $InfoSource -eq "ipapiis" -or $InfoSource -eq "ipdataco" -or $InfoSource -eq "" -or $InfoSource -eq "fraudlogixcom") -and $APIKey -eq "") {
@@ -696,13 +698,14 @@ foreach ($inputFile in $inputfiles) {
 
         Write-Output "`nIP information service specified: $InfoSource"
 
-        # For online services, load/create hash table cache
-        if ($InfoSource -ne "geolite2local") {
-            if (Test-Path "$PSScriptRoot\IPAddressData_$($InfoSource).xml") {
-                $IPAddressHash = Import-CliXml "$PSScriptRoot\IPAddressData_$($InfoSource).xml"
-            } else {
-                $IPAddressHash = @{}
-            }
+        # Load/create hash table cache for all services (including geolite2local)
+        # local GeoLite2 lookups searching through CSV filesare about as fast as remote API calls,
+        # and benefit from caching lookups in hashtable IPs.
+        # Reference: Export-Clixml - https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/export-clixml
+        if (Test-Path "$PSScriptRoot\IPAddressData_$($InfoSource).xml") {
+            $IPAddressHash = Import-CliXml "$PSScriptRoot\IPAddressData_$($InfoSource).xml"
+        } else {
+            $IPAddressHash = @{}
         }
 
         # Add IP information columns to end of spreadsheet data
@@ -752,66 +755,81 @@ foreach ($inputFile in $inputfiles) {
             if (($IP.Length -gt 7 -and $IP -match '^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$') -or ($IP.Length -gt 9 -and $IP -match '^[a-f\d\.\:\/]{10,49}$')) {
                 Write-Output "Looking up info for `"$IP`""
 
-                # GeoLite2 Local Lookups
+                # GeoLite2 Local Lookups - now uses same hash table caching as online services
+                # to avoid redundant binary searches on repeated IPs in and across files.
+                # Cached results stored in IPAddressData_geolite2local.xml alongside other service caches.
+                # Reference: Export-Clixml - https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/export-clixml
                 if ($InfoSource -eq "geolite2local") {
-                    $cityResult = $null
-                    $asnResult = $null
+                    $IPObject = $null
 
-                    if ($IsIPv6) {
-                        # IPv6 lookup using double-precision binary search against index
-                        if ($null -ne $CityIPv6Index -and $null -ne $ASNIPv6Index) {
-                            $ipNum = ConvertTo-IPv6Double $OrigIP
-                            $cityResult = Search-GeoLite2Index -Index $CityIPv6Index -IPNum $ipNum -Type "city"
-                            $asnResult = Search-GeoLite2Index -Index $ASNIPv6Index -IPNum $ipNum -Type "asn"
-                        } else {
-                            Write-Output "IPv6 indexes not loaded - skipping."
-                        }
-                    } else {
-                        # IPv4 lookup using double binary search against index
-                        if ($null -ne $CityIPv4Index -and $null -ne $ASNIPv4Index) {
-                            [double]$ipNum = ConvertTo-IPv4Integer $IP
-                            Write-Verbose "  DEBUG: IP=$IP ipNum=$ipNum IndexCount=$($CityIPv4Index.RecordCount)"
-                            $cityResult = Search-GeoLite2Index -Index $CityIPv4Index -IPNum $ipNum -Type "city"
-                            $asnResult = Search-GeoLite2Index -Index $ASNIPv4Index -IPNum $ipNum -Type "asn"
-                            Write-Verbose "  DEBUG: cityResult=$($null -ne $cityResult) asnResult=$($null -ne $asnResult)"
-                            if ($null -ne $cityResult) {
-                                Write-Verbose "  DEBUG: Country=$($cityResult.CountryCode) City=$($cityResult.City)"
+                    if (!($IPAddressHash[$IP])) {
+                        Write-Output "Performing local GeoLite2 binary search lookup."
+                        $cityResult = $null
+                        $asnResult = $null
+
+                        if ($IsIPv6) {
+                            # IPv6 lookup using double-precision binary search against index
+                            if ($null -ne $CityIPv6Index -and $null -ne $ASNIPv6Index) {
+                                $ipNum = ConvertTo-IPv6Double $OrigIP
+                                $cityResult = Search-GeoLite2Index -Index $CityIPv6Index -IPNum $ipNum -Type "city"
+                                $asnResult = Search-GeoLite2Index -Index $ASNIPv6Index -IPNum $ipNum -Type "asn"
+                            } else {
+                                Write-Output "IPv6 indexes not loaded - skipping."
                             }
                         } else {
-                            Write-Output "IPv4 indexes not loaded - skipping."
+                            # IPv4 lookup using double binary search against index
+                            if ($null -ne $CityIPv4Index -and $null -ne $ASNIPv4Index) {
+                                [double]$ipNum = ConvertTo-IPv4Integer $IP
+                                Write-Verbose "  DEBUG: IP=$IP ipNum=$ipNum IndexCount=$($CityIPv4Index.RecordCount)"
+                                $cityResult = Search-GeoLite2Index -Index $CityIPv4Index -IPNum $ipNum -Type "city"
+                                $asnResult = Search-GeoLite2Index -Index $ASNIPv4Index -IPNum $ipNum -Type "asn"
+                                Write-Verbose "  DEBUG: cityResult=$($null -ne $cityResult) asnResult=$($null -ne $asnResult)"
+                                if ($null -ne $cityResult) {
+                                    Write-Verbose "  DEBUG: Country=$($cityResult.CountryCode) City=$($cityResult.City)"
+                                }
+                            } else {
+                                Write-Output "IPv4 indexes not loaded - skipping."
+                            }
                         }
-                    }
 
-                    # Populate columns from local City database results
-                    if ($null -ne $cityResult) {
-                        $Row."IP_Country_$InfoSource" = $cityResult.CountryCode
-                        # Combine state1 and state2 for region (state2 is sub-region, e.g. county)
-                        $regionParts = @($cityResult.State1, $cityResult.State2) | Where-Object { $_ -ne "" }
-                        $Row."IP_Region_$InfoSource" = $regionParts -join ', '
-                        $Row."IP_City_$InfoSource" = $cityResult.City
+                        # Build a unified result object to store in hash table cache
+                        # Combines City + ASN results into a single PSObject matching
+                        # the column structure used by all other info sources.
+                        $regionParts = @()
+                        if ($null -ne $cityResult) {
+                            $regionParts = @($cityResult.State1, $cityResult.State2) | Where-Object { $_ -ne "" }
+                        }
+                        $IPObject = [PSCustomObject]@{
+                            CountryCode = if ($null -ne $cityResult) { $cityResult.CountryCode } else { "" }
+                            Region      = if ($regionParts.Count -gt 0) { $regionParts -join ', ' } else { "" }
+                            City        = if ($null -ne $cityResult) { $cityResult.City } else { "" }
+                            ISP         = if ($null -ne $asnResult) { $asnResult.ASNOrg } else { "" }
+                            Org         = if ($null -ne $asnResult) { $asnResult.ASNOrg } else { "" }
+                            ASN         = if ($null -ne $asnResult) { "AS$($asnResult.ASN)" } else { "" }
+                            Range       = if ($null -ne $asnResult) { "$($asnResult.RangeStart)-$($asnResult.RangeEnd)" } else { "" }
+                            Type        = "" # Not available from GeoLite2 City/ASN
+                            Score       = "" # Not available from GeoLite2 City/ASN
+                        }
+
+                        # Store in hash table for subsequent lookups of same IP
+                        $IPAddressHash.Add([string]$IP, $IPObject)
+                        $GeoLiteLookupCount++
                     } else {
-                        $Row."IP_Country_$InfoSource" = ""
-                        $Row."IP_Region_$InfoSource" = ""
-                        $Row."IP_City_$InfoSource" = ""
+                        # Get the IP information from the hash table if we've already looked it up
+                        Write-Output "IP already in hash table - using cached GeoLite2 data."
+                        $IPObject = $IPAddressHash[$IP]
                     }
 
-                    # Populate columns from local ASN database results
-                    if ($null -ne $asnResult) {
-                        $Row."IP_ISP_$InfoSource" = $asnResult.ASNOrg
-                        $Row."IP_Org_$InfoSource" = $asnResult.ASNOrg
-                        $Row."IP_ASN_$InfoSource" = "AS$($asnResult.ASN)"
-                        $Row."IP_Range_$InfoSource" = "$($asnResult.RangeStart)-$($asnResult.RangeEnd)"
-                    } else {
-                        $Row."IP_ISP_$InfoSource" = ""
-                        $Row."IP_Org_$InfoSource" = ""
-                        $Row."IP_ASN_$InfoSource" = ""
-                        $Row."IP_Range_$InfoSource" = ""
-                    }
-
-                    $Row."IP_Type_$InfoSource" = "" # Not available from GeoLite2 City/ASN
-                    $Row."IP_Score_$InfoSource" = "" # Not available from GeoLite2 City/ASN
-
-                    $GeoLiteLookupCount++
+                    # Populate columns from cached GeoLite2 result object
+                    $Row."IP_Country_$InfoSource" = $IPObject.CountryCode
+                    $Row."IP_Region_$InfoSource" = $IPObject.Region
+                    $Row."IP_City_$InfoSource" = $IPObject.City
+                    $Row."IP_ISP_$InfoSource" = $IPObject.ISP
+                    $Row."IP_Org_$InfoSource" = $IPObject.Org
+                    $Row."IP_Type_$InfoSource" = $IPObject.Type
+                    $Row."IP_Score_$InfoSource" = $IPObject.Score
+                    $Row."IP_ASN_$InfoSource" = $IPObject.ASN
+                    $Row."IP_Range_$InfoSource" = $IPObject.Range
 
                 # Online Service Lookups
                 } else {
@@ -1151,12 +1169,15 @@ foreach ($inputFile in $inputfiles) {
             $RowCount++
         }
 
-        # Save hash table cache for online services
-        if ($InfoSource -ne "geolite2local") {
-            $IPAddressHash | Export-Clixml -path "$PSScriptRoot\IPAddressData_$($InfoSource).xml" -Force
-        }
+        # Save hash table cache for all services (including geolite2local)
+        # Reference: Export-Clixml - https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/export-clixml
+        $IPAddressHash | Export-Clixml -path "$PSScriptRoot\IPAddressData_$($InfoSource).xml" -Force
 
-        Write-Output "Processed a total of $RowCount rows using $GeoLiteLookupCount local GeoLite2 lookups and $LookupCount internet lookups in $($servicetime.elapsed.totalseconds) seconds to retrieve data from $InfoSource."
+        if ($InfoSource -eq "geolite2local") {
+            Write-Output "Processed a total of $RowCount rows using $GeoLiteLookupCount local GeoLite2 lookups in $($servicetime.elapsed.totalseconds) seconds."
+        } else {
+            Write-Output "Processed a total of $RowCount rows using $LookupCount internet lookups in $($servicetime.elapsed.totalseconds) seconds to retrieve data from $InfoSource."
+        }
     }
 
     # Export updated spreadsheet data to CSV file
