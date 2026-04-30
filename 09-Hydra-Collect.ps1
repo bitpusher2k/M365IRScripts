@@ -4,11 +4,12 @@
 #              \o/
 #          The Digital
 #              Fox
+#          @VinceVulpes
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
 # Hydra-Collect.ps1 - By Bitpusher/The Digital Fox
-# v3.1.1 last updated 2025-09-17
+# v4.0.0 last updated 2026-04-27
 # Script to trigger set of oft-used investigation scripts with default options at the outset of an investigation.
 # "Hydra" because each sub-script "head" is independent (a failure of one will not impact others), and because it's memorable.
 #
@@ -42,6 +43,8 @@
 #
 # powershell -executionpolicy bypass -f .\Hydra-Collect.ps1 -OutputPath "Default" -DaysAgo 7
 #
+# powershell -executionpolicy bypass -f .\Hydra-Collect.ps1 -OutputPath "Default" -DaysAgo 7 -SkipOptional -NoExplorer
+#
 # powershell -executionpolicy bypass -f .\Hydra-Collect.ps1 -OutputPath "Default" -StartDate "2025-06-01" -EndDate "2025-06-10"
 #
 # Run with already existing connection to M365 tenant through
@@ -58,6 +61,7 @@ param(
     [int]$DaysAgo,
     [datetime]$StartDate,
     [datetime]$EndDate,
+    [switch]$SkipOptional,
     [string]$scriptName = "Hydra-Collect",
     [string]$Priority = "Normal",
     [string]$DebugPreference = "SilentlyContinue",
@@ -69,7 +73,8 @@ param(
     [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
     [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
     [int]$logFileRetentionDays = 30,
-    [string]$Encoding = "utf8bom" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
+    [string]$Encoding = "utf8bom", # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM",
+    [switch]$NoExplorer
 )
 
 #region initialization
@@ -256,108 +261,112 @@ Start-Process msedge.exe -ArgumentList "https://purview.microsoft.com/"
 Start-Process msedge.exe -ArgumentList "https://admin.microsoft.com/sharepoint"
 
 Write-Output "`nRunning 10-Get-BasicTenantInformation.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\10-Get-BasicTenantInformation.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\10-Get-BasicTenantInformation.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 18-Search-InboxRuleChanges.ps1... First pass..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\18-Search-InboxRuleChanges.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate
+& "$PSScriptRoot\18-Search-InboxRuleChanges.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate -NoExplorer
 
 Write-Output "`nRunning 13-Get-AllM365EmailAddresses.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\13-Get-AllM365EmailAddresses.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\13-Get-AllM365EmailAddresses.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 14-Get-AllUserPasswordReport.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\14-Get-AllUserPasswordReport.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\14-Get-AllUserPasswordReport.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 17-Search-MailboxSuspiciousRules.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\17-Search-MailboxSuspiciousRules.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\17-Search-MailboxSuspiciousRules.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 19-Get-AllInboxRules.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\19-Get-AllInboxRules.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\19-Get-AllInboxRules.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 22-Get-EnterpriseApplications.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\22-Get-EnterpriseApplications.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\22-Get-EnterpriseApplications.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 20-Get-ForwardingSettings.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\20-Get-ForwardingSettings.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\20-Get-ForwardingSettings.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 21-Get-MailboxPermissions.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\21-Get-MailboxPermissions.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\21-Get-MailboxPermissions.ps1" -OutputPath $OutputPath -NoExplorer
 
 # Write-Output "`nRunning 23-Get-DefenderInformation.ps1..." | Tee-Object -FilePath $logFilePath -Append # currently Get-MpThreatDetection cmdlet is failing
 # & "$PSScriptRoot\23-Get-DefenderInformation.ps1" -OutputPath $OutputPath
 
 Write-Output "`nRunning 24-Get-EntraIDRisk.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\24-Get-EntraIDRisk.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\24-Get-EntraIDRisk.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 90-Get-MFAReport.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\90-Get-MFAReport.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\90-Get-MFAReport.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 91-Get-CAPReport-P1.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\91-Get-CAPReport-P1.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\91-Get-CAPReport-P1.ps1" -OutputPath $OutputPath -NoExplorer
 
 Write-Output "`nRunning 93-Get-SecureScoreInformation.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\93-Get-SecureScoreInformation.ps1" -OutputPath $OutputPath
+& "$PSScriptRoot\93-Get-SecureScoreInformation.ps1" -OutputPath $OutputPath -NoExplorer
 
-$Response = Read-Host "`nRetrieve often relevant UAL entries between StartDate and EndDate? (Y/N - default N)"
-if ($Response -eq 'Y') {
-    Write-Output "`nRunning 15-Search-UnifiedAuditLogIR.ps1..." | Tee-Object -FilePath $logFilePath -Append
-    & "$PSScriptRoot\15-Search-UnifiedAuditLogIR.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate
+if (-Not $SkipOptional) {
+    $Response = Read-Host "`nRetrieve often relevant UAL entries between StartDate and EndDate? (Y/N - default N)"
+    if ($Response -eq 'Y') {
+        Write-Output "`nRunning 15-Search-UnifiedAuditLogIR.ps1..." | Tee-Object -FilePath $logFilePath -Append
+        & "$PSScriptRoot\15-Search-UnifiedAuditLogIR.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate -NoExplorer
+    }
+
+    $Response = Read-Host "`nRetrieve all available UAL entries for between StartDate and EndDate? (Y/N - default N)"
+    if ($Response -eq 'Y') {
+        Write-Output "`nRunning Get-UnifiedAuditLogEntries.ps1..." | Tee-Object -FilePath $logFilePath -Append
+        & "$PSScriptRoot\16-Get-UnifiedAuditLogEntries.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate -NoExplorer
+    }
 }
 
-$Response = Read-Host "`nRetrieve all available UAL entries for between StartDate and EndDate? (Y/N - default N)"
-if ($Response -eq 'Y') {
-    Write-Output "`nRunning Get-UnifiedAuditLogEntries.ps1..." | Tee-Object -FilePath $logFilePath -Append
-    & "$PSScriptRoot\16-Get-UnifiedAuditLogEntries.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate
-}
-
-Write-Output "`nRunning 18-Search-InboxRuleChanges.ps1... Second pass (often gets info when first is blank)..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\18-Search-InboxRuleChanges.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate
+Write-Output "`nRunning 18-Search-InboxRuleChanges.ps1... Second pass (often is able to retrieve entries when first pass is blank)..." | Tee-Object -FilePath $logFilePath -Append
+& "$PSScriptRoot\18-Search-InboxRuleChanges.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate -NoExplorer
 
 Write-Output "`nRunning 12-Search-UnifiedAuditLogSignIn.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\12-Search-UnifiedAuditLogSignIn.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate -UserIds "ALL"
+& "$PSScriptRoot\12-Search-UnifiedAuditLogSignIn.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate -UserIds "ALL" -NoExplorer
 
 Write-Output "`nRunning 11-Get-EntraIDAuditAndSignInLogs30-P1.ps1..." | Tee-Object -FilePath $logFilePath -Append
-& "$PSScriptRoot\11-Get-EntraIDAuditAndSignInLogs30-P1.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate
+& "$PSScriptRoot\11-Get-EntraIDAuditAndSignInLogs30-P1.ps1" -OutputPath $OutputPath -StartDate $StartDate -EndDate $EndDate -NoExplorer
 
-Write-Output "`nRun a set of Invictus IR Microsoft Extractor Suite cmdlets to:"
-Write-Output "* Generate CSV report Security Defaults settings"
-Write-Output "* Generate CSV report of transport rules"
-Write-Output "* Generate CSV report of security alerts"
-Write-Output "* Generate reports of Admin users"
-Write-Output "* Generate CSV report of mailbox audit status"
-Write-Output "* Generate CSV report of OAuth permissions"
-Write-Output "* Generate CSV report of user's MFA settings"
-$Response = Read-Host "Run cmdlets? (Y/N - default N)"
-if ($Response -eq 'Y') {
-    Write-Output "`nRunning Invictus IR cmdlets..." | Tee-Object -FilePath $logFilePath -Append
-    Get-EntraSecurityDefaults -OutputDir $IRoutput
-    Get-TransportRules -OutputDir $IRoutput
-    Get-SecurityAlerts -OutputDir $IRoutput -DaysBack $DaysAgo
-    Get-AdminUsers -OutputDir $IRoutput
-    Get-MailboxAuditStatus -OutputDir $IRoutput
-    Get-OAuthPermissionsGraph -OutputDir $IRoutput
-    Get-MFA -OutputDir $IRoutput
-    # Get-ConditionalAccessPolicies -OutputDir $IRoutput
-    # Get-MailboxPermissions -OutputDir $IRoutput
-}
+if (-Not $SkipOptional) {
+    Write-Output "`nRun a set of Invictus IR Microsoft Extractor Suite cmdlets to:"
+    Write-Output "* Generate CSV report Security Defaults settings"
+    Write-Output "* Generate CSV report of transport rules"
+    Write-Output "* Generate CSV report of security alerts"
+    Write-Output "* Generate reports of Admin users"
+    Write-Output "* Generate CSV report of mailbox audit status"
+    Write-Output "* Generate CSV report of OAuth permissions"
+    Write-Output "* Generate CSV report of user's MFA settings"
+    $Response = Read-Host "Run cmdlets? (Y/N - default N)"
+    if ($Response -eq 'Y') {
+        Write-Output "`nRunning Invictus IR cmdlets..." | Tee-Object -FilePath $logFilePath -Append
+        Get-EntraSecurityDefaults -OutputDir $IROutput
+        Get-TransportRules -OutputDir $IROutput
+        Get-SecurityAlerts -OutputDir $IROutput -DaysBack $DaysAgo
+        Get-AdminUsers -OutputDir $IROutput
+        Get-MailboxAuditStatus -OutputDir $IROutput
+        Get-OAuthPermissionsGraph -OutputDir $IROutput
+        Get-MFA -OutputDir $IROutput
+        # Get-ConditionalAccessPolicies -OutputDir $IROutput
+        # Get-MailboxPermissions -OutputDir $IROutput
+    }
 
-Write-Output "`nRun CrowdStrike Reporting Tool for Azure to generate reports related to:"
-Write-Output "* Federation Configuration"
-Write-Output "* Federation Trust"
-Write-Output "* Client Access Settings Configured on Mailboxes"
-Write-Output "* Mail Forwarding Rules for Remote Domains"
-Write-Output "* Mailbox SMTP Forwarding Rules"
-Write-Output "* Mail Transport Rules"
-Write-Output "* Delegates with 'Full Access' and those with Any Permissions Granted"
-Write-Output "* Delegates with 'Send As' or 'SendOnBehalf' Permissions"
-Write-Output "* Exchange Online PowerShell Enabled Users"
-Write-Output "* Users with 'Audit Bypass' Enabled"
-Write-Output "* Mailboxes Hidden from the Global Address List (GAL)"
-Write-Output "* Administrator audit logging configuration settings"
-$Response = Read-Host "`nRun CrowdStrike Reporting Tool for Azure (CRT - will prompt for Exchange Online and Azure AD auth and disconnect after)? (Y/N - default N)"
-if ($Response -eq 'Y') {
-    Write-Output "`nDownloading and Running Get-CRTReport.ps1..." | Tee-Object -FilePath $logFilePath -Append
-    Invoke-WebRequest "https://github.com/CrowdStrike/CRT/raw/refs/heads/main/Get-CRTReport.ps1" -OutFile $PSScriptRoot\Get-CRTReport.ps1
-    & "$PSScriptRoot\Get-CRTReport.ps1" -WorkingDirectory $IRoutput -Interactive
+    Write-Output "`nRun CrowdStrike Reporting Tool for Azure to generate reports related to:"
+    Write-Output "* Federation Configuration"
+    Write-Output "* Federation Trust"
+    Write-Output "* Client Access Settings Configured on Mailboxes"
+    Write-Output "* Mail Forwarding Rules for Remote Domains"
+    Write-Output "* Mailbox SMTP Forwarding Rules"
+    Write-Output "* Mail Transport Rules"
+    Write-Output "* Delegates with 'Full Access' and those with Any Permissions Granted"
+    Write-Output "* Delegates with 'Send As' or 'SendOnBehalf' Permissions"
+    Write-Output "* Exchange Online PowerShell Enabled Users"
+    Write-Output "* Users with 'Audit Bypass' Enabled"
+    Write-Output "* Mailboxes Hidden from the Global Address List (GAL)"
+    Write-Output "* Administrator audit logging configuration settings"
+    $Response = Read-Host "`nRun CrowdStrike Reporting Tool for Azure (CRT - will prompt for Exchange Online and Azure AD auth and disconnect after)? (Y/N - default N)"
+    if ($Response -eq 'Y') {
+        Write-Output "`nDownloading and Running Get-CRTReport.ps1..." | Tee-Object -FilePath $logFilePath -Append
+        Invoke-WebRequest "https://github.com/CrowdStrike/CRT/raw/refs/heads/main/Get-CRTReport.ps1" -OutFile $PSScriptRoot\Get-CRTReport.ps1
+        & "$PSScriptRoot\Get-CRTReport.ps1" -WorkingDirectory $IROutput -Interactive -NoExplorer
+    }
 }
 
 Write-Output "`nScript complete." | Tee-Object -FilePath $logFilePath -Append
@@ -370,6 +379,6 @@ Write-Output "After identifying suspect IP addresses recommend pulling all logge
 Write-Output ".\36-Search-UALActivityByIPAddress.ps1" | Tee-Object -FilePath $logFilePath -Append
 
 
-Invoke-Item "$OutputPath\$DomainName"
+if (-not $NoExplorer) { Invoke-Item "$OutputPath\$DomainName" }
 
 exit

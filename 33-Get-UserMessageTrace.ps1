@@ -4,11 +4,12 @@
 #              \o/
 #          The Digital
 #              Fox
+#          @VinceVulpes
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
 # Get-UserMessageTrace.ps1 - By Bitpusher/The Digital Fox
-# v3.1.1 last updated 2025-10-09
+# v4.0.0 last updated 2026-04-27
 # Script to get message trace report of recent incoming & outgoing email for given user(s) or IP address.
 #
 # Updated to use Get-MessageTraceV2
@@ -20,10 +21,12 @@
 # PowerShell modules.
 #
 # Uses ExchangePowerShell commands.
+# Minimally required tenant role(s): Exchange RBAC "View-Only Org Mgmt"
 #
 #comp #m365 #security #bec #script #irscript #powershell #email #message #trace  #exchange #online
 
 #Requires -Version 5.1
+#Requires -Modules ExchangeOnlineManagement
 
 param(
     [string]$OutputPath = "Default",
@@ -42,7 +45,8 @@ param(
     [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
     [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
     [int]$logFileRetentionDays = 30,
-    [string]$Encoding = "utf8NoBOM" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
+    [string]$Encoding = "utf8NoBOM", # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM",
+    [switch]$NoExplorer
 )
 
 #region initialization
@@ -76,7 +80,89 @@ if ($logFileFolderPath -ne "") {
     $logFilePath = $logFileFolderPath + "\$logFilePrefix" + (Get-Date -Format $logFileDateFormat) + ".LOG"
 }
 
+
+function Assert-M365Connection {
+    <#
+    .SYNOPSIS
+    Checks for active Exchange Online and/or MS Graph connections and attempts to connect if missing.
+    Scoped to the minimum permissions required by this script.
+    #>
+    param(
+        [switch]$RequireEXO,
+        [switch]$RequireGraph,
+        [switch]$RequireIPPS,
+        [string[]]$GraphScopes
+    )
+
+    if ($RequireEXO) {
+        $exoConnected = $false
+        try { $exoConnected = [bool](Get-ConnectionInformation -ErrorAction SilentlyContinue) } catch {}
+        if (-not $exoConnected) {
+            Write-Output "Exchange Online not connected. Attempting connection..."
+            try {
+                Connect-ExchangeOnline -ShowBanner:$false
+                Write-Output "Exchange Online connected."
+            } catch {
+                Write-Error "Failed to connect to Exchange Online: $_"
+                exit 1
+            }
+        } else {
+            Write-Output "Exchange Online connection verified."
+        }
+    }
+
+    if ($RequireIPPS) {
+        $ippsConnected = $false
+        try { $ippsConnected = [bool](Get-ConnectionInformation -ErrorAction SilentlyContinue | Where-Object { $_.ConnectionUri -match "compliance" }) } catch {}
+        if (-not $ippsConnected) {
+            Write-Output "Security & Compliance (IPPS) not connected. Attempting connection..."
+            try {
+                Connect-IPPSSession -ShowBanner:$false
+                Write-Output "IPPS connected."
+            } catch {
+                Write-Error "Failed to connect to IPPS: $_"
+                exit 1
+            }
+        } else {
+            Write-Output "IPPS connection verified."
+        }
+    }
+
+    if ($RequireGraph) {
+        $graphContext = $null
+        try { $graphContext = Get-MgContext -ErrorAction SilentlyContinue } catch {}
+        if (-not $graphContext) {
+            Write-Output "MS Graph not connected. Attempting connection with scopes: $($GraphScopes -join ', ')..."
+            try {
+                Connect-MgGraph -Scopes $GraphScopes -NoWelcome
+                Write-Output "MS Graph connected."
+            } catch {
+                Write-Error "Failed to connect to MS Graph: $_"
+                exit 1
+            }
+        } else {
+            # Verify required scopes are present
+            $currentScopes = $graphContext.Scopes
+            $missingScopes = $GraphScopes | Where-Object { $_ -notin $currentScopes }
+            if ($missingScopes) {
+                Write-Output "MS Graph connected but missing scopes: $($missingScopes -join ', '). Reconnecting..."
+                try {
+                    Connect-MgGraph -Scopes $GraphScopes -NoWelcome
+                    Write-Output "MS Graph reconnected with required scopes."
+                } catch {
+                    Write-Warning "Could not reconnect with required scopes. Some operations may fail."
+                }
+            } else {
+                Write-Output "MS Graph connection verified with required scopes."
+            }
+        }
+    }
+}
+
 $sw = [Diagnostics.StopWatch]::StartNew()
+
+Assert-M365Connection -RequireEXO
+
 Write-Output "$scriptName started on $ComputerName by $ScriptUserName at  $(Get-TimeStamp)" | Tee-Object -FilePath $logFilePath -Append
 
 $process = Get-Process -Id $pid
@@ -135,7 +221,7 @@ if ($UserIds -match $IPv4regex -or $UserIds -match $IPv6regex) {
 }
 
 ## If DaysAgo variable is not defined and StartDate/EndDate were also not defined, prompt for it
-if (!$DaysAgo -and (!$StartDate -or !$EndtDate)) {
+if (!$DaysAgo -and (!$StartDate -or !$EndDate)) {
     Write-Output ""
     $DaysAgo = Read-Host 'Enter how many days back to retrieve ALL available message trace entries for specified account (default: 10, maximum: 90 - entries past 10 days ago will be in 10-day increment reports if V2 cmdlet is available, otherwise you will get errors - run a "historical" message trace from https://admin.exchange.microsoft.com/#/messagetrace)' # https://learn.microsoft.com/en-us/exchange/monitoring/trace-an-email-message/message-trace-faq, https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/start-historicalsearch?view=exchange-ps, https://learn.microsoft.com/en-us/powershell/module/exchangepowershell/get-messagetracev2?view=exchange-ps
     if ($DaysAgo -eq '') { $DaysAgo = "10" } elseif ($DaysAgo -gt 90) { $DaysAgo = "90" }
@@ -143,7 +229,7 @@ if (!$DaysAgo -and (!$StartDate -or !$EndtDate)) {
 } elseif ($DaysAgo) {
     if ($DaysAgo -gt 90) { $DaysAgo = "90" }
     Write-Output "Will attempt to retrieve message trace entries going back $DaysAgo days from today."
-} elseif ($StartDate -and $EndtDate) {
+} elseif ($StartDate -and $EndDate) {
     Write-Output "Will attempt to retrieve message trace entries between $StartDate and $EndDate."
 } else {
     Write-Output "Missing date range information - Try running again with -DaysAgo or -StartDate and -EndDate parameters."
@@ -152,29 +238,29 @@ if (!$DaysAgo -and (!$StartDate -or !$EndtDate)) {
 
 $TraceV2 = Get-Command Get-MessageTracev2 -ErrorAction SilentlyContinue
 
-if ($StartDate -and $EndtDate) {
+if ($StartDate -and $EndDate) {
     Write-Output "Starting message trace..."
     if ($TypeParam -eq "IP") {
         if ($Tracev2) {
-            Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
-            Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
         } else {
-            Get-MessageTrace -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
-            Get-MessageTrace -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTrace -FromIP $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTrace -ToIP $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
         }
     } else {
         if ($Tracev2) {
-            Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
-            Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -ResultSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
         } else {
-            Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
-            Get-MessageTraceV2 -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndtDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTrace -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceSent_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
+            Get-MessageTrace -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -PageSize 5000 | Export-Csv "$OutputPath\$DomainName\TraceReceived_$($UserIds)_between_$($StartDate.ToString("yyyyMMddHHmmss"))_and_$($EndDate.ToString("yyyyMMddHHmmss")).csv" -NoTypeInformation -Encoding $Encoding
         }
     }
 
     # Write-Output "Starting historical search to retrieve traces of messages older than 10 days..."
-    # Start-HistoricalSearch -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Sender $UserIds historical search between $($StartDate.ToString('yyyyMMddHHmmss')) and $($EndtDate.ToString('yyyyMMddHHmmss'))" -ReportType messagetrace
-    # Start-HistoricalSearch -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Recipient $UserIds historical search between $($StartDate.ToString('yyyyMMddHHmmss')) and $($EndtDate.ToString('yyyyMMddHHmmss'))" -ReportType messagetrace
+    # Start-HistoricalSearch -SenderAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Sender $UserIds historical search between $($StartDate.ToString('yyyyMMddHHmmss')) and $($EndDate.ToString('yyyyMMddHHmmss'))" -ReportType messagetrace
+    # Start-HistoricalSearch -RecipientAddress $UserIds -StartDate $StartDate -EndDate $EndDate -reporttitle "Recipient $UserIds historical search between $($StartDate.ToString('yyyyMMddHHmmss')) and $($EndDate.ToString('yyyyMMddHHmmss'))" -ReportType messagetrace
     # Write-Output "Historical searches queued. Use 'Get-HistoricalSearch | Select ReportTitle,Status' to check the search status, then when complete download the reports from https://admin.exchange.microsoft.com/#/messagetrace"
     # Write-Output "Use 'Stop-HistoricalSearch -JobId <Guid>' to cancel."
 } elseif ($DaysAgo -gt 10) {
@@ -252,6 +338,6 @@ Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
 Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append
 
 Write-Output "`nDone! Check output path for results." | Tee-Object -FilePath $logFilePath -Append
-Invoke-Item "$OutputPath\$DomainName"
+if (-not $NoExplorer) { Invoke-Item "$OutputPath\$DomainName" }
 
 exit

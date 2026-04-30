@@ -4,17 +4,18 @@
 #              \o/
 #          The Digital
 #              Fox
+#          @VinceVulpes
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
 # ProcessUnifiedAuditLogFlatten.ps1 - By Bitpusher/The Digital Fox
 # Flatten-Object function created by iRon, ConvertTo-FlatObject function created by EvotecIT.
-# v3.1.2 last updated 2025-09-11
+# v4.0.0 last updated 2026-04-27
 # Processes an exported CSV of Unified Audit Log entries that contains cells with arrays/hash tables/objects and flattens it for ease of manual processing.
 #
 # Appends flattened set of columns to the original CSV log data in the export to ensure no information is absent in result.
 #
-# Includes multiple functions for flattening complex objects found online.
+# Includes multiple functions for flattening complex objects found online & modified.
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\05-ProcessUnifiedAuditLogFlatten.ps1 -inputFile "Path\to\input\log.csv" -function "EvotecIT"
@@ -137,19 +138,18 @@ Function Convert-ObjectJoinProperties {
         }
         $InputObject | ForEach {
             $Line = $_
-            $stringBuilder = New-Object Text.StringBuilder
-            $Null = $stringBuilder.AppendLine("[pscustomobject] @{")
+            $obj = [PSCustomObject]@{}
             $OutputOrder | ForEach {
-                If ($OutputPropertyType -eq 'Stack') {
-                    $Null = $stringBuilder.AppendLine("`"$($_)`" = `"$(($line.$($_) | Out-String).Trim())`"")
-                } ElseIf ($OutputPropertyType -eq "Comma") {
-                    $Null = $stringBuilder.AppendLine("`"$($_)`" = `"$($line.$($_) -join ', ')`"")                   
-                } ElseIf ($OutputPropertyType -eq "Blank") {
-                    $Null = $stringBuilder.AppendLine("`"$($_)`" = `"$($line.$($_) -join '')`"")                   
+                $val = if ($OutputPropertyType -eq 'Stack') {
+                    ($Line.$_ | Out-String).Trim()
+                } elseif ($OutputPropertyType -eq 'Comma') {
+                    $Line.$_ -join ', '
+                } else {
+                    $Line.$_ -join ''
                 }
+                $obj | Add-Member -MemberType NoteProperty -Name $_ -Value $val
             }
-            $Null = $stringBuilder.AppendLine("}")
-            Invoke-Expression $stringBuilder.ToString()
+            $obj
         }
     }
     End {}
@@ -1270,6 +1270,7 @@ function ConvertTo-FlatObject {
         [string]$Separator = ".",
         [ValidateSet("", 0, 1)] $Base = 1,
         [int]$Depth = 10,
+        [string]$JoinArraysWith = "; ",
         [string[]]$ExcludeProperty,
         [Parameter(DontShow)] [String[]]$Path,
         [Parameter(DontShow)] [System.Collections.IDictionary]$OutputObject
@@ -1329,7 +1330,7 @@ function ConvertTo-FlatObject {
             if ($Iterate.Keys.Count) {
                 foreach ($Key in $Iterate.Keys) {
                     if ($Key -notin $ExcludeProperty) {
-                        ConvertTo-FlatObject -Objects @(, $Iterate["$Key"]) -Separator $Separator -Base $Base -Depth $Depth -Path ($Path + $Key) -OutputObject $OutputObject -ExcludeProperty $ExcludeProperty
+                        ConvertTo-FlatObject -Objects @(, $Iterate["$Key"]) -Separator $Separator -Base $Base -Depth $Depth -JoinArraysWith $JoinArraysWith -Path ($Path + $Key) -OutputObject $OutputObject -ExcludeProperty $ExcludeProperty
                     }
                 }
             } else {
@@ -1338,6 +1339,8 @@ function ConvertTo-FlatObject {
                     # We only care if property is not empty
                     if ($Object -is [System.Collections.IDictionary] -and $Object.Keys.Count -eq 0) {
                         $OutputObject[$Property] = $null
+                    } elseif ($null -ne $JoinArraysWith -and $Object -is [array]) {
+                        $OutputObject[$Property] = $Object -join $JoinArraysWith
                     } else {
                         $OutputObject[$Property] = $Object
                     }
@@ -1346,7 +1349,7 @@ function ConvertTo-FlatObject {
         } elseif ($InputObjects.Count -gt 0) {
             foreach ($ItemObject in $InputObjects) {
                 $OutputObject = [ordered]@{}
-                ConvertTo-FlatObject -Objects @(, $ItemObject) -Separator $Separator -Base $Base -Depth $Depth -Path $Path -OutputObject $OutputObject -ExcludeProperty $ExcludeProperty
+                ConvertTo-FlatObject -Objects @(, $ItemObject) -Separator $Separator -Base $Base -Depth $Depth -JoinArraysWith $JoinArraysWith -Path $Path -OutputObject $OutputObject -ExcludeProperty $ExcludeProperty
                 [pscustomobject]$OutputObject
             }
         }
@@ -1365,10 +1368,10 @@ foreach ($inputFile in $inputfiles) {
 
     Write-Output "`nLoading $inputFile..."
 
-    $Data = Get-Content $inputFile
-    Write-Output "Imported data is $(($Data | Measure-Object -Character).Characters) characters long."
-    $headerRow = $Data | Select-Object -First 1 | ConvertFrom-String -Delimiter ","
-    $headerRow
+    $CsvData = Import-Csv -Path $inputFile
+    $headerRow = ($CsvData[0].PSObject.Properties.Name) -join ","
+    Write-Output "Imported CSV is $($CsvData.Count) records long."
+    Write-Output "Columns: $headerRow"
 
     if ($headerRow -match "AuditData") {
         Write-Output "`nStarting recursive flattening of 'AuditData' field from UAL log. Recursive JSON flattening not recommended for log exports larger than around 10mb (5,000 records, 10,000,000 characters)..."
@@ -1389,8 +1392,6 @@ foreach ($inputFile in $inputfiles) {
             $IdColum = "NOTFOUND"
         }
 
-        $CsvData = Import-Csv -Path $inputFile
-        Write-Output "`nImported CSV is $($CsvData.length) records long."
         $OperationList = $CsvData.$OpsColum | Sort-Object | Get-Unique
 
         Write-Output "Found $($OperationList.count) types of operations logged:"
@@ -1401,26 +1402,32 @@ foreach ($inputFile in $inputfiles) {
         if ($function -match "simple" -or $function -eq "all") {
             Write-Output "`nParsing with simple single-level JSON function..."
             $sw = [Diagnostics.StopWatch]::StartNew()
-            $Audit = @()
+            $AuditList = [System.Collections.Generic.List[PSObject]]::new()
+            $AllPropertyNames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
             $Combined = ""
             [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-SingleLevel.csv"
 
+            $opIndex = 0
             ForEach ($Operation in $OperationList) {
+                $opIndex++
+                Write-Progress -Activity "Flattening UAL records (simple)" -Status "$Operation ($opIndex of $($OperationList.Count))" -PercentComplete (($opIndex / $OperationList.Count) * 100)
                 $FlatRecord = $CsvData | Where-Object {$_.$OpsColum -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json
                 Write-Output "Processed operation '$Operation'"
-                if ($Audit) {
-                    $Props = @()
-                    $NewProps = @()
-                    $Audit[0] | ForEach-Object{ $Props += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
-                    $FlatRecord[0] | ForEach-Object{ $NewProps += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
-                    $Diff = Compare-Object -ReferenceObject $Props -DifferenceObject $NewProps | Where-Object {$_.SideIndicator -eq "=>"} | Select-Object -ExpandProperty InputObject
-                    ForEach ($PropertyName in $Diff) { $Audit | Add-Member -MemberType NoteProperty -Name $PropertyName -Value $null -ErrorAction SilentlyContinue }
-                    $Audit = $Audit + $FlatRecord
-                } else {
-                    $Audit = $FlatRecord
-                    $Audit = @($Audit)
+                foreach ($rec in @($FlatRecord)) {
+                    $AuditList.Add($rec)
+                    foreach ($p in $rec.PSObject.Properties.Name) { [void]$AllPropertyNames.Add($p) }
                 }
             }
+            Write-Progress -Activity "Flattening UAL records (simple)" -Completed
+
+            # Ensure first record has all properties so InnerJoin and Export-Csv see full schema
+            $Audit = $AuditList.ToArray()
+            foreach ($propName in $AllPropertyNames) {
+                if (-not $Audit[0].PSObject.Properties[$propName]) {
+                    $Audit[0] | Add-Member -MemberType NoteProperty -Name $propName -Value $null
+                }
+            }
+            $Audit = $Audit | Select-Object ([string[]]$AllPropertyNames)
 
             # Overly recursive way of doing it:
             # ForEach ($Operation in $OperationList) { $FlatRecord = $CsvData | Where-Object {$_.$OpsColum -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json ; Write-Output "`nProcessed operation '$Operation'" ; $($FlatRecord | Get-Member -MemberType NoteProperty | Select Name | Out-String) ; $Audit = $Audit | FullJoin $FlatRecord -On Id -Equals Id | Convert-ObjectJoinProperties -OutputPropertyType Blank }
@@ -1430,7 +1437,11 @@ foreach ($inputFile in $inputfiles) {
             # $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json
 
             if ($null -eq $CSVData[0].$IdColum) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On $IdColum -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
-            $Combined = $Combined | Sort-Object * -Unique
+            $Combined = if ($Combined | Get-Member -Name Id -ErrorAction SilentlyContinue) {
+                $Combined | Sort-Object Id -Unique
+            } else {
+                $Combined | Sort-Object CreationTime, UserId, Operation -Unique
+            }
             $Combined = $Combined | Sort-Object "CreationTime" -Descending
             $Combined = $Combined | Select-Object -Property @{Name = 'Recordtypes'; Expression = {$_.Recordtype -join ", "}}, * -ExcludeProperty Recordtype
             $Combined = $Combined | Select-Object -Property @{Name = 'Operation'; Expression = {$_.Operation -join ", "}}, * -ExcludeProperty Operation
@@ -1444,38 +1455,47 @@ foreach ($inputFile in $inputfiles) {
         if ($function -match "EvotecIT" -or $function -eq "all") {
             Write-Output "`nParsing with EvotecIT function..."
             $sw = [Diagnostics.StopWatch]::StartNew()
-            $Audit = @()
+            $AuditList = [System.Collections.Generic.List[PSObject]]::new()
+            $AllPropertyNames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
             $Combined = ""
             [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-FlatObject.csv"
 
+            $opIndex = 0
             ForEach ($Operation in $OperationList) {
+                $opIndex++
+                Write-Progress -Activity "Flattening UAL records (EvotecIT)" -Status "$Operation ($opIndex of $($OperationList.Count))" -PercentComplete (($opIndex / $OperationList.Count) * 100)
                 $FlatRecord = $CsvData | Where-Object {$_.$OpsColum -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
                 Write-Output "Processed operation '$Operation'"
-                if ($Audit) {
-                    $Props = @()
-                    $NewProps = @()
-                    $Audit[0] | ForEach-Object{ $Props += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
-                    $FlatRecord[0] | ForEach-Object{ $NewProps += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
-                    $Diff = Compare-Object -ReferenceObject $Props -DifferenceObject $NewProps | Where-Object {$_.SideIndicator -eq "=>"} | Select-Object -ExpandProperty InputObject
-                    ForEach ($PropertyName in $Diff) { $Audit | Add-Member -MemberType NoteProperty -Name $PropertyName -Value $null -ErrorAction SilentlyContinue }
-                    $Audit = $Audit + $FlatRecord
-                } else {
-                    $Audit = $FlatRecord
-                    $Audit = @($Audit)
+                foreach ($rec in @($FlatRecord)) {
+                    $AuditList.Add($rec)
+                    foreach ($p in $rec.PSObject.Properties.Name) { [void]$AllPropertyNames.Add($p) }
                 }
             }
+            Write-Progress -Activity "Flattening UAL records (EvotecIT)" -Completed
+
+            # Ensure first record has all properties so InnerJoin and Export-Csv see full schema
+            $Audit = $AuditList.ToArray()
+            foreach ($propName in $AllPropertyNames) {
+                if (-not $Audit[0].PSObject.Properties[$propName]) {
+                    $Audit[0] | Add-Member -MemberType NoteProperty -Name $propName -Value $null
+                }
+            }
+            $Audit = $Audit | Select-Object ([string[]]$AllPropertyNames)
 
             # Simple way of doing it if all JSON has same structure:
             # $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | ConvertTo-FlatObject -Base 1 -Depth 20
 
             if ($null -eq $CSVData[0].$IdColum) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On $IdColum -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
-            $Combined = $Combined | Sort-Object * -Unique
+            $Combined = if ($Combined | Get-Member -Name Id -ErrorAction SilentlyContinue) {
+                $Combined | Sort-Object Id -Unique
+            } else {
+                $Combined | Sort-Object CreationTime, UserId, Operation -Unique
+            }
             $Combined = $Combined | Sort-Object "CreationTime" -Descending
             $Combined = $Combined | Select-Object -Property @{Name = 'Recordtypes'; Expression = {$_.Recordtype -join ", "}}, * -ExcludeProperty Recordtype
             $Combined = $Combined | Select-Object -Property @{Name = 'Operation'; Expression = {$_.Operation -join ", "}}, * -ExcludeProperty Operation
             $Combined = $Combined | Select-Object -Property @{Name = 'UserId'; Expression = {$_.UserId -join ", "}}, * -ExcludeProperty UserId
             $Combined | Export-Csv -Path "$outputPath" -Encoding $Encoding -NoTypeInformation
-            [io.file]::readalltext("$outputPath").replace("System.Object[]","") | Out-File "$outputPath" -Encoding utf8 –Force
             Write-Output "`n$outputPath written (EvotecIT)."
             Write-Output "Processed CSV is $($Combined.length) records long."
             Write-Output "Seconds elapsed for CSV processing (ConvertTo-FlatObject - fast): $($sw.elapsed.totalseconds)"
@@ -1484,31 +1504,42 @@ foreach ($inputFile in $inputfiles) {
         if ($function -match "iRon" -or $function -eq "all") {
             Write-Output "`nParsing with iRon function..."
             $sw = [Diagnostics.StopWatch]::StartNew()
-            $Audit = @()
+            $AuditList = [System.Collections.Generic.List[PSObject]]::new()
+            $AllPropertyNames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
             $Combined = ""
             [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-flatten.csv"
 
+            $opIndex = 0
             ForEach ($Operation in $OperationList) {
+                $opIndex++
+                Write-Progress -Activity "Flattening UAL records (iRon)" -Status "$Operation ($opIndex of $($OperationList.Count))" -PercentComplete (($opIndex / $OperationList.Count) * 100)
                 $FlatRecord = $CsvData | Where-Object {$_.$OpsColum -eq $Operation} | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
                 Write-Output "Processed operation '$Operation'"
-                if ($Audit) {
-                    $Props = @()
-                    $NewProps = @()
-                    $Audit[0] | ForEach-Object{ $Props += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
-                    $FlatRecord[0] | ForEach-Object{ $NewProps += $_ | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name } | Select-Object -Unique
-                    $Diff = Compare-Object -ReferenceObject $Props -DifferenceObject $NewProps | Where-Object {$_.SideIndicator -eq "=>"} | Select-Object -ExpandProperty InputObject
-                    ForEach ($PropertyName in $Diff) { $Audit | Add-Member -MemberType NoteProperty -Name $PropertyName -Value $null -ErrorAction SilentlyContinue }
-                    $Audit = $Audit + $FlatRecord
-                } else {
-                    $Audit = $FlatRecord
+                foreach ($rec in @($FlatRecord)) {
+                    $AuditList.Add($rec)
+                    foreach ($p in $rec.PSObject.Properties.Name) { [void]$AllPropertyNames.Add($p) }
                 }
             }
+            Write-Progress -Activity "Flattening UAL records (iRon)" -Completed
+
+            # Ensure first record has all properties so InnerJoin and Export-Csv see full schema
+            $Audit = $AuditList.ToArray()
+            foreach ($propName in $AllPropertyNames) {
+                if (-not $Audit[0].PSObject.Properties[$propName]) {
+                    $Audit[0] | Add-Member -MemberType NoteProperty -Name $propName -Value $null
+                }
+            }
+            $Audit = $Audit | Select-Object ([string[]]$AllPropertyNames)
 
             # Simple way of doing it if all JSON has same structure:
             # $Audit = $CsvData | ForEach-Object { $_.AuditData } | ConvertFrom-Json | Flatten-Object -Base 1 -Depth 20 -Uncut 20
 
             if ($null -eq $CSVData[0].$IdColum) { $Combined = $Audit } else { $Combined = $CSVdata | InnerJoin $Audit -On $IdColum -Equals Id } # if ($($CSVData.Identity | Measure-Object).Count -eq 0)
-            $Combined = $Combined | Sort-Object * -Unique
+            $Combined = if ($Combined | Get-Member -Name Id -ErrorAction SilentlyContinue) {
+                $Combined | Sort-Object Id -Unique
+            } else {
+                $Combined | Sort-Object CreationTime, UserId, Operation -Unique
+            }
             $Combined = $Combined | Sort-Object "CreationTime" -Descending
             $Combined = $Combined | Select-Object -Property @{Name = 'Recordtypes'; Expression = {$_.Recordtype -join ", "}}, * -ExcludeProperty Recordtype
             $Combined = $Combined | Select-Object -Property @{Name = 'Operation'; Expression = {$_.Operation -join ", "}}, * -ExcludeProperty Operation

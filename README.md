@@ -14,9 +14,9 @@
 
 ## By Bitpusher/The Digital Fox
 
-## v3.1 last updated 2025-07-26 - Reviewed all scripts, updated functions, homogenized structure and started removing MSOL versions of commands
+## v4.0 last updated 2026-04-27 - Reviewed all scripts, fixed bugs & typos, improved connection check/log flattening/IP lookup functionality.
 
-#comp #m365 #security #bec #script #irscript #powershell #collection #playbook #readme #lotlir #lolir #incident #response #investigation
+#comp #m365 #exchange #online #entra #security #bec #compromise #script #irscript #powershell #collection #playbook #readme #lotlir #lolir #shoestring #incident #response #investigation
 
 ### Scripts provided as-is. Use at your own risk. No guarantees or warranty provided.
 
@@ -27,14 +27,14 @@ When utilizing native M365 tools for business email compromise response/investig
 
 If you have SIEM/SOAR or other third-party monitoring and response tools in place, use them! However, such tools are often not immediately available at need due to cost, timeline, access permissions, outage, or other issues. In particular, responses to BEC in the SME/SMB sector may need to be performed without the support of third-party tools or more sophisticated native systems available at higher licensing levels. In these cases having a framework and set of scripts that are easy to follow, easy to learn from, which provide multiple methods for the retrieval of critical information, and which have no dependencies outside of native M365 modules can be very valuable. Welcome to LOtL IR - Living off the Land Incident Response.
 
-All scripts in this collection are pretty simple and do not require things like setting up application tokens before use (they are all meant to be run manually). The utility of such simple scripts should show how much more could be done with more sophisticated automation & processing, as well as how such detection & response could be tuned to make more capable SIEM/SOAR platforms even more effective. Think of these scripts as well-annotated command notes which should allow faster execution of the various processes, all documented just enough to clarify execution once experimented with a bit. And if much more than that is needed then there are real developers out there who have created real products that can do a lot more - but charge for them.
+All scripts in this collection are pretty simple and do not require things like setting up application tokens before use (they are all meant to be run manually). The utility of such simple scripts should show how much more can be done with more sophisticated automation & processing, as well as how such detection & response could be tuned to make capable SIEM/SOAR platforms even more effective. Think of these scripts as well-annotated command notes which should allow faster execution of the various processes, all documented just enough to clarify execution once experimented with a bit. And if much more than that is needed then there are real developers out there who have created real products that can do a lot more - but charge for them.
 
 
 # Script Organization:
 
 * 00-09: Scripts for module updating & connecting, as well as log processing.
-* 10-29: Broader tenant-wide information gathering scripts.
-* 30-39: Narrower user or IP-specific information gathering and setting altering scripts.
+* 10-29: Broader tenant-wide information gathering scripts, account lockdown.
+* 30-49: Narrower user or IP-specific information gathering and setting altering scripts.
 * 80-89: Misc.
 * 90-99: Scripts for reviewing & updating tenant settings and disconnecting from modules when finished.
 
@@ -76,6 +76,9 @@ Functions and scripts modified from other sources are attributed in each script 
 * 23-Get-DefenderInformation.ps1 - Get information on Microsoft Defender alert configuration, threat detections, blocked senders, quarantine policy, and quarantined messages.
 * 24-Get-EntraIDRisk.ps1 - Generate report of recent risk detections by Entra ID.
 * 25-Lockdown-Account.ps1 - Lock down a given M365 that is suspected of being compromised (revoke sessions, set random password, block sign-in - Not effective on AD-synced accounts unless password writeback is enabled).
+* 26-Revoke-SuspiciousOAuthConsent.ps1 - Script to enumerate OAuth2 permission grants (delegated consent) for and optionally revoke them.
+* 27-Get-ConsentGrantAudit.ps1 - Script to search the Unified Audit Log for all "Consent to application" events.
+* 28-Search-SharePointPhishingActivity.ps1 - Script to search the Unified Audit Log for SharePoint/OneDrive activity commonly associated with BEC phishing.
 * 30-Get-BasicUserInformation.ps1 -  List the rolls and permissions (send as, send on behalf, full access) of specified user.
 * 31-Get-UserMFAMethodsAndDevices.ps1 - List the registered authentication methods and devices of a specified user.
 * 32-Get-UserJunkMailSettings.ps1 - List the junk mail settings of a specified user.
@@ -85,7 +88,12 @@ Functions and scripts modified from other sources are attributed in each script 
 * 37-Search-UALActivityByUser.ps1 - Export all UAL entries associated with a given set of user accounts.
 * 38-Search-UALFileAccessedByUser.ps1 - Export all "FileAccessed" & related records from the Unified Audit Log for specified users.
 * 39-Search-UALMailItemsAccessedByUser.ps1 - Export all "MailItemsAccessed" & related records from the Unified Audit Log for specified users - Such records should be more widely available now.
+* 40-Search-UALEmailSendByUser.ps1 - Script to search the Unified Audit Log for all email send operations (Send, SendAs, SendOnBehalf) by specified user(s).
+* 41-Get-TransportRules.ps1 - Script to export all Exchange Online transport rules (mail flow rules).
+* 42-Get-AdminAuditLog.ps1 - Script to search the Unified Audit Log specifically for administrative operations.
+* 43-Check-MailboxAuditConfig.ps1 - Script to verifiy AuditEnabled is $true and that AuditLogAgeLimit is adequate for each mailbox.
 * 44-Get-ExchangeMessageContentSearch.ps1 - Walk through frequently used content search steps for dealing with spam/phishing messages - Create Exchange search based on sender/date/message subject, export preview, export content, purge.
+* 45-Search-MailboxMessage.bat - Shim to enable drag-and-drop of message ID list to PS script of the same name.
 * 45-Search-MailboxMessage.ps1 - Search Exchange Online mailbox using Graph API by Message IDs and save messages to folder along with a metadata index CSV.
 * 80-OneLinerReference.ps1 - Reference for various PowerShell one-line commands that are useful during BEC response & investigation.
 * 90-Get-MFAReport.ps1 - Export report of M365 MFA settings of each account through Microsoft Graph.
@@ -113,6 +121,15 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
 5. Pivot through logs following identified malicious/suspicious events to find related events - Chronology is the first element of induction; topology is the second. Correlate events by proximity in time and proximity in source.
 6. If impacted account scope is expanded by findings from logs & settings start back at step one and repeat.
 7. Once investigation is concluded and account(s) are secured clear messages from Microsoft Defender quarantine, unblock sending of any blocked account(s), use eDiscovory to find and remove identified spam/phishing messages from mailboxes. 
+
+
+## Quick triage steps:
+
+* Lockdown known affected accounts - Change passwords & revoke sessions.
+* Run .\09-Hydra-Collect.ps1 script to automatically perform basic information & log collection.
+* Start with review of sign-in logs, SuspiciousInboxRulesForManualReview_XXXX.csv, and Entra ID risk.
+* Lockdown any additionally discovered accounts with potential compromise, and continue with more specific log search & review.
+
 
 ## Investigation tips utilizing these scripts:
 
@@ -174,10 +191,12 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
     * Run mailbox audit log export using .\34-Get-MailboxAuditLog.ps1 script.
     * Parse exported logs using 05-ProcessUnifiedAuditLogFlatten.bat/05-ProcessUnifiedAuditLogFlatten.ps1 scripts.
     * Review output of scripts focusing on activity from any identified suspect IP addresses and related to any know suspect message subject lines.
+    * Run .\43-Check-MailboxAuditConfig.ps1 to verify mailbox audit log is enabled for all mailboxes.
 
 * To review Enterprise Applications
     * View in console at https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/EnterpriseApps, https://portal.azure.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview/applicationType/Alland/or use .\22-Get-EnterpriseApplications.ps1 to export report.
     * Look for any applications added within the scope of the incident, and any applications often used for malicious purposes (e.g. PerfectData, eM Client - https://cybercorner.tech/malicious-azure-application-perfectdata-software-and-office365-business-email-compromise/, https://cybercorner.tech/malicious-usage-of-em-client-in-business-email-compromise/)
+    * Run .\26-Revoke-SuspiciousOAuthConsent.ps1 and 27-Get-ConsentGrantAudit.ps1 to review/revoke current OAuth consents and find history of "Consent to application" events.
 
 * To review Microsoft Defender alerts and Entra ID risk
     * View Defender alerts in console at https://security.microsoft.com > Alerts and/or use .\23-Get-DefenderInformation.ps1 to export report.
@@ -213,6 +232,8 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
     * Look for unrecognized authentication methods and devices.
 
 * To further investigate the logged activity of known compromised accounts and from identified malicious IP addresses.
+    * Run .\28-Search-SharePointPhishingActivity.ps1 to look for activities associated with creation of phishing lures (document creation, annonymous link share).
+    * Run .\40-Search-UALEmailSendByUser.ps1 to get report of mail sent by an account (to be filtered for outgoing spam/phishing blast).
     * Run .\36-Search-UALActivityByIPAddress.ps1 to export all UAL entries associated with a given set of IP addresses.
     * Run .\37-Search-UALActivityByUser.ps1 to export all UAL entries associated with specific user account(s).
     * Parse exported logs using 05-ProcessUnifiedAuditLogFlatten.bat/05-ProcessUnifiedAuditLogFlatten.ps1 scripts.
@@ -253,13 +274,17 @@ General playbook steps for investigating & remediating a BEC incident in M365. I
 
 # Tips:
 
-M365 requires that some operations, such as downloading data found through compliance searches, be performed using the Edge browser. So: set Edge as the default browser in Windows on the account from which incident response is performed. This will allow authentication prompts from PowerShell to automatically be opened in Edge, facilitating authentication for the PowerShell session IR scripts and the M365 Admin Console. If you work with multiple M365 tenants set the Edge browser to clear all data every time the browser is closed to keep things tidy.
+Check out the Microsoft Excel/LibreOffice Calc macro set at https://github.com/bitpusher2k/ExcelMacros. Macros assembled there are designed to facilitate rapid manual review of CSV log files using Excel/Calc.
+
+M365 requires that some operations be performed using the Edge browser, or at least through the GUI admin console. So: set Edge as the default browser in Windows on the account from which incident response is performed. This will allow authentication prompts from PowerShell to automatically be opened in Edge, facilitating authentication for the PowerShell session IR scripts and the M365 Admin Console. If you work with multiple M365 tenants set the Edge browser to clear all data every time the browser is closed to keep things tidy.
 
 
 # Recommended Resources:
 
 * Micorsoft's steps for responding to BEC - https://learn.microsoft.com/en-us/defender-office-365/responding-to-a-compromised-email-account
 * FBI site for BEC information - https://www.fbi.gov/how-we-can-help-you/scams-and-safety/common-scams-and-crimes/business-email-compromise
+* Patterson Cake's BEC resources - https://github.com/secure-cake/m365-bec-resources
+* Patterson Cakke's BEC presentations - https://www.youtube.com/watch?v=KYMsc5O9QM0, https://www.youtube.com/watch?v=NoIeluVIEeE
 * Awesome-BEC - https://randomaccess3.github.io/Awesome-BEC/
 * Invictus IR Microsoft Extractor Suite - https://github.com/invictus-ir/Microsoft-Extractor-Suite
 * CrowdStrike Reporting Tool for Azure - https://github.com/CrowdStrike/CRT

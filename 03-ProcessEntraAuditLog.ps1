@@ -9,7 +9,7 @@
 # https://github.com/bitpusher2k
 #
 # ProcessEntraAuditLog.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v4.0.0 last updated 2026-04-27
 # Processes an exported CSV of Entra ID Audit log from the admin center,
 # removing columns not needed for manual review and reordering for ease of review.
 # Not the most efficient way to process CSV files - Not recommended for use on CSV files with more than 100,000 lines.

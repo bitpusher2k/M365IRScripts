@@ -4,21 +4,22 @@
 #              \o/
 #          The Digital
 #              Fox
+#          @VinceVulpes
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
 # ProcessObjectFlatten.ps1 - By Bitpusher/The Digital Fox
 # Flatten-Object function created by iRon, ConvertTo-FlatObject function created by EvotecIT,
 # ConvertTo-FlatObject2 function created by RamblingCookieMonster, Convert-OutputForCSV function created by proxb
-# v3.1 last updated 2025-07-26
+# v4.0.0 last updated 2026-04-27
 # Processes a Json file into PowerShell object and flattens it for ease of manual processing.
 #
-# Included are four functions for flattening complex objects found online.
+# Includes multiple functions for flattening complex objects found online & modified.
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\ProcessObjectFlatten.ps1 -inputFile "Path\to\input\log.json" -function "EvotecIT"
 #
-# Use with DropShim.bat to allow drag-and-drop processing of downloaded logs.
+# Use with DropShim.bat to allow drag-and-drop processing of JSON file.
 #
 #comp #m365 #security #bec #script #json #csv #log #object #flatten #serialize #irscript #powershell
 
@@ -326,6 +327,7 @@ function ConvertTo-FlatObject {
         [string]$Separator = ".",
         [ValidateSet("", 0, 1)] $Base = 1,
         [int]$Depth = 10,
+        [string]$JoinArraysWith = "; ",
         [string[]]$ExcludeProperty,
         [Parameter(DontShow)] [String[]]$Path,
         [Parameter(DontShow)] [System.Collections.IDictionary]$OutputObject
@@ -385,7 +387,7 @@ function ConvertTo-FlatObject {
             if ($Iterate.Keys.Count) {
                 foreach ($Key in $Iterate.Keys) {
                     if ($Key -notin $ExcludeProperty) {
-                        ConvertTo-FlatObject -Objects @(, $Iterate["$Key"]) -Separator $Separator -Base $Base -Depth $Depth -Path ($Path + $Key) -OutputObject $OutputObject -ExcludeProperty $ExcludeProperty
+                        ConvertTo-FlatObject -Objects @(, $Iterate["$Key"]) -Separator $Separator -Base $Base -Depth $Depth -JoinArraysWith $JoinArraysWith -Path ($Path + $Key) -OutputObject $OutputObject -ExcludeProperty $ExcludeProperty
                     }
                 }
             } else {
@@ -394,6 +396,8 @@ function ConvertTo-FlatObject {
                     # We only care if property is not empty
                     if ($Object -is [System.Collections.IDictionary] -and $Object.Keys.Count -eq 0) {
                         $OutputObject[$Property] = $null
+                    } elseif ($null -ne $JoinArraysWith -and $Object -is [array]) {
+                        $OutputObject[$Property] = $Object -join $JoinArraysWith
                     } else {
                         $OutputObject[$Property] = $Object
                     }
@@ -402,7 +406,7 @@ function ConvertTo-FlatObject {
         } elseif ($InputObjects.Count -gt 0) {
             foreach ($ItemObject in $InputObjects) {
                 $OutputObject = [ordered]@{}
-                ConvertTo-FlatObject -Objects @(, $ItemObject) -Separator $Separator -Base $Base -Depth $Depth -Path $Path -OutputObject $OutputObject -ExcludeProperty $ExcludeProperty
+                ConvertTo-FlatObject -Objects @(, $ItemObject) -Separator $Separator -Base $Base -Depth $Depth -JoinArraysWith $JoinArraysWith -Path $Path -OutputObject $OutputObject -ExcludeProperty $ExcludeProperty
                 [pscustomobject]$OutputObject
             }
         }
@@ -895,7 +899,7 @@ Write-Output "`nStarting recursive flattening of $inputFile. Recursive JSON flat
 
 # Simple not-recursive JSON to CSV export - very fast but only flattens JSON data by one level:
 if ($function -match "simple" -or $function -eq "all") {
-    One-level JSON to CSV export - very fast but loses all nested properties:
+    # One-level JSON to CSV export - very fast but loses all nested properties:
     $sw = [Diagnostics.StopWatch]::StartNew()
     [string]$outputPath = $outputFolder + "\" + $outputFile + "_Processed-SingleLevel.csv"
     $JsonData | ConvertFrom-Json | Export-Csv -Path "$outputPath" -NoTypeInformation

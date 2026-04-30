@@ -9,7 +9,7 @@
 # https://github.com/bitpusher2k
 #
 # SelectUniquePairsCSV.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v4.0.0 last updated 2026-04-27
 # Imports a CSV, prompts for the names of two columns in the CSV, and exports
 # a new CSV containing unique pairs of values from those two columns.
 # Useful for manually finding patterns in logs, correlating things like IPs with Sessions.
@@ -42,8 +42,8 @@ param(
     [int]$logFileRetentionDays = 30
 )
 
-$RowCount = 0
-$LookupCount = 0
+# $RowCount = 0  # Unused
+# $LookupCount = 0  # Unused
 
 $total = [Diagnostics.StopWatch]::StartNew()
 

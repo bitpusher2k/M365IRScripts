@@ -4,11 +4,12 @@
 #              \o/
 #          The Digital
 #              Fox
+#          @VinceVulpes
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
 # Disconnect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v3.1.1 last updated 2025-10-10
+# v4.0.0 last updated 2026-04-27
 # Script to disconnect from all M365 modules/sessions.
 #
 # Usage:
@@ -22,6 +23,7 @@
 #comp #m365 #security #bec #script #irscript #powershell #disconnect
 
 #Requires -Version 5.1
+#Requires -Modules ExchangeOnlineManagement, Microsoft.Graph.Authentication
 
 Write-Output "Currently connected as:"
 (Get-MgContext).Account

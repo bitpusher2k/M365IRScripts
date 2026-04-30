@@ -4,11 +4,12 @@
 #              \o/
 #          The Digital
 #              Fox
+#          @VinceVulpes
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
 # Get-BasicTenantInformation.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v4.0.0 last updated 2026-04-27
 # Script to collect basic Tenant information at outset of investigation.
 #
 # Allows quickly verifying the tenant name, subscriptions, auditing status - and saving info to files.
@@ -22,10 +23,12 @@
 # PowerShell modules.
 #
 # Uses ExchangePowerShell, Microsoft Graph commands.
+# Minimally required tenant role(s): "Security Reader", Exchange RBAC "View-Only Org Mgmt" (read) or "Org Mgmt" (for Set-AdminAuditLogConfig)
 #
 #comp #m365 #security #bec #script #info #tenant
 
 #Requires -Version 5.1
+#Requires -Modules ExchangeOnlineManagement, Microsoft.Graph.Identity.DirectoryManagement, Microsoft.Graph.Users
 
 param(
     [string]$OutputPath = "Default",
@@ -40,7 +43,8 @@ param(
     [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
     [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
     [int]$logFileRetentionDays = 30,
-    [string]$Encoding = "utf8bom" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
+    [string]$Encoding = "utf8bom", # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM",
+    [switch]$NoExplorer
 )
 
 #region initialization
@@ -74,7 +78,89 @@ if ($logFileFolderPath -ne "") {
     $logFilePath = $logFileFolderPath + "\$logFilePrefix" + (Get-Date -Format $logFileDateFormat) + ".LOG"
 }
 
+
+function Assert-M365Connection {
+    <#
+    .SYNOPSIS
+    Checks for active Exchange Online and/or MS Graph connections and attempts to connect if missing.
+    Scoped to the minimum permissions required by this script.
+    #>
+    param(
+        [switch]$RequireEXO,
+        [switch]$RequireGraph,
+        [switch]$RequireIPPS,
+        [string[]]$GraphScopes
+    )
+
+    if ($RequireEXO) {
+        $exoConnected = $false
+        try { $exoConnected = [bool](Get-ConnectionInformation -ErrorAction SilentlyContinue) } catch {}
+        if (-not $exoConnected) {
+            Write-Output "Exchange Online not connected. Attempting connection..."
+            try {
+                Connect-ExchangeOnline -ShowBanner:$false
+                Write-Output "Exchange Online connected."
+            } catch {
+                Write-Error "Failed to connect to Exchange Online: $_"
+                exit 1
+            }
+        } else {
+            Write-Output "Exchange Online connection verified."
+        }
+    }
+
+    if ($RequireIPPS) {
+        $ippsConnected = $false
+        try { $ippsConnected = [bool](Get-ConnectionInformation -ErrorAction SilentlyContinue | Where-Object { $_.ConnectionUri -match "compliance" }) } catch {}
+        if (-not $ippsConnected) {
+            Write-Output "Security & Compliance (IPPS) not connected. Attempting connection..."
+            try {
+                Connect-IPPSSession -ShowBanner:$false
+                Write-Output "IPPS connected."
+            } catch {
+                Write-Error "Failed to connect to IPPS: $_"
+                exit 1
+            }
+        } else {
+            Write-Output "IPPS connection verified."
+        }
+    }
+
+    if ($RequireGraph) {
+        $graphContext = $null
+        try { $graphContext = Get-MgContext -ErrorAction SilentlyContinue } catch {}
+        if (-not $graphContext) {
+            Write-Output "MS Graph not connected. Attempting connection with scopes: $($GraphScopes -join ', ')..."
+            try {
+                Connect-MgGraph -Scopes $GraphScopes -NoWelcome
+                Write-Output "MS Graph connected."
+            } catch {
+                Write-Error "Failed to connect to MS Graph: $_"
+                exit 1
+            }
+        } else {
+            # Verify required scopes are present
+            $currentScopes = $graphContext.Scopes
+            $missingScopes = $GraphScopes | Where-Object { $_ -notin $currentScopes }
+            if ($missingScopes) {
+                Write-Output "MS Graph connected but missing scopes: $($missingScopes -join ', '). Reconnecting..."
+                try {
+                    Connect-MgGraph -Scopes $GraphScopes -NoWelcome
+                    Write-Output "MS Graph reconnected with required scopes."
+                } catch {
+                    Write-Warning "Could not reconnect with required scopes. Some operations may fail."
+                }
+            } else {
+                Write-Output "MS Graph connection verified with required scopes."
+            }
+        }
+    }
+}
+
 $sw = [Diagnostics.StopWatch]::StartNew()
+
+Assert-M365Connection -RequireEXO -RequireGraph -GraphScopes @("Domain.Read.All", "Organization.Read.All", "Policy.Read.All", "RoleManagement.Read.Directory", "User.Read.All")
+
 Write-Output "$scriptName started on $ComputerName by $ScriptUserName at  $(Get-TimeStamp)" | Tee-Object -FilePath $logFilePath -Append
 
 $process = Get-Process -Id $pid
@@ -122,7 +208,7 @@ if (!$CheckSubDir) {
     mkdir $OutputPath\$DomainName
 }
 
-$global:IRoutput = "$OutputPath\$DomainName"
+$global:IROutput = "$OutputPath\$DomainName"
 Write-Output "`nGlobal Variable '`$IRoutput' has been set to '$IRoutput'."
 Write-Output "Use with the output directory parameter of other investigative modules for this session."
 Write-Output "(e.g., for Invictus IR Microsoft Extractor Suite commands: Get-TransportRules -OutputDir `$IRoutput)"
@@ -131,11 +217,11 @@ $admins = Get-MgDirectoryRole | Select-Object DisplayName, Id | ForEach-Object {
 $info = Get-MgOrganization # Old: Get-MsolCompanyInformation
 $orgconfig = Get-OrganizationConfig
 $orgconfigGraph = Get-MgOrganization
-$SecureityDefaultsInfo = Get-MgPolicyIdentitySecurityDefaultEnforcementPolicy
+$SecurityDefaultsInfo = Get-MgPolicyIdentitySecurityDefaultEnforcementPolicy
 $logconfig = Get-AdminAuditLogConfig
 $connectors = Get-InboundConnector
 $rules = Get-TransportRule
-$licneses = Get-MgSubscribedSku
+$licenses = Get-MgSubscribedSku
 
 $FormatEnumerationLimit = 100
 
@@ -147,7 +233,7 @@ $logconfig | Format-List | Out-File -FilePath "$OutputPath\$DomainName\TenantAud
 $connectors | Format-List | Out-File -FilePath "$OutputPath\$DomainName\ConnectorConfig_$($date).txt" -Encoding $Encoding
 $rules | Format-Table -AutoSize -Wrap | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_$($date).txt" -Encoding $Encoding
 $rules | Format-List | Out-File -FilePath "$OutputPath\$DomainName\TransportRuleConfig_Detailed_$($date).txt" -Encoding $Encoding
-$licneses  | Format-List | Out-File -FilePath "$OutputPath\$DomainName\Licenses_$($date).txt" -Encoding $Encoding
+$licenses  | Format-List | Out-File -FilePath "$OutputPath\$DomainName\Licenses_$($date).txt" -Encoding $Encoding
 
 
 Write-Output "`nTenant details:"
@@ -163,7 +249,7 @@ Write-Output "`nMailbox auditing should be enabled by default."
 Write-Output "Checking the value of 'AuditDisabled' (this should be `"False`"):"
 $OrgConfig.AuditDisabled | Format-List
 
-Write-Output "Security Defaults enabled: $($SecureityDefaultsInfo.IsEnabled)"
+Write-Output "Security Defaults enabled: $($SecurityDefaultsInfo.IsEnabled)"
 
 Write-Output "`nInbound connectors:"
 $connectors | Format-Table
@@ -196,6 +282,6 @@ Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
 Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append
 
 Write-Output "`nDone! Check output path for results." | Tee-Object -FilePath $logFilePath -Append
-Invoke-Item "$OutputPath\$DomainName"
+if (-not $NoExplorer) { Invoke-Item "$OutputPath\$DomainName" }
 
 exit

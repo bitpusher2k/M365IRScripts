@@ -9,7 +9,7 @@
 # https://github.com/bitpusher2k
 #
 # ProcessEntraSignInLog.ps1 - By Bitpusher/The Digital Fox
-# v3.1.1 last updated 2025-10-10
+# v4.0.0 last updated 2026-04-27
 # Processes an exported CSV of Entra ID Sign-in log from admin center
 # (https://portal.azure.com/#view/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/~/SignIns),
 # removing columns not needed for manual review, reordering for ease of review,

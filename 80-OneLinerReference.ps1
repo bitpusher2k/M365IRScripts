@@ -4,11 +4,12 @@
 #              \o/
 #          The Digital
 #              Fox
+#          @VinceVulpes
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
 # OneLinerReference.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
+# v4.0.0 last updated 2026-04-27
 # Script to print list of simple PowerShell commands that are useful during M365 BEC investigation & response. 
 #
 # For use as reference to remember syntax & other details of short commands & sets of commands that don't have a full script in this set.

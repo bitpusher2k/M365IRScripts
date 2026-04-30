@@ -4,16 +4,19 @@
 #              \o/
 #          The Digital
 #              Fox
+#          @VinceVulpes
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
 # Connect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v3.1.1 last updated 2025-10-10
+# v4.0.0 last updated 2026-04-27
 # Script to connect PowerShell session to all needed M365 modules before
 # running other investigation & remediation scripts.
 #
 # Usage:
 # powershell -executionpolicy bypass -f .\Connect-M365Modules.ps1
+#
+# powershell -executionpolicy bypass -f .\Connect-M365Modules.ps1 -ReadOnly
 #
 # Run with admin privileges
 # (M$ Graph module seems to connects more reliably from elevated PowerShell prompt)
@@ -23,6 +26,14 @@
 #comp #m365 #security #bec #script #connect #powershell #exchangeonline #IPPS #msol #graph #azuread
 
 #Requires -Version 5.1
+#Requires -Modules ExchangeOnlineManagement, Microsoft.Graph.Authentication, Microsoft.Graph.Identity.DirectoryManagement
+
+param(
+    [switch]$ReadOnly,
+    [string]$DebugPreference = "SilentlyContinue",
+    [string]$VerbosePreference = "SilentlyContinue",
+    [string]$InformationPreference = "Continue"
+)
 
 $modules = @("Microsoft.Graph", "Microsoft.Graph.Beta", "ExchangeOnlineManagement", "Microsoft-Extractor-Suite")
 
@@ -47,12 +58,16 @@ foreach ($module in $modules) {
     }
 }
 
-Write-Output "Script will initiate connections to several M365 modules - Graph, IPPS, Exchange"
-Write-Output "You will need to enter Global Admin credentials to the desired tenant a few times."
-if ($host.version.major -gt 5) {
-    Write-Output "`nNot running in Windows PowerShell (5)."
-    Write-Output "Some older modules may have connection issues or have output deserialized"
-}
+Write-Output "Script will initiate connections to several M365 modules - Graph, IPPS, Exchange..."
+Write-Output "You will need to enter Global Administrator account credentials to the desired tenant a few times for full functionality."
+Write-Output "`nFor an IR analyst role with reduced permissions, combine:"
+Write-Output "- *Security Reader* (Entra audit/sign-in logs, risk data, secure score, CA policies)"
+Write-Output "- *View-Only Organization Management* in Exchange (UAL search, mailbox rules, message trace, permissions)"
+Write-Output "  - Included in *Global Reader*"
+Write-Output "- OR *Organization Management* in Exchange"
+Write-Output "  - Included in *Exchange Administrator*"
+Write-Output "- *Compliance Search* in Exchange (if content search needed)"
+Write-Output "  - Included in *eDiscovery Manager* (if purge needed)"
 Write-Output "`nStarting..."
 Write-Output "Press F5 if sign-in window opens but does not load..."
 
@@ -61,7 +76,13 @@ Write-Output "`n ** MS Graph (connecting to Graph first works better)..."
 # Import-Module Microsoft.Graph
 # Install-Module Microsoft.Graph.Beta
 # Import-Module Microsoft.Graph.Beta
-Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All","Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All", "AuditLogsQuery.Read.All"
+if ($ReadOnly) {
+    Write-Output "Connecting with read-only scopes..."
+    Connect-MgGraph -Scopes "UserAuthenticationMethod.Read.All", "Directory.Read.All", "User.Read.All", "Group.Read.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.Read.ConditionalAccess", "Application.Read.All", "Files.Read.All", "Sites.Read.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.Read.All", "SecurityEvents.Read.All","Directory.AccessAsUser.All", "AppRoleAssignment.Read.All", "AuditLogsQuery.Read.All"
+} else {
+    Write-Output "Connecting with read-write scopes..."
+    Connect-MgGraph -Scopes "UserAuthenticationMethod.ReadWrite.All", "Directory.ReadWrite.All", "User.ReadWrite.All", "Group.ReadWrite.All", "GroupMember.Read.All", "Policy.Read.All", "Policy.ReadWrite.ConditionalAccess", "Application.ReadWrite.All", "Files.ReadWrite.All", "Sites.ReadWrite.All", "AuditLog.Read.All", "Agreement.Read.All", "IdentityRiskEvent.Read.All", "IdentityRiskyUser.ReadWrite.All", "Mail.Send", "Mail.Read", "SecurityEvents.ReadWrite.All","Directory.AccessAsUser.All", "AppRoleAssignment.ReadWrite.All", "AuditLogsQuery.Read.All"
+}
 
 # list of all scopes:
 # Find-MgGraphPermission | ? {$_.Name -match "\bRead\b"}
@@ -86,29 +107,6 @@ if ($Test) {
 # DOD
 # Connect-MgGraph -Environment USGovDoD
 # List available environments -  Get-MgEnvironment
-
-
-# Write-Output "`n ** MSOL Service (Deprecated - skipping)..."
-# if ($host.version.major -gt 5) { Import-Module MSonline -UseWindowsPowerShell } # else {Import-Module MSonline}
-# # if ( $host.version.major -gt 5 ) {Import-Module MSonline -SkipEditionCheck}
-# try {
-#     Connect-MsolService
-# } catch {
-#     Write-Output "*** Error calling Connect-MsolService."
-# }
-
-
-# try {
-#     $Test = $Null
-#     $Test = Get-MsolDomain -ErrorAction SilentlyContinue
-#     if ($Test) {
-#         Write-Output "`nMSOL module connected."
-#     } else {
-#         Write-Output "`n*** MSOL failed to connect - Try to connect again with: Connect-MsolService"
-#     }
-# } catch {
-#     Write-Output "`nMSOL failed to connect - Try to connect again with: Connect-MsolService"
-# }
 
 
 Write-Output "`n ** IPPS (Security & Compliance - note that version 3.9.0 or greater is required for compliance search operations)..."
@@ -143,44 +141,6 @@ if ($isconnected) {
 # Connect-IPPSSession -ExchangeEnvironmentName O365USGovDoD ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovDoD
 
 
-# Write-Output "`n ** Azure AD (Deprecated - skipping)..."
-# if ($host.version.major -gt 5) { Import-Module AzureAD -UseWindowsPowerShell } # else { Import-Module AzureAD }
-# if ( $host.version.major -gt 5 ) { Import-Module AzureADPreview -UseWindowsPowerShell } # else { Import-Module AzureAD }
-# if ( $host.version.major -gt 5 ) {Import-Module AzureADPreview -SkipEditionCheck} else { Import-Module AzureAD }
-#AzureADPreview\Connect-AzureAD
-# Start-Sleep -Seconds 2
-# try {
-#     Connect-AzureAD
-# } catch {
-#     Write-Output "Error calling Connect-AzureAD."
-# }
-# 
-# try {
-#     $Test = $Null
-#     $Test = Get-AzureADTenantDetail -ErrorAction SilentlyContinue
-#     if ($Test) {
-#         Write-Output "`nAzureAD module connected."
-#     } else {
-#         Write-Output "`n*** AzureAD failed to connect - Try to connect again with: Connect-AzureAD"
-#     }
-# } catch {
-#     Write-Output "`nAzureAD failed to connect - Try to connect again with: Connect-AzureAD"
-# }
-
-
-# ---------------------------------------
-# If AzureAD commands do not work try repairing the module:
-#
-# Uninstall-Module AzureADPreview
-# Uninstall-Module azuread
-# install-module -name azureadpreview
-# install-module azureadpreview -AllowClobber
-# AzureADPreview\Connect-AzureAD
-# man get-azureaddirectory*
-# Get-Module AzureAD
-# ------------------
-
-
 Write-Output "`nDone!"
 
 $EXOInfo = Get-ConnectionInformation
@@ -203,7 +163,7 @@ if ($GraphInfo) {
     $GraphInfo.Account
     $GraphInfo.Scopes
 } else {
-    Write-Output "Exchange Online Management module not connected."
+    Write-Output "MS Graph module not connected."
     Write-Output "Run .\01-Connect-M365Modules.ps1 or Connect-MgGraph with proper scopes to connect."
 }
 

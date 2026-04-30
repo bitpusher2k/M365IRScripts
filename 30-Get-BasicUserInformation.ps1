@@ -4,12 +4,13 @@
 #              \o/
 #          The Digital
 #              Fox
+#          @VinceVulpes
 #    https://theTechRelay.com
 # https://github.com/bitpusher2k
 #
 # Get-BasicUserInformation.ps1 - By Bitpusher/The Digital Fox
-# v3.1 last updated 2025-07-26
-# Script to get the rolls and permissions (send as, send on behalf, full access)
+# v4.0.0 last updated 2026-04-27
+# Script to get the roles and permissions (send as, send on behalf, full access)
 # of specified user.
 #
 # Usage:
@@ -18,11 +19,13 @@
 # Run with already existing connection to M365 tenant through
 # PowerShell modules.
 #
-# Uses ExchangePowerShell, MSOnline commands.
+# Uses ExchangePowerShell, ExchangeOnline commands.
+# Minimally required tenant role(s): "Security Reader", Exchange RBAC "View-Only Recipients"
 #
 #comp #m365 #security #bec #script #irscript #powershell #roles #permissions #sendas #fullaccess #sendonbehalf
 
 #Requires -Version 5.1
+#Requires -Modules ExchangeOnlineManagement, Microsoft.Graph.Users, Microsoft.Graph.Identity.DirectoryManagement
 
 param(
     [string]$OutputPath = "Default",
@@ -41,7 +44,8 @@ param(
     [string]$logFilePrefix = "$scriptName" + "_" + "$ComputerName" + "_",
     [string]$logFileDateFormat = "yyyyMMdd_HHmmss",
     [int]$logFileRetentionDays = 30,
-    [string]$Encoding = "utf8NoBOM" # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM"
+    [string]$Encoding = "utf8NoBOM", # PS 5 & 7: "Ascii" (7-bit), "BigEndianUnicode" (UTF-16 big-endian), "BigEndianUTF32", "Oem", "Unicode" (UTF-16 little-endian), "UTF32" (little-endian), "UTF7", "UTF8" (PS 5: BOM, PS 7: NO BOM). PS 7: "ansi", "utf8BOM", "utf8NoBOM",
+    [switch]$NoExplorer
 )
 
 #region initialization
@@ -75,7 +79,89 @@ if ($logFileFolderPath -ne "") {
     $logFilePath = $logFileFolderPath + "\$logFilePrefix" + (Get-Date -Format $logFileDateFormat) + ".LOG"
 }
 
+
+function Assert-M365Connection {
+    <#
+    .SYNOPSIS
+    Checks for active Exchange Online and/or MS Graph connections and attempts to connect if missing.
+    Scoped to the minimum permissions required by this script.
+    #>
+    param(
+        [switch]$RequireEXO,
+        [switch]$RequireGraph,
+        [switch]$RequireIPPS,
+        [string[]]$GraphScopes
+    )
+
+    if ($RequireEXO) {
+        $exoConnected = $false
+        try { $exoConnected = [bool](Get-ConnectionInformation -ErrorAction SilentlyContinue) } catch {}
+        if (-not $exoConnected) {
+            Write-Output "Exchange Online not connected. Attempting connection..."
+            try {
+                Connect-ExchangeOnline -ShowBanner:$false
+                Write-Output "Exchange Online connected."
+            } catch {
+                Write-Error "Failed to connect to Exchange Online: $_"
+                exit 1
+            }
+        } else {
+            Write-Output "Exchange Online connection verified."
+        }
+    }
+
+    if ($RequireIPPS) {
+        $ippsConnected = $false
+        try { $ippsConnected = [bool](Get-ConnectionInformation -ErrorAction SilentlyContinue | Where-Object { $_.ConnectionUri -match "compliance" }) } catch {}
+        if (-not $ippsConnected) {
+            Write-Output "Security & Compliance (IPPS) not connected. Attempting connection..."
+            try {
+                Connect-IPPSSession -ShowBanner:$false
+                Write-Output "IPPS connected."
+            } catch {
+                Write-Error "Failed to connect to IPPS: $_"
+                exit 1
+            }
+        } else {
+            Write-Output "IPPS connection verified."
+        }
+    }
+
+    if ($RequireGraph) {
+        $graphContext = $null
+        try { $graphContext = Get-MgContext -ErrorAction SilentlyContinue } catch {}
+        if (-not $graphContext) {
+            Write-Output "MS Graph not connected. Attempting connection with scopes: $($GraphScopes -join ', ')..."
+            try {
+                Connect-MgGraph -Scopes $GraphScopes -NoWelcome
+                Write-Output "MS Graph connected."
+            } catch {
+                Write-Error "Failed to connect to MS Graph: $_"
+                exit 1
+            }
+        } else {
+            # Verify required scopes are present
+            $currentScopes = $graphContext.Scopes
+            $missingScopes = $GraphScopes | Where-Object { $_ -notin $currentScopes }
+            if ($missingScopes) {
+                Write-Output "MS Graph connected but missing scopes: $($missingScopes -join ', '). Reconnecting..."
+                try {
+                    Connect-MgGraph -Scopes $GraphScopes -NoWelcome
+                    Write-Output "MS Graph reconnected with required scopes."
+                } catch {
+                    Write-Warning "Could not reconnect with required scopes. Some operations may fail."
+                }
+            } else {
+                Write-Output "MS Graph connection verified with required scopes."
+            }
+        }
+    }
+}
+
 $sw = [Diagnostics.StopWatch]::StartNew()
+
+Assert-M365Connection -RequireEXO -RequireGraph -GraphScopes @("AuditLog.Read.All", "Directory.Read.All", "Domain.Read.All", "User.Read.All")
+
 Write-Output "$scriptName started on $ComputerName by $ScriptUserName at  $(Get-TimeStamp)" | Tee-Object -FilePath $logFilePath -Append
 
 $process = Get-Process -Id $pid
@@ -125,7 +211,7 @@ if (!$CheckSubDir) {
 Write-Output "Domain sub-directory will be `"$DomainName`"" | Tee-Object -FilePath $logFilePath -Append
 
 
-Write-Output "Script will get rolls & permissions on all tenant mailboxes (send as, send on behalf, full access) of specified user."
+Write-Output "Script will get roles & permissions on all tenant mailboxes (send as, send on behalf, full access) of specified user."
 $User = Read-Host "Enter the user's primary email address (UPN)"
 
 
@@ -136,7 +222,7 @@ $UserStatus | Export-Csv -Path "$OutputPath\$DomainName\Account_info_$($User)_$(
 
 Write-Output "`nUser authentication information:"
  
-$Details = Get-MgReportAuthenticationMethodUserRegistrationDetail -user (get-mguser -userid $User).id
+$Details = Get-MgReportAuthenticationMethodUserRegistrationDetail -UserRegistrationDetailsId (get-mguser -userid $User).id
 if ($Details) {
     $Details | fl
     $Details | Export-Csv -Path "$OutputPath\$DomainName\Authentication_Details_$($User)_$($date).csv" -Encoding $Encoding -NoTypeInformation
@@ -163,7 +249,7 @@ Write-Output "`nUser's Send As permissions:"
 $SendAs = foreach ($mailbox in $mailboxes) { get-recipientpermission -Identity $mailbox.DistinguishedName | Where-Object { $_.AccessRights -like "*send*" -and -not ($_.Trustee -match "NT AUTHORITY") -and ($_.IsInherited -eq $false) -and ($_.Trustee -eq "$User") } }
 if ($SendAs) {
     $SendAs
-    Get-Mailbox -Identity "xxxx" | Select-Object userprincipalname, displayname, name, alias
+    Get-Mailbox -Identity $User | Select-Object userprincipalname, displayname, name, alias
     $SendAs | Export-Csv -Path "$OutputPath\$DomainName\SendAs_By_$($User)_$($date).csv" -Encoding $Encoding -NoTypeInformation
 } else {
     Write-Output "No Send As permissions assigned to $user"
@@ -178,9 +264,9 @@ if ($SendAs) {
 
 
 Write-Output "`nUser's Send On Behalf permissions:"
-$SendOnBehalf = $mailboxes | Where-Object { $_.GrantSendOnBehalfTo } | Select-Object *, @{ Name = 'grantsendonbehalftoUPN'; Expression = { $_.GrantSendOnBehalfTo | get-user | Select-Object -ExpandProperty userprincipalname } } | Where-Object { "$User" -in $_.grantsendonbehalftoUPN } | Format-Table Name, DistinguishedName, alias, userprincipalname, displayname, GrantSendOnBehalfTo, grantsendonbehalftoUPN
+$SendOnBehalf = $mailboxes | Where-Object { $_.GrantSendOnBehalfTo } | Select-Object *, @{ Name = 'grantsendonbehalftoUPN'; Expression = { $_.GrantSendOnBehalfTo | get-user | Select-Object -ExpandProperty userprincipalname } } | Where-Object { "$User" -in $_.grantsendonbehalftoUPN }
 if ($SendOnBehalf) {
-    $SendOnBehalf
+    $SendOnBehalf | Format-Table Name, DistinguishedName, alias, userprincipalname, displayname, GrantSendOnBehalfTo, grantsendonbehalftoUPN
     $SendOnBehalf | Export-Csv -Path "$OutputPath\$DomainName\SendOnBehalf_By_$($User)_$($date).csv" -Encoding $Encoding -NoTypeInformation
 } else {
     Write-Output "No Send On Behalf permissions assigned to $user"
@@ -222,6 +308,6 @@ Write-Output "Script complete." | Tee-Object -FilePath $logFilePath -Append
 Write-Output "Seconds elapsed for script execution: $($sw.elapsed.totalseconds)" | Tee-Object -FilePath $logFilePath -Append
 
 Write-Output "`nDone! Check output path for results." | Tee-Object -FilePath $logFilePath -Append
-Invoke-Item "$OutputPath\$DomainName"
+if (-not $NoExplorer) { Invoke-Item "$OutputPath\$DomainName" }
 
 exit
