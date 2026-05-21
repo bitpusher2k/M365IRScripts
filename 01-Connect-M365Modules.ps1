@@ -9,7 +9,7 @@
 # https://github.com/bitpusher2k
 #
 # Connect-M365Modules.ps1 - By Bitpusher/The Digital Fox
-# v4.0.0 last updated 2026-04-27
+# v4.0.1 last updated 2026-04-27
 # Script to connect PowerShell session to all needed M365 modules before
 # running other investigation & remediation scripts.
 #
@@ -72,7 +72,40 @@ Write-Output "`nStarting..."
 Write-Output "Press F5 if sign-in window opens but does not load..."
 
 
-Write-Output "`n ** MS Graph (connecting to Graph first works better)..."
+
+Write-Output "`n ** IPPS (Security & Compliance - note that version 3.9.0 or greater is required for compliance search operations)..."
+# Import-Module ExchangeOnlineManagement
+Connect-IPPSSession -EnableSearchOnlySession
+
+Write-Output "`n ** Exchange Online (after IPPS so UAC logging check works)..."
+if ($host.version.major -gt 5) {
+    Write-Output "Opening Edge browser window to sign in by device. Use code that appears below..."
+    Start-Process msedge.exe -ArgumentList "https://login.microsoftonline.com/common/oauth2/deviceauth"
+    Connect-ExchangeOnline -Device
+} else {
+    Connect-ExchangeOnline
+}
+
+$EOSessions = Get-PSSession | Select-Object -Property State, Name
+$isconnected = (@($EOSessions) -like '@{State=Opened; Name=ExchangeOnlineInternalSession*').Count -gt 0
+if ($isconnected) {
+    $EOInfo = Get-ConnectionInformation
+    $EOInfo | Select-Object State, Name, UserPrincipalName, ConnectionUri, IsEopSession
+    Write-Output "`nExchange Online/IPPS module connected."
+} else {
+    Write-Output "`n*** Exchange Online/IPPS failed to connect - Try to connect again with: Connect-IPPSSession ; Connect-ExchangeOnline"
+}
+
+# To connect to GCC High/DOD the -ExchangeEnvironmentName parameter needs to be specified:
+# GCC
+# Connect-IPPSSession ; Connect-ExchangeOnline
+# GCC High
+# Connect-IPPSSession -ExchangeEnvironmentName O365USGovGCCHigh ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovGCCHigh
+# DOD
+# Connect-IPPSSession -ExchangeEnvironmentName O365USGovDoD ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovDoD
+
+
+Write-Output "`n ** MS Graph (After EOL to avoid WAM conflict)..."
 # Import-Module Microsoft.Graph
 # Install-Module Microsoft.Graph.Beta
 # Import-Module Microsoft.Graph.Beta
@@ -108,37 +141,6 @@ if ($Test) {
 # Connect-MgGraph -Environment USGovDoD
 # List available environments -  Get-MgEnvironment
 
-
-Write-Output "`n ** IPPS (Security & Compliance - note that version 3.9.0 or greater is required for compliance search operations)..."
-# Import-Module ExchangeOnlineManagement
-Connect-IPPSSession -EnableSearchOnlySession
-
-Write-Output "`n ** Exchange Online (after IPPS so UAC logging check works)..."
-if ($host.version.major -gt 5) {
-    Write-Output "Opening Edge browser window to sign in by device. Use code that appears below..."
-    Start-Process msedge.exe -ArgumentList "https://login.microsoftonline.com/common/oauth2/deviceauth"
-    Connect-ExchangeOnline -Device
-} else {
-    Connect-ExchangeOnline
-}
-
-$EOSessions = Get-PSSession | Select-Object -Property State, Name
-$isconnected = (@($EOSessions) -like '@{State=Opened; Name=ExchangeOnlineInternalSession*').Count -gt 0
-if ($isconnected) {
-    $EOInfo = Get-ConnectionInformation
-    $EOInfo | Select-Object State, Name, UserPrincipalName, ConnectionUri, IsEopSession
-    Write-Output "`nExchange Online/IPPS module connected."
-} else {
-    Write-Output "`n*** Exchange Online/IPPS failed to connect - Try to connect again with: Connect-IPPSSession ; Connect-ExchangeOnline"
-}
-
-# To connect to GCC High/DOD the -ExchangeEnvironmentName parameter needs to be specified:
-# GCC
-# Connect-IPPSSession ; Connect-ExchangeOnline
-# GCC High
-# Connect-IPPSSession -ExchangeEnvironmentName O365USGovGCCHigh ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovGCCHigh
-# DOD
-# Connect-IPPSSession -ExchangeEnvironmentName O365USGovDoD ; Connect-ExchangeOnline -ExchangeEnvironmentName O365USGovDoD
 
 
 Write-Output "`nDone!"
