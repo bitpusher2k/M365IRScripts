@@ -263,7 +263,6 @@ if (!$Subject) {
         $Identifier = Read-Host 'Enter MessageID/Identifier to search for (e.g. <XXXXXX@XXXX.prod.outlook.com>):' | Tee-Object -FilePath $logFilePath -Append
         if (!$Identifier) {
             Write-Output "No Subject line or MessageID specified - will search for all messages from specified sender(s) in date range." | Tee-Object -FilePath $logFilePath -Append
-            exit
         }
     }
 }
@@ -333,34 +332,35 @@ while ($Continue -ne "Y") {
     $Continue = Read-Host "`nIf the search status above is 'Completed' enter 'Y' to continue and export a preview. Press enter to refresh status" | Tee-Object -FilePath $logFilePath -Append
 }
 
+# Preview not currently working with PS module
+# Write-Output "." | Tee-Object -FilePath $logFilePath -Append
+# Write-Output "." | Tee-Object -FilePath $logFilePath -Append
+# Write-Output "Starting preview export - `"$SearchName`"" | Tee-Object -FilePath $logFilePath -Append
+# Write-Output "New-ComplianceSearchAction -SearchName `"$SearchName`" -Preview`n" | Tee-Object -FilePath $logFilePath -Append
+# New-ComplianceSearchAction -SearchName "$SearchName" -Preview
+# Write-Output "If there is an error above about `"A parameter cannot be found that matches parameter name 'Preview'`" you need to add the eDiscovery manager or admin role to your account and sign out/sign in again." | Tee-Object -FilePath $logFilePath -Append
+# Write-Output "Go to https://purview.microsoft.com/settings/purviewpermissions / https://purview.microsoft.com/ediscovery/casespage/ / https://purview.microsoft.com/ediscovery/contentsearchv2 (old link: https://compliance.microsoft.com/contentsearchv2) in Edge to manage through admin center." | Tee-Object -FilePath $logFilePath -Append
+# $Continue = ""
+# while ($Continue -ne "Y") {
+#     $OperationStatus = Get-ComplianceSearchAction -Identity "$($SearchName)_Preview"
+#     # $OperationStatus
+#     $OperationStatus.Name | Tee-Object -FilePath $logFilePath -Append
+#     # $OperationStatus.CreatedTime
+#     # $OperationStatus.JobStartTime
+#     # $OperationStatus.JobEndTime
+#     $OperationStatus.Status | Tee-Object -FilePath $logFilePath -Append
+#     $Continue = Read-Host "`nIf the preview status above is 'Completed' enter 'Y' to continue and save the report. Press enter to refresh status" | Tee-Object -FilePath $logFilePath -Append
+# }
+# 
+# Write-Output "Exporting content search preview results..." | Tee-Object -FilePath $logFilePath -Append
+# $Results = (Get-ComplianceSearchAction "$($SearchName)_Preview" -Details).Results -replace '{', "`"Location`",`"Sender`",`"Subject`",`"Type`",`"Size`",`"ReceivedTime`",`"DataLink`"`r`n" -replace '}' -replace 'Location: ', '"' -replace '; Sender: ', '","' -replace '; Subject: ', '","' -replace '; Type: ', '","' -replace '; Size: ', '","' -replace '; Received Time: ', '","' -replace '; Data Link: ', '","' -replace ",`r`n", "`"`r`n" | Out-File "$OutputPath\$DomainName\ContentSearchResults_$($date).csv"
+# 
+# if (-not $NoExplorer) { Invoke-Item "$OutputPath\$DomainName" }
+
 Write-Output "." | Tee-Object -FilePath $logFilePath -Append
 Write-Output "." | Tee-Object -FilePath $logFilePath -Append
-Write-Output "Starting preview export - `"$SearchName`"" | Tee-Object -FilePath $logFilePath -Append
-Write-Output "New-ComplianceSearchAction -SearchName `"$SearchName`" -Preview`n" | Tee-Object -FilePath $logFilePath -Append
-New-ComplianceSearchAction -SearchName "$SearchName" -Preview
-Write-Output "If there is an error above about `"A parameter cannot be found that matches parameter name 'Preview'`" you need to add the eDiscovery manager or admin role to your account and sign out/sign in again." | Tee-Object -FilePath $logFilePath -Append
-Write-Output "Go to https://purview.microsoft.com/settings/purviewpermissions / https://purview.microsoft.com/ediscovery/casespage/ / https://purview.microsoft.com/ediscovery/contentsearchv2 (old link: https://compliance.microsoft.com/contentsearchv2) in Edge to manage through admin center." | Tee-Object -FilePath $logFilePath -Append
-$Continue = ""
-while ($Continue -ne "Y") {
-    $OperationStatus = Get-ComplianceSearchAction -Identity "$($SearchName)_Preview"
-    # $OperationStatus
-    $OperationStatus.Name | Tee-Object -FilePath $logFilePath -Append
-    # $OperationStatus.CreatedTime
-    # $OperationStatus.JobStartTime
-    # $OperationStatus.JobEndTime
-    $OperationStatus.Status | Tee-Object -FilePath $logFilePath -Append
-    $Continue = Read-Host "`nIf the preview status above is 'Completed' enter 'Y' to continue and save the report. Press enter to refresh status" | Tee-Object -FilePath $logFilePath -Append
-}
 
-Write-Output "Exporting content search preview results..." | Tee-Object -FilePath $logFilePath -Append
-$Results = (Get-ComplianceSearchAction "$($SearchName)_Preview" -Details).Results -replace '{', "`"Location`",`"Sender`",`"Subject`",`"Type`",`"Size`",`"ReceivedTime`",`"DataLink`"`r`n" -replace '}' -replace 'Location: ', '"' -replace '; Sender: ', '","' -replace '; Subject: ', '","' -replace '; Type: ', '","' -replace '; Size: ', '","' -replace '; Received Time: ', '","' -replace '; Data Link: ', '","' -replace ",`r`n", "`"`r`n" | Out-File "$OutputPath\$DomainName\ContentSearchResults_$($date).csv"
-
-if (-not $NoExplorer) { Invoke-Item "$OutputPath\$DomainName" }
-
-Write-Output "." | Tee-Object -FilePath $logFilePath -Append
-Write-Output "." | Tee-Object -FilePath $logFilePath -Append
-
-Write-Output "Opening Purview Cases page in Edge browser to start/retrieve Content Search export (must be done through web console)..." | Tee-Object -FilePath $logFilePath -Append
+Write-Output "Opening Purview Cases page in Edge browser to start/retrieve Content Search export (must currently be done through web console)..." | Tee-Object -FilePath $logFilePath -Append
 Write-Output "https://purview.microsoft.com/ediscovery/casespage" | Tee-Object -FilePath $logFilePath -Append
 Start-Process msedge.exe -ArgumentList "https://purview.microsoft.com/ediscovery/casespage"
 # Start-Process msedge.exe -ArgumentList "https://compliance.microsoft.com/contentsearchv2?viewid=export -inprivate" # Use this string to open private window if Edge is not the browser being used for M365 management
